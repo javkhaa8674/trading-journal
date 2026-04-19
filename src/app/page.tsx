@@ -1,49 +1,31 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 
-export default function Home() {
-  // 👉 INSERT (trade нэмэх)
-  async function addTrade() {
-    const { error } = await supabase.from("trades").insert({
-      symbol: "EURUSD",
-      profit: 50,
-    });
+export default function HomePage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
-    if (error) {
-      console.log("INSERT ERROR:", error);
-    } else {
-      console.log("INSERT SUCCESS");
-    }
-  }
-
-  // 👉 SELECT (data авах)
-  async function getTrades() {
-    const { data, error } = await supabase.from("trades").select("*");
-
-    if (error) {
-      console.log("SELECT ERROR:", error);
-    } else {
-      console.log("DATA:", data); // 🔥 ЭНД ХАРНА
-    }
-  }
-
-  // 👉 page ачаалагдахад автоматаар дуудагдана
   useEffect(() => {
-    getTrades();
-  }, []);
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        router.push("/dashboard");
+      } else {
+        router.push("/login");
+      }
 
-  return (
-    <div style={{ padding: 20 }}>
-      <h1>Trading Journal Test</h1>
+      setLoading(false);
+    };
 
-      <button onClick={addTrade}>Add Trade</button>
+    checkUser();
+  }, [router]);
 
-      <br />
-      <br />
+  if (loading) {
+    return <p className="p-4">Loading...</p>;
+  }
 
-      <button onClick={getTrades}>Get Trades</button>
-    </div>
-  );
+  return null;
 }
