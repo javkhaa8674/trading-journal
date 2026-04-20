@@ -35,8 +35,6 @@ const COLORS = [
 export function InstrumentVolumeAnalysis({
   data,
 }: InstrumentVolumeAnalysisProps) {
-  console.log("Instrument Volume Analysis Data:", data);
-
   const pieData = data.map((item) => ({
     name: item.symbol,
     value: item.volume,

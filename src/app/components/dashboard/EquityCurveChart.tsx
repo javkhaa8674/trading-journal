@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -26,13 +27,13 @@ export default function EquityCurveChart({ data }: Props) {
     );
   }
 
-  // Calculate min and max equity for better Y-axis domain
+  // Calculate min and max equity for Y-axis domain
   const equities = data.map((d) => d.equity);
   const minEquity = Math.min(...equities);
   const maxEquity = Math.max(...equities);
 
-  // Add padding (5% margin from min and max)
-  const padding = (maxEquity - minEquity) * 0.05;
+  // Add small padding (2% margin from min and max for better visualization)
+  const padding = (maxEquity - minEquity) * 0.02;
   let yAxisMin = Math.floor(minEquity - padding);
   let yAxisMax = Math.ceil(maxEquity + padding);
 
@@ -41,13 +42,19 @@ export default function EquityCurveChart({ data }: Props) {
     yAxisMin = 0;
   }
 
-  // If range is very small, add more padding
-  if (maxEquity - minEquity < 100) {
-    yAxisMin = Math.floor(minEquity - 50);
-    yAxisMax = Math.ceil(maxEquity + 50);
+  // If all values are the same, add padding
+  if (maxEquity === minEquity) {
+    yAxisMin = minEquity - 100;
+    yAxisMax = maxEquity + 100;
   }
 
-  // Custom Y-axis tick formatter
+  // Format date for X-axis
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return `${date.getMonth() + 1}/${date.getDate()}`;
+  };
+
+  // Format Y-axis tick values
   const formatYAxis = (value: number) => {
     if (value >= 1000) {
       return `$${value}`;
@@ -58,10 +65,11 @@ export default function EquityCurveChart({ data }: Props) {
   // Custom tooltip
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const date = new Date(label);
       return (
         <div className="bg-white dark:bg-gray-800 border rounded-lg shadow-lg p-3">
           <p className="text-sm text-gray-500">
-            {new Date(label).toLocaleDateString()}
+            {date.toLocaleDateString()} {date.toLocaleTimeString()}
           </p>
           <p className="text-lg font-semibold text-green-600">
             $
@@ -76,13 +84,25 @@ export default function EquityCurveChart({ data }: Props) {
     return null;
   };
 
+  const startEquity = data[0]?.equity;
+  const endEquity = data[data.length - 1]?.equity;
+  const totalChange = endEquity - startEquity;
+
   return (
     <div className="p-4 border rounded-lg bg-white dark:bg-gray-900">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
         <h2 className="text-lg font-semibold">Equity Curve</h2>
-        <div className="text-sm text-gray-500">
-          <span className="inline-block w-3 h-3 bg-green-500 rounded-full mr-1"></span>
-          Current: ${data[data.length - 1]?.equity.toLocaleString()}
+        <div className="text-sm text-gray-500 space-x-3">
+          <span>
+            📊 Range: ${minEquity.toLocaleString()} - $
+            {maxEquity.toLocaleString()}
+          </span>
+          <span
+            className={totalChange >= 0 ? "text-green-600" : "text-red-600"}
+          >
+            {totalChange >= 0 ? "▲" : "▼"} $
+            {Math.abs(totalChange).toLocaleString()}
+          </span>
         </div>
       </div>
 
@@ -96,7 +116,7 @@ export default function EquityCurveChart({ data }: Props) {
 
             <XAxis
               dataKey="date"
-              tickFormatter={(value) => new Date(value).toLocaleDateString()}
+              tickFormatter={formatDate}
               tick={{ fontSize: 12 }}
               minTickGap={30}
             />
@@ -105,7 +125,7 @@ export default function EquityCurveChart({ data }: Props) {
               domain={[yAxisMin, yAxisMax]}
               tickFormatter={formatYAxis}
               tick={{ fontSize: 12 }}
-              width={60}
+              width={65}
               label={{
                 value: "Equity ($)",
                 angle: -90,
@@ -121,18 +141,31 @@ export default function EquityCurveChart({ data }: Props) {
               dataKey="equity"
               stroke="#22c55e"
               strokeWidth={2}
-              dot={false}
+              dot={{ r: 3, fill: "#22c55e" }}
               activeDot={{ r: 6, fill: "#22c55e" }}
             />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Min/Max indicators */}
-      <div className="mt-2 text-xs text-gray-400 flex justify-between">
-        <span>Min: ${minEquity.toLocaleString()}</span>
-        <span>Max: ${maxEquity.toLocaleString()}</span>
-        <span>Change: ${(maxEquity - minEquity).toLocaleString()}</span>
+      {/* Stats */}
+      <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-400 border-t pt-2">
+        <div>
+          <span className="font-medium">Start:</span> $
+          {startEquity?.toLocaleString()}
+        </div>
+        <div>
+          <span className="font-medium">End:</span> $
+          {endEquity?.toLocaleString()}
+        </div>
+        <div>
+          <span className="font-medium">Min:</span> $
+          {minEquity.toLocaleString()}
+        </div>
+        <div>
+          <span className="font-medium">Max:</span> $
+          {maxEquity.toLocaleString()}
+        </div>
       </div>
     </div>
   );

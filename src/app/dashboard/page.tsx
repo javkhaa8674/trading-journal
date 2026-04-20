@@ -112,7 +112,7 @@ export default function DashboardPage() {
   // =========================
   // 📊 DASHBOARD DATA (Existing)
   // =========================
-  const { chartData, monthlyData } = buildDashboardData(
+  const { chartData } = buildDashboardData(
     trades,
     isValidBalance ? balance : undefined,
   );
@@ -165,14 +165,14 @@ export default function DashboardPage() {
       ========================= */}
       <DashboardStats
         trades={trades}
-        balance={isValidBalance ? balance : 10000}
+        balance={isValidBalance ? balance : 5000}
       />
 
       <EquityCurveChart data={chartData} />
 
       <EquityDrawdownChart
         trades={trades}
-        balance={isValidBalance ? balance : 10000}
+        balance={isValidBalance ? balance : 5000}
       />
 
       {/* =========================
