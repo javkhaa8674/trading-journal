@@ -16,6 +16,7 @@ type BulkTrade = {
   close_time: Date;
   stop_loss: number;
   take_profit: number;
+  profit: number;
 };
 
 export default function TradeForm() {
@@ -96,7 +97,7 @@ export default function TradeForm() {
         // 🔥 support comma, tab, or semicolon
         const parts = line.split(/[,;\t]/).map((p) => p.trim());
 
-        if (parts.length < 5) {
+        if (parts.length < 10) {
           console.log("Invalid row:", line);
           return null;
         }
@@ -113,7 +114,6 @@ export default function TradeForm() {
           tp,
           profit,
         ] = parts;
-        console.log("parts", parts);
         return {
           symbol,
           type,
@@ -122,9 +122,9 @@ export default function TradeForm() {
           lot_size: Number(lot),
           open_time: openTime,
           close_time: closeTime,
-          stop_loss: sl,
-          take_profit: tp,
-          profit: profit,
+          stop_loss: Number(sl),
+          take_profit: Number(tp),
+          profit: Number(profit),
         };
       })
       .filter(Boolean);
@@ -140,7 +140,7 @@ export default function TradeForm() {
     if (!accountId) return alert("Select account");
 
     const trades = parseTrades(bulkText);
-
+    console.log("Parsed trades:", trades);
     if (trades.length === 0) {
       return alert("No valid trades found");
     }
@@ -163,7 +163,7 @@ export default function TradeForm() {
     const { error } = await supabase.from("trades").insert(formatted);
 
     if (error) {
-      console.log(error);
+      console.log("error", error);
       alert("Bulk insert failed");
       return;
     }

@@ -12,12 +12,16 @@ import {
   calculateAvgHoldingTime,
   calculateRRR,
   calculateMaxDrawdownWithDuration,
+  calculateTradeCount,
+  calculateLossRate,
+  calculateAvgDrawdown,
 } from "@/lib/analytics";
 
 import { buildEquityCurve } from "@/lib/equity";
 
 type Props = {
   trades: Trade[];
+  balance: number;
 };
 
 function Card({
@@ -40,8 +44,11 @@ function Card({
   );
 }
 
-export default function DashboardStats({ trades }: Props) {
+export default function DashboardStats({ trades, balance }: Props) {
   const winRate = calculateWinRate(trades);
+  const lossRate = calculateLossRate(trades);
+  const tradeCount = calculateTradeCount(trades);
+
   const profitFactor = calculateProfitFactor(trades);
   const netProfit = calculateNetProfit(trades);
 
@@ -54,32 +61,44 @@ export default function DashboardStats({ trades }: Props) {
 
   const rrr = calculateRRR(trades);
 
-  const equity = buildEquityCurve(trades);
+  const equity = buildEquityCurve(trades, balance);
 
   const { maxDrawdown, duration } = calculateMaxDrawdownWithDuration(
     equity.map((e) => e.equity),
   );
+  const avgDrawdown = calculateAvgDrawdown(equity.map((e) => e.equity));
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       {/* CORE PERFORMANCE */}
+      <Card title="Total Trades" value={tradeCount} />
       <Card title="Win Rate" value={`${winRate.toFixed(2)}%`} />
-
+      <Card title="Loss Rate" value={`${lossRate.toFixed(2)}%`} />
       <Card
         title="Net Profit"
         value={netProfit.toFixed(2)}
         color={netProfit >= 0 ? "text-green-500" : "text-red-500"}
       />
-
       <Card title="Profit Factor" value={profitFactor.toFixed(2)} />
-
+      <Card
+        title="Avg Drawdown"
+        value={`${avgDrawdown.toFixed(2)}%`}
+        color="text-red-400"
+      />
+      {/* RISK */}
+      <Card
+        title="Max Drawdown"
+        value={`${maxDrawdown}%`}
+        color="text-red-500"
+        sub={`Duration: ${duration} trades`}
+      />
       <Card title="Expectancy" value={expectancy.toFixed(4)} />
 
       {/* TRADE STATS */}
       <Card title="Avg Win" value={avgWin.toFixed(2)} />
       <Card title="Avg Loss" value={avgLoss.toFixed(2)} />
 
-      <Card title="Avg Position Size" value={avgPositionSize} />
+      <Card title="Avg Position Size" value={avgPositionSize.toFixed(2)} />
 
       <Card
         title="Avg Holding Time"
@@ -90,14 +109,6 @@ export default function DashboardStats({ trades }: Props) {
       <Card title="RRR Overall" value={rrr.overall.toFixed(2)} />
       <Card title="RRR Win" value={rrr.win.toFixed(2)} />
       <Card title="RRR Loss" value={rrr.loss.toFixed(2)} />
-
-      {/* RISK */}
-      <Card
-        title="Max Drawdown"
-        value={`${maxDrawdown}%`}
-        color="text-red-500"
-        sub={`Duration: ${duration} trades`}
-      />
     </div>
   );
 }

@@ -159,20 +159,54 @@ Heatmap-ready structure
 Green → Equity
 Red → Drawdown
 Institutional hedge-fund style visualization
-🧩 8. Component Architecture (FINAL)
-Dashboard Flow
-/dashboard/page.tsx
-   ├── loadTrades()
-   ├── buildDashboardData()
-   ├── DashboardStats.tsx
-   ├── EquityCurveChart.tsx
-   ├── EquityDrawdownChart.tsx
-   └── MonthlyHeatmap.tsx
-Core Lib Structure
+🧩 8. Project Architecture (FINAL)
+Core App Structure
+/app
+   /components
+      /dashboard
+         ├── DashboardStats.tsx
+         ├── EquityCurveChart.tsx
+         ├── EquityDrawdownChart.tsx
+         ├── MonthlyHeatmap.tsx
+         ├── RiskPanel.tsx
+         ├── TradingDayPerformance.tsx
+         ├── MostTradedInstruments.tsx      # Bar chart - top instruments
+         ├── DailySummaryCalendar.tsx       # Calendar heatmap
+         ├── TradeDurationPnL.tsx           # PnL by duration (scatter/bar)
+         ├── InstrumentProfitAnalysis.tsx   # Profit by instrument (horizontal bar)
+         ├── InstrumentVolumeAnalysis.tsx   # Volume by instrument (pie/bar)
+         ├── LongShortAnalysis.tsx          # Long vs Short comparison
+         ├── KeyMetricsCards.tsx
+         └── RollingEquityChart.tsx
+      /trades
+         ├── TradeForm.tsx
+         ├── TradeList.tsx
+   /dashboard
+         ── page.tsx
+   /login
+         ── page.tsx
+   /register
+         ── page.tsx
+   /trades
+         /[id]
+            └── page.tsx
+         /new
+            └── page.tsx
+         └── page.tsx
+   layout.tsx
+   page.tsx
 /lib
- ├── analytics.ts
- ├── equity.ts
- ├── dashboardAnalytics.ts
+   /hooks
+      ├─useAccounts.ts
+   ├── analytics.ts
+   ├── equity.ts
+   ├── dashboardAnalytics.ts
+   ├── getCurrentUser.ts
+   ├── supabaseClient.ts
+/types
+├── account.ts
+├── trade.ts
+
 🎛️ 9. Trade Filter Logic
 query = query.eq("account_id", selectedAccount);
 🧠 10. Key Improvements

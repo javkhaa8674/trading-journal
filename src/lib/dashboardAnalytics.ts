@@ -3,13 +3,14 @@ import { Trade } from "@/types/trade";
 import { buildEquityCurve, buildRollingEquity } from "./equity";
 import { buildMonthlyPerformance } from "./analytics";
 
-export function buildDashboardData(trades: Trade[]) {
+export function buildDashboardData(trades: Trade[], balance: number) {
     const safeTrades = Array.isArray(trades) ? trades : [];
 
     // ======================
     // 📈 EQUITY CURVE
     // ======================
-    const rawEquity = buildEquityCurve(safeTrades);
+    const rawEquity = buildEquityCurve(safeTrades, balance);
+
 
     const equityValues = rawEquity.map((e) => e.equity);
 

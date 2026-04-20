@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
 import { Trade } from "@/types/trade";
@@ -12,13 +13,14 @@ type Account = {
 };
 
 export default function TradesPage() {
+  const router = useRouter();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountId, setAccountId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // -------------------------
-  // LOAD ACCOUNTS
-  // -------------------------
+  // Load accounts
   useEffect(() => {
     const loadAccounts = async () => {
       const user = await getCurrentUser();
@@ -30,7 +32,7 @@ export default function TradesPage() {
         .eq("user_id", user.id);
 
       if (error) {
-        console.log(error);
+        console.error(error);
         return;
       }
 
@@ -40,12 +42,16 @@ export default function TradesPage() {
     loadAccounts();
   }, []);
 
-  // -------------------------
-  // LOAD TRADES (MAIN LOGIC)
-  // -------------------------
+  // Load trades
   const loadTrades = async (selectedAccount?: string) => {
+    setLoading(true);
+    setError(null);
+
     const user = await getCurrentUser();
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     let query = supabase
       .from("trades")
@@ -60,59 +66,77 @@ export default function TradesPage() {
     const { data, error } = await query;
 
     if (error) {
-      console.log(error);
-      return;
+      console.error(error);
+      setError(error.message);
+      setTrades([]);
+    } else {
+      setTrades(data || []);
     }
 
-    setTrades(data || []);
+    setLoading(false);
   };
 
-  // initial load
+  // Initial load
   useEffect(() => {
     loadTrades();
   }, []);
 
-  const deleteTrade = async (tradeId: string) => {
-    if (!confirm("Delete this trade?")) return;
-
+  // Delete multiple trades (single or bulk)
+  const deleteTrades = async (tradeIds: string[]) => {
     const user = await getCurrentUser();
     if (!user) return;
 
-    // optimistic update
-    setTrades((prev) => prev.filter((t) => t.id !== tradeId));
+    // Optimistic update
+    setTrades((prev) => prev.filter((t) => !tradeIds.includes(t.id)));
 
     const { error } = await supabase
       .from("trades")
       .delete()
-      .eq("id", tradeId)
+      .in("id", tradeIds)
       .eq("user_id", user.id);
 
     if (error) {
-      console.log(error);
-
-      // rollback if failed
+      console.error(error);
       loadTrades(accountId);
+      alert("Failed to delete trades. Please try again.");
     }
   };
 
-  return (
-    <div className="p-6">
-      {/* HEADER */}
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">Trades</h1>
+  // Edit trade
+  const editTrade = (tradeId: string) => {
+    router.push(`/trades/${tradeId}`);
+  };
 
-        {/* ACCOUNT FILTER */}
+  // Handle account filter change
+  const handleAccountChange = async (value: string) => {
+    setAccountId(value);
+    await loadTrades(value);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <div className="text-center">
+          <div className="mb-2 text-2xl">📊</div>
+          <div className="text-gray-500">Loading trades...</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold">Trades</h1>
+
+        {/* Account Filter */}
         <select
           value={accountId}
-          onChange={(e) => {
-            const value = e.target.value;
-            setAccountId(value);
-            loadTrades(value);
-          }}
-          className="border px-3 py-2 rounded"
+          onChange={(e) => handleAccountChange(e.target.value)}
+          className="rounded-lg border px-4 py-2 text-sm"
         >
           <option value="">All Accounts</option>
-
           {accounts.map((acc) => (
             <option key={acc.id} value={acc.id}>
               {acc.name}
@@ -121,8 +145,23 @@ export default function TradesPage() {
         </select>
       </div>
 
-      {/* TABLE */}
-      <TradeList trades={trades} onDelete={deleteTrade} />
+      {/* Error message */}
+      {error && (
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          Error: {error}
+        </div>
+      )}
+
+      {/* Trade List Table */}
+      <TradeList
+        trades={trades.map((t) => ({
+          ...t,
+          open_time: t.open_time?.toString() || "",
+          close_time: t.close_time?.toString() || "",
+        }))}
+        onDelete={deleteTrades}
+        onEdit={editTrade}
+      />
     </div>
   );
 }

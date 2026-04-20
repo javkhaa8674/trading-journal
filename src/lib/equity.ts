@@ -5,25 +5,30 @@ import { Trade } from "@/types/trade";
  * 📊 EQUITY CURVE (FIXED)
  * =========================
  */
-export function buildEquityCurve(trades: Trade[]) {
-    const sorted = [...(trades || [])]
-        .filter((t) => t.close_time)
-        .sort(
-            (a, b) =>
-                new Date(a.close_time!).getTime() -
-                new Date(b.close_time!).getTime()
-        );
+export function buildEquityCurve(trades: Trade[], balance: number) {
+    let equity = balance;
+    let peak = balance;
+    const result: {
+        date: number;
+        equity: number;
+        drawdown: number;
+    }[] = [];
 
-    let equity = 0;
+    for (const t of trades) {
+        equity += Number(t.profit || 0);
 
-    return sorted.map((trade) => {
-        equity += Number(trade.profit || 0);
+        if (equity > peak) peak = equity;
 
-        return {
-            date: trade.close_time,
+        const dd = ((equity - peak) / peak) * 100;
+
+        result.push({
+            date: new Date(t.close_time!).getTime(),
             equity,
-        };
-    });
+            drawdown: dd,
+        });
+    }
+
+    return result;
 }
 
 /**
@@ -31,30 +36,48 @@ export function buildEquityCurve(trades: Trade[]) {
  * 📉 EQUITY + DRAWDOWN
  * =========================
  */
-export function buildEquityWithDrawdown(trades: Trade[]) {
-    const sorted = [...(trades || [])]
+export function buildEquityWithDrawdown(trades: Trade[], balance: number) {
+    if (!trades || trades.length === 0) {
+        return [];
+    }
+
+    const sorted = [...trades]
         .filter((t) => t.close_time)
         .sort(
             (a, b) =>
-                new Date(a.close_time!).getTime() -
-                new Date(b.close_time!).getTime()
+                new Date(a.close_time!).getTime() - new Date(b.close_time!).getTime()
         );
 
-    let equity = 0;
-    let peak = 0;
+    if (sorted.length === 0) {
+        return [];
+    }
+
+    let equity = Number(balance);
+    let peak = Number(balance);
 
     return sorted.map((trade) => {
-        equity += Number(trade.profit || 0);
+        const profit = Number(trade.profit || 0);
 
-        if (equity > peak) peak = equity;
+        // Update equity
+        equity = Number((equity + profit).toFixed(2));
 
-        const drawdown = equity - peak;
+        // Calculate drawdown percentage (always negative or zero)
+        let drawdownPercent = 0;
+        if (peak > 0 && equity < peak) {
+            drawdownPercent = ((equity - peak) / peak) * 100;
+            drawdownPercent = Number(drawdownPercent.toFixed(2));
+        }
+
+        // Update peak AFTER calculating drawdown
+        if (equity > peak) {
+            peak = equity;
+        }
 
         return {
-            date: trade.close_time,
-            equity,
-            drawdown,
-            peak,
+            date: new Date(trade.close_time!).getTime(),
+            equity: equity,
+            drawdown: drawdownPercent, // Will be 0 or negative
+            peak: peak,
         };
     });
 }

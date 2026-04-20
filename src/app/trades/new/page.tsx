@@ -8,7 +8,6 @@ export default function NewTradePage() {
   useEffect(() => {
     const loadUser = async () => {
       const user = await getCurrentUser();
-      console.log("USER:", user);
     };
 
     loadUser();

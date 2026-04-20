@@ -1,123 +1,155 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import { getCurrentUser } from "@/lib/getCurrentUser";
 
 export default function CreateAccountPage() {
   const router = useRouter();
-
-  const [user, setUser] = useState<unknown>(null);
-
-  const [name, setName] = useState("");
-  const [broker, setBroker] = useState("");
-  const [mode, setMode] = useState("demo");
-  const [balance, setBalance] = useState("");
-
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    broker: "",
+    mode: "demo",
+    balance: 10000,
+  });
 
-  // ✅ Get user
-  useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
+  // Generate account name automatically
+  const generateAccountName = () => {
+    const timestamp = new Date().toLocaleString();
+    const modeText = formData.mode;
+    return `${formData.broker} ${modeText} $${formData.balance.toLocaleString()} ${timestamp}`;
+  };
 
-      if (!data.user) {
-        router.replace("/login");
-      } else {
-        setUser(data.user);
-        // 🔥 хамгийн сүүлд хэдэн account байгааг тоолно
-        const { count } = await supabase
-          .from("accounts")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", data.user.id);
-
-        setName(`Account ${Number(count ?? 0) + 1}`);
-      }
-    };
-
-    getUser();
-  }, [router]);
-
-  // ✅ Submit
-  const handleSubmit = async (e: unknown) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-    setError("");
-
-    if (!name || !broker) {
-      setError("Name and broker required");
+    const user = await getCurrentUser();
+    if (!user) {
+      router.push("/login");
       return;
     }
 
-    setLoading(true);
+    const accountName = generateAccountName();
 
-    const { error } = await supabase.from("accounts").insert({
-      user_id: user?.id,
-      name,
-      broker,
-      mode,
-      balance: Number(balance),
+    const { error: insertError } = await supabase.from("accounts").insert({
+      name: accountName,
+      broker: formData.broker,
+      mode: formData.mode,
+      balance: formData.balance,
+      user_id: user.id,
     });
 
     setLoading(false);
 
-    if (error) {
-      setError(error.message);
+    if (insertError) {
+      setError(insertError.message);
     } else {
       router.push("/accounts");
     }
   };
 
-  if (!user) return <p className="p-4">Loading...</p>;
+  // Preview account name
+  const previewName = formData.broker ? generateAccountName() : "";
 
   return (
-    <div className="p-6 max-w-md space-y-4">
-      <h1 className="text-xl font-bold">Create Account</h1>
+    <div className="mx-auto max-w-2xl">
+      <h1 className="mb-6 text-2xl font-bold">Create New Account</h1>
 
-      {error && <p className="text-red-500">{error}</p>}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Broker */}
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            Broker Name *
+          </label>
+          <input
+            type="text"
+            value={formData.broker}
+            onChange={(e) =>
+              setFormData({ ...formData, broker: e.target.value })
+            }
+            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="e.g., Interactive Brokers"
+            required
+          />
+        </div>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <input
-          placeholder="Account Name (FTMO, Personal)"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full border p-2"
-        />
+        {/* Mode */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Mode *</label>
+          <select
+            value={formData.mode}
+            onChange={(e) => setFormData({ ...formData, mode: e.target.value })}
+            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="demo">Demo</option>
+            <option value="live">Live</option>
+            <option value="backtest">Backtest</option>
+            <option value="challengeStep1">Challenge Step 1</option>
+            <option value="challengeStep2">Challenge Step 2</option>
+            <option value="funded">Funded</option>
+          </select>
+        </div>
 
-        <input
-          placeholder="Broker (IC Markets, Exness)"
-          value={broker}
-          onChange={(e) => setBroker(e.target.value)}
-          className="w-full border p-2"
-        />
+        {/* Balance */}
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            Initial Balance ($) *
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            value={formData.balance}
+            onChange={(e) =>
+              setFormData({ ...formData, balance: parseFloat(e.target.value) })
+            }
+            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="10000"
+            required
+          />
+        </div>
 
-        <select
-          value={mode}
-          onChange={(e) => setMode(e.target.value)}
-          className="w-full border p-2"
-        >
-          <option value="demo">Demo</option>
-          <option value="real">Real</option>
-          <option value="backtest">Backtest</option>
-          <option value="challenge1">Challenge Step 1</option>
-          <option value="challenge2">Challenge Step 2</option>
-        </select>
+        {/* Preview Account Name */}
+        {previewName && (
+          <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-950">
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+              Account Name Preview:
+            </p>
+            <p className="mt-1 text-sm text-blue-600 dark:text-blue-400">
+              {previewName}
+            </p>
+            <p className="mt-2 text-xs text-blue-500">
+              ℹ️ Account name will be automatically generated as: Broker + Mode
+              + Balance + Timestamp
+            </p>
+          </div>
+        )}
 
-        <input
-          placeholder="Balance"
-          value={balance}
-          onChange={(e) => setBalance(e.target.value)}
-          className="w-full border p-2"
-        />
+        {error && (
+          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+            Error: {error}
+          </div>
+        )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-black text-white p-2"
-        >
-          {loading ? "Creating..." : "Create Account"}
-        </button>
+        <div className="flex gap-4">
+          <button
+            type="button"
+            onClick={() => router.push("/accounts")}
+            className="rounded-lg border px-4 py-2 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading || !formData.broker}
+            className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
+          >
+            {loading ? "Creating..." : "Create Account"}
+          </button>
+        </div>
       </form>
     </div>
   );

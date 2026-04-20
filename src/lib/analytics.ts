@@ -1,4 +1,5 @@
 import { Trade } from "@/types/trade";
+import { Account } from "@/types/account";
 
 /**
  * =========================
@@ -6,12 +7,25 @@ import { Trade } from "@/types/trade";
  * =========================
  */
 
+export function calculateTradeCount(trades: Trade[]) {
+    return (trades || []).length;
+}
+
 export function calculateWinRate(trades: Trade[]) {
     const valid = trades || [];
     const wins = valid.filter(t => (t.profit || 0) > 0);
 
     return valid.length
         ? (wins.length / valid.length) * 100
+        : 0;
+}
+
+export function calculateLossRate(trades: Trade[]) {
+    const valid = trades || [];
+    const losses = valid.filter(t => (t.profit || 0) < 0);
+
+    return valid.length
+        ? (losses.length / valid.length) * 100
         : 0;
 }
 
@@ -176,6 +190,48 @@ export function calculateMaxDrawdownWithDuration(equity: number[]) {
     };
 }
 
+export function calculateAvgDrawdown(equity: number[]) {
+    if (!equity.length) return 0;
+
+    let peak = equity[0];
+
+    let currentDrawdown = 0;
+    let inDrawdown = false;
+
+    const drawdownEvents: number[] = [];
+
+    for (let i = 0; i < equity.length; i++) {
+        const value = equity[i];
+
+        if (value > peak) {
+            // recovery
+            if (inDrawdown) {
+                drawdownEvents.push(currentDrawdown);
+                currentDrawdown = 0;
+                inDrawdown = false;
+            }
+            peak = value;
+        } else {
+            const dd = ((peak - value) / peak) * 100;
+
+            inDrawdown = true;
+            currentDrawdown = Math.max(currentDrawdown, dd);
+        }
+    }
+
+    // last event
+    if (inDrawdown) {
+        drawdownEvents.push(currentDrawdown);
+    }
+
+    if (!drawdownEvents.length) return 0;
+
+    return (
+        drawdownEvents.reduce((a, b) => a + b, 0) /
+        drawdownEvents.length
+    );
+}
+
 /**
  * =========================
  * 📉 Monthly Performance (FIXED VERSION)
@@ -183,7 +239,10 @@ export function calculateMaxDrawdownWithDuration(equity: number[]) {
  */
 
 export function buildMonthlyPerformance(trades: Trade[]) {
-    const result: Record<string, number> = {};
+    const result: Record<
+        string,
+        { profit: number; count: number }
+    > = {};
 
     (trades || []).forEach((trade) => {
         if (!trade.close_time) return;
@@ -193,16 +252,23 @@ export function buildMonthlyPerformance(trades: Trade[]) {
             .slice(0, 7); // YYYY-MM
 
         if (!result[month]) {
-            result[month] = 0;
+            result[month] = {
+                profit: 0,
+                count: 0,
+            };
         }
 
-        result[month] += Number(trade.profit || 0);
+        result[month].profit += Number(trade.profit || 0);
+        result[month].count += 1;
     });
 
-    return Object.entries(result).map(([month, profit]) => ({
-        month,
-        profit: Number(profit.toFixed(2)),
-    }));
+    return Object.entries(result).map(
+        ([month, value]) => ({
+            month,
+            profit: Number(value.profit.toFixed(2)),
+            count: value.count,
+        }),
+    );
 }
 
 export function calculateRiskLimits(trades: Trade[], startingBalance: number) {
