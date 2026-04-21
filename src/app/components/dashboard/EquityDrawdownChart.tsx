@@ -13,6 +13,8 @@ import {
 } from "recharts";
 import { Trade } from "@/types/trade";
 import { buildEquityWithDrawdown } from "@/lib/equity";
+import { metricsHelp } from "@/lib/constants/metricsHelp";
+import { HelpTooltip } from "./HelpTooltip";
 
 type Props = {
   trades: Trade[];
@@ -64,7 +66,13 @@ export default function EquityDrawdownChart({ trades, balance }: Props) {
   return (
     <div className="p-4 border rounded-lg bg-white dark:bg-gray-900">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold">Equity vs Drawdown</h2>
+        <h2 className="text-lg font-semibold">
+          Equity vs Drawdown{" "}
+          <HelpTooltip
+            title={metricsHelp.equityDrawdown.title}
+            description={metricsHelp.equityDrawdown.description}
+          />
+        </h2>
         <div className="text-sm text-gray-500 space-x-3">
           <span className="text-green-600">
             📈 Current: ${data[data.length - 1]?.equity.toLocaleString()}

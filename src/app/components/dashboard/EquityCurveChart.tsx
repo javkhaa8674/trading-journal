@@ -10,6 +10,8 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from "recharts";
+import { HelpTooltip } from "./HelpTooltip";
+import { metricsHelp } from "@/lib/constants/metricsHelp";
 
 type Props = {
   data: {
@@ -91,7 +93,14 @@ export default function EquityCurveChart({ data }: Props) {
   return (
     <div className="p-4 border rounded-lg bg-white dark:bg-gray-900">
       <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-        <h2 className="text-lg font-semibold">Equity Curve</h2>
+        <h2 className="text-lg font-semibold">
+          Equity Curve{" "}
+          <HelpTooltip
+            title={metricsHelp.equityCurve.title}
+            description={metricsHelp.equityCurve.description}
+            position="top"
+          />
+        </h2>
         <div className="text-sm text-gray-500 space-x-3">
           <span>
             📊 Range: ${minEquity.toLocaleString()} - $

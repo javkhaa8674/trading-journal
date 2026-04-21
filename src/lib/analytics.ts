@@ -142,17 +142,75 @@ export function calculateAvgHoldingTime(trades: Trade[]): number {
  * =========================
  */
 
-export function calculateRRR(trades: Trade[]) {
-    const wins = trades.filter(t => (t.profit || 0) > 0);
-    const losses = trades.filter(t => (t.profit || 0) < 0);
 
-    const avgWin = calculateAvgWin(trades);
-    const avgLoss = Math.abs(calculateAvgLoss(trades));
+function calculateTradeRRR(trade: Trade): number | null {
+    if (!trade.stop_loss || !trade.take_profit || trade.stop_loss === 0 || trade.take_profit === 0) {
+        return null; // RRR тооцоолох боломжгүй
+    }
+
+    const entry = trade.entry_price;
+    const sl = trade.stop_loss;
+    const tp = trade.take_profit;
+
+    let risk: number;
+    let reward: number;
+
+    if (trade.type === 'buy') {
+        risk = entry - sl;      // Buy-д SL нь entry-ээс доогуур
+        reward = tp - entry;    // TP нь entry-ээс дээш
+    } else { // sell
+        risk = sl - entry;      // Sell-д SL нь entry-ээс дээш
+        reward = entry - tp;    // TP нь entry-ээс доош
+    }
+
+    if (risk <= 0) return null;
+
+    return reward / risk; // RRR = Reward / Risk
+}
+
+export function calculateRRR(trades: Trade[]) {
+    if (!trades.length) {
+        return {
+            overall: 0,
+            win: 0,
+            loss: 0,
+        };
+    }
+
+    // Бодит ашиг/алдагдалаар ерөнхий RRR тооцох
+    const winsByProfit = trades.filter(t => (t.profit || 0) > 0);
+    const lossesByProfit = trades.filter(t => (t.profit || 0) < 0);
+
+    const totalWinAmount = winsByProfit.reduce((sum, t) => sum + (t.profit || 0), 0);
+    const totalLossAmount = Math.abs(lossesByProfit.reduce((sum, t) => sum + (t.profit || 0), 0));
+
+    const avgWinByProfit = winsByProfit.length ? totalWinAmount / winsByProfit.length : 0;
+    const avgLossByProfit = lossesByProfit.length ? totalLossAmount / lossesByProfit.length : 0;
+
+    const overall = avgLossByProfit === 0 ? avgWinByProfit : avgWinByProfit / avgLossByProfit;
+
+    // === Ашигтай арилжаануудын дундаж RRR (planned RRR-ээр) ===
+    const wins = trades.filter(t => (t.profit || 0) > 0);
+    const winRRRs: number[] = [];
+    wins.forEach(trade => {
+        const rrr = calculateTradeRRR(trade);
+        if (rrr !== null) winRRRs.push(rrr);
+    });
+    const win = winRRRs.length ? winRRRs.reduce((a, b) => a + b, 0) / winRRRs.length : 0;
+
+    // === Алдагдалтай арилжаануудын дундаж RRR (planned RRR-ээр) ===
+    const losses = trades.filter(t => (t.profit || 0) < 0);
+    const lossRRRs: number[] = [];
+    losses.forEach(trade => {
+        const rrr = calculateTradeRRR(trade);
+        if (rrr !== null) lossRRRs.push(rrr);
+    });
+    const loss = lossRRRs.length ? lossRRRs.reduce((a, b) => a + b, 0) / lossRRRs.length : 0;
 
     return {
-        overall: avgLoss === 0 ? avgWin : avgWin / avgLoss,
-        win: avgWin,
-        loss: avgLoss,
+        overall,  // Бодит ашиг/алдагдалаар тооцсон ерөнхий RRR
+        win,      // Ашигтай арилжаануудын дундаж planned RRR
+        loss,     // Алдагдалтай арилжаануудын дундаж planned RRR
     };
 }
 

@@ -18,6 +18,7 @@ import {
   calculateAvgDrawdown,
 } from "@/lib/analytics";
 import SpiderWebChart from "@/app/components/dashboard/SpiderWebChart";
+import { MetricCard } from "@/app/components/dashboard/MetricCard";
 import { buildEquityCurve } from "@/lib/equity";
 
 type Props = {
@@ -166,40 +167,85 @@ export default function DashboardStats({ trades, balance }: Props) {
     <div>
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card title="Total Trades" value={metrics.tradeCount} />
-        <Card title="Win Rate" value={`${metrics.winRate.toFixed(2)}%`} />
-        <Card title="Loss Rate" value={`${metrics.lossRate.toFixed(2)}%`} />
-        <Card
+        <MetricCard
+          title="Total Trades"
+          value={metrics.tradeCount}
+          metricKey="totalTrades"
+        />
+        <MetricCard
+          title="Win Rate"
+          value={`${metrics.winRate.toFixed(2)}%`}
+          metricKey="winRate"
+        />
+        <MetricCard
+          title="Loss Rate"
+          value={`${metrics.lossRate.toFixed(2)}%`}
+          metricKey="lossRate"
+        />
+        <MetricCard
           title="Net Profit"
           value={metrics.netProfit.toFixed(2)}
           color={metrics.netProfit >= 0 ? "text-green-500" : "text-red-500"}
+          metricKey="netProfit"
         />
-        <Card title="Profit Factor" value={metrics.profitFactor.toFixed(2)} />
-        <Card
+        <MetricCard
+          title="Profit Factor"
+          value={metrics.profitFactor.toFixed(2)}
+          metricKey="profitFactor"
+        />
+        <MetricCard
           title="Avg Drawdown"
           value={`${metrics.avgDrawdown.toFixed(2)}%`}
           color="text-red-400"
+          metricKey="avgDrawdown"
         />
-        <Card
+        <MetricCard
           title="Max Drawdown"
           value={`${metrics.maxDrawdown}%`}
           color="text-red-500"
+          metricKey="maxDrawdown"
           sub={`Duration: ${metrics.drawdownDuration} trades`}
         />
-        <Card title="Expectancy" value={metrics.expectancy.toFixed(4)} />
-        <Card title="Avg Win" value={metrics.avgWin.toFixed(2)} />
-        <Card title="Avg Loss" value={metrics.avgLoss.toFixed(2)} />
-        <Card
+        <MetricCard
+          title="Expectancy"
+          value={metrics.expectancy.toFixed(4)}
+          metricKey="expectancy"
+        />
+        <MetricCard
+          title="Avg Win"
+          value={metrics.avgWin.toFixed(2)}
+          metricKey="avgWin"
+        />
+        <MetricCard
+          title="Avg Loss"
+          value={metrics.avgLoss.toFixed(2)}
+          metricKey="avgLoss"
+        />
+        <MetricCard
           title="Avg Position Size"
           value={metrics.avgPositionSize.toFixed(2)}
+          metricKey="avgPositionSize"
         />
-        <Card
+        <MetricCard
           title="Avg Holding Time"
           value={`${metrics.avgHoldingTime.toFixed(2)} min`}
+          metricKey="avgHoldingTime"
         />
-        <Card title="RRR Overall" value={metrics.rrr.overall.toFixed(2)} />
-        <Card title="RRR Win" value={metrics.rrr.win.toFixed(2)} />
-        <Card title="RRR Loss" value={metrics.rrr.loss.toFixed(2)} />
+        <MetricCard
+          title="RRR Overall"
+          value={metrics.rrr.overall.toFixed(2)}
+          metricKey="rrrOverall"
+        />
+        <MetricCard
+          title="RRR Win"
+          value={metrics.rrr.win.toFixed(2)}
+          metricKey="rrrWin"
+        />
+        <MetricCard
+          title="RRR Loss"
+          value={metrics.rrr.loss.toFixed(2)}
+          metricKey="rrrLoss"
+        />
       </div>
 
       {/* Spider Web Chart - receives pre-calculated metrics */}

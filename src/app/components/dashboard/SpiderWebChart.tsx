@@ -11,6 +11,8 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+import { HelpTooltip } from "./HelpTooltip";
+import { metricsHelp } from "@/lib/constants/metricsHelp";
 
 type Metrics = {
   winRate: number;
@@ -365,7 +367,13 @@ export default function SpiderWebChart({
     <div className="rounded-lg border bg-white p-4 mt-4 dark:bg-gray-900">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div>
-          <h3 className="text-lg font-semibold">Performance Radar</h3>
+          <h3 className="text-lg font-semibold">
+            Performance Radar{" "}
+            <HelpTooltip
+              title={metricsHelp.spiderChart.title}
+              description={metricsHelp.spiderChart.description}
+            />
+          </h3>
           <p className="text-xs text-gray-500">
             Multi-dimensional performance analysis
           </p>
