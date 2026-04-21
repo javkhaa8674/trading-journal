@@ -11,6 +11,7 @@ type Account = {
   broker: string;
   mode: string;
   balance: number;
+  status: string;
 };
 
 export default function EditAccountPage() {
@@ -81,6 +82,7 @@ export default function EditAccountPage() {
         broker: formData.broker,
         mode: formData.mode,
         balance: formData.balance,
+        status: formData.status,
       })
       .eq("id", accountId)
       .eq("user_id", user.id);
@@ -189,6 +191,24 @@ export default function EditAccountPage() {
           >
             <option value="demo">Demo</option>
             <option value="live">Live</option>
+            <option value="backtest">Backtest</option>
+            <option value="challengeStep1">Challenge Step 1</option>
+            <option value="challengeStep2">Challenge Step 2</option>
+            <option value="funded">Funded</option>
+          </select>
+        </div>
+        {/* Status */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Status</label>
+          <select
+            value={formData.status}
+            onChange={(e) =>
+              setFormData({ ...formData, status: e.target.value })
+            }
+            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="active">Active</option>
+            <option value="closed">Closed</option>
           </select>
         </div>
 

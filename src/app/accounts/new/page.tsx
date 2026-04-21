@@ -13,6 +13,7 @@ export default function CreateAccountPage() {
     broker: "",
     mode: "demo",
     balance: 10000,
+    status: "active",
   });
 
   // Generate account name automatically
@@ -40,6 +41,8 @@ export default function CreateAccountPage() {
       broker: formData.broker,
       mode: formData.mode,
       balance: formData.balance,
+      status: formData.status,
+      start_balance: formData.balance,
       user_id: user.id,
     });
 
@@ -111,7 +114,19 @@ export default function CreateAccountPage() {
             required
           />
         </div>
-
+        <div>
+          <label className="block text-sm font-medium mb-1">Status</label>
+          <select
+            value={formData.status}
+            onChange={(e) =>
+              setFormData({ ...formData, status: e.target.value })
+            }
+            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="active">active</option>
+            <option value="closed">closed</option>
+          </select>
+        </div>
         {/* Preview Account Name */}
         {previewName && (
           <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-950">

@@ -112,7 +112,7 @@ export function Sidebar() {
               className="flex w-full items-center justify-center text-red-500"
               title="Logout"
             >
-              🚪
+              ⏻
             </button>
           )}
         </div>
@@ -144,9 +144,9 @@ function LogoutButton() {
     <button
       onClick={handleLogout}
       disabled={isLoading}
-      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-50"
+      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-md font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-50"
     >
-      <span>🚪</span>
+      <span>⏻</span>
       <span>{isLoading ? "Logging out..." : "Logout"}</span>
     </button>
   );

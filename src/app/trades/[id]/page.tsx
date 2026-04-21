@@ -120,7 +120,10 @@ export default function EditTradePage() {
             <select
               value={formData.type || "buy"}
               onChange={(e) =>
-                setFormData({ ...formData, type: e.target.value })
+                setFormData({
+                  ...formData,
+                  type: e.target.value as "buy" | "sell", // ✅ Type assertion
+                })
               }
               className="mt-1 w-full rounded border p-2"
             >

@@ -6,10 +6,13 @@ import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
 import { Trade } from "@/types/trade";
 import TradeList from "@/app/components/trades/TradeList";
+import { getStatusColor, getStatusIcon } from "@/lib/utils/statusUtils";
 
 type Account = {
   id: string;
   name: string;
+  status: string;
+  balance: number;
 };
 
 export default function TradesPage() {
@@ -28,7 +31,7 @@ export default function TradesPage() {
 
       const { data, error } = await supabase
         .from("accounts")
-        .select("id, name")
+        .select("id, name, balance, status")
         .eq("user_id", user.id);
 
       if (error) {
@@ -129,17 +132,22 @@ export default function TradesPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">Trades</h1>
-
         {/* Account Filter */}
         <select
           value={accountId}
           onChange={(e) => handleAccountChange(e.target.value)}
-          className="rounded-lg border px-4 py-2 text-sm"
+          className={`rounded-lg border px-4 py-2 text-sm`}
         >
           <option value="">All Accounts</option>
           {accounts.map((acc) => (
-            <option key={acc.id} value={acc.id}>
-              {acc.name}
+            <option
+              key={acc.id}
+              value={acc.id}
+              className={getStatusColor(acc.status)}
+            >
+              {getStatusIcon(acc.status)} {acc.name}
+              {acc.status !== "active" && ` (${acc.status})`}
+              {acc.status === "active" && ` - $${acc.balance.toLocaleString()}`}
             </option>
           ))}
         </select>

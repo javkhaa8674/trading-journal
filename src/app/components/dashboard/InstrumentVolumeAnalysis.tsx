@@ -72,17 +72,23 @@ export function InstrumentVolumeAnalysis({
           </h4>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+              <PieChart
+                style={{
+                  fontSize: "10px",
+                }}
+              >
                 <Pie
                   data={pieData}
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
+                  labelLine={true}
                   label={(entry) =>
                     `${entry.name}: ${entry.value.toFixed(1)} lots`
                   }
+                  innerRadius={50}
                   outerRadius={80}
                   dataKey="value"
+                  isAnimationActive={true}
                 >
                   {pieData.map((entry, index) => (
                     <Cell
@@ -92,11 +98,11 @@ export function InstrumentVolumeAnalysis({
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: any, name: string) => {
+                  formatter={(value: any, name: any) => {
                     if (name === "value")
                       return [`${Number(value).toFixed(2)} lots`, "Volume"];
                     if (name === "tradeCount") return [value, "Trade Count"];
-                    return [value, name];
+                    return [Number(value).toFixed(2), name];
                   }}
                 />
                 <Legend />

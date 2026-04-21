@@ -1,5 +1,5 @@
 import { Trade } from "@/types/trade";
-import { Account } from "@/types/account";
+import { getSafeDateString, getSafeTime } from "@/lib/utils/dateUtils";
 
 /**
  * =========================
@@ -115,18 +115,22 @@ export function calculateAvgPositionSize(trades: Trade[]) {
  * =========================
  */
 
-export function calculateAvgHoldingTime(trades: Trade[]) {
-    const valid = (trades || []).filter(
-        t => t.open_time && t.close_time
-    );
+export function calculateAvgHoldingTime(trades: Trade[]): number {
+    if (!trades || trades.length === 0) return 0;
 
-    if (!valid.length) return 0;
+    // Filter trades that have both open_time and close_time
+    const valid = trades.filter(t => t.open_time && t.close_time);
+
+    if (valid.length === 0) return 0;
 
     const totalMinutes = valid.reduce((sum, t) => {
-        const open = new Date(t.open_time).getTime();
-        const close = new Date(t.close_time).getTime();
+        // ✅ Safe date conversion with fallback
+        const openTime = t.open_time ? new Date(t.open_time).getTime() : 0;
+        const closeTime = t.close_time ? new Date(t.close_time).getTime() : 0;
 
-        return sum + (close - open) / 1000 / 60;
+        if (openTime === 0 || closeTime === 0) return sum;
+
+        return sum + (closeTime - openTime) / 1000 / 60;
     }, 0);
 
     return totalMinutes / valid.length;
@@ -271,39 +275,55 @@ export function buildMonthlyPerformance(trades: Trade[]) {
     );
 }
 
+// lib/analytics.ts
+
+// lib/analytics.ts
+
+
 export function calculateRiskLimits(trades: Trade[], startingBalance: number) {
+    // Return default values if no trades
+    if (!trades || trades.length === 0) {
+        return {
+            dailyLossPercent: 0,
+            totalDrawdown: 0,
+            dailyBreached: false,
+            totalBreached: false,
+        };
+    }
+
     const now = new Date();
+    const todayDateString = now.toDateString();
 
-    // 📌 DAILY LOSS
-    const todayTrades = trades.filter(t =>
-        new Date(t.close_time).toDateString() === now.toDateString()
-    );
+    // 📌 DAILY LOSS - filter trades with valid close_time
+    const todayTrades = trades.filter(trade => {
+        if (!trade.close_time) return false;
+        const closeDateString = getSafeDateString(trade.close_time);
+        return closeDateString === todayDateString;
+    });
 
-    const todayPnL = todayTrades.reduce((sum, t) => sum + t.profit, 0);
+    const todayPnL = todayTrades.reduce((sum, trade) => sum + (trade.profit || 0), 0);
+    const dailyLossPercent = startingBalance > 0 ? (todayPnL / startingBalance) * 100 : 0;
 
-    const dailyLossPercent = (todayPnL / startingBalance) * 100;
-
-    // 📌 EQUITY CURVE
+    // 📌 EQUITY CURVE & DRAWDOWN
     let equity = startingBalance;
     let peak = startingBalance;
 
-    const equityPoints = trades.map(t => {
-        equity += t.profit;
-        peak = Math.max(peak, equity);
+    for (const trade of trades) {
+        equity += (trade.profit || 0);
+        if (equity > peak) {
+            peak = equity;
+        }
+    }
 
-        const drawdown = ((equity - peak) / peak) * 100;
-
-        return { equity, drawdown };
-    });
-
-    const currentEquity = equity;
-    const totalDrawdown =
-        ((currentEquity - peak) / peak) * 100;
+    const totalDrawdown = peak > 0 ? ((equity - peak) / peak) * 100 : 0;
 
     return {
-        dailyLossPercent,
-        totalDrawdown,
+        dailyLossPercent: Number(dailyLossPercent.toFixed(2)),
+        totalDrawdown: Number(totalDrawdown.toFixed(2)),
         dailyBreached: dailyLossPercent <= -5,
         totalBreached: totalDrawdown <= -10,
     };
 }
+
+
+

@@ -11,6 +11,7 @@ type Account = {
   broker: string;
   mode: string;
   balance: number;
+  status: string;
   created_at: string;
 };
 
@@ -170,8 +171,18 @@ export default function AccountsPage() {
               </Link>
 
               {/* Account Icon */}
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-2xl dark:bg-blue-950">
-                {account.mode === "live" ? "📈" : "📊"}
+              <div className="mt-5 mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-2xl dark:bg-blue-950">
+                {account.mode === "live"
+                  ? "💰"
+                  : account.mode === "backtest"
+                    ? "📊"
+                    : account.mode === "funded"
+                      ? "🏆"
+                      : account.mode === "challengeStep1"
+                        ? "🚀"
+                        : account.mode === "challengeStep2"
+                          ? "🚀"
+                          : "💻"}
               </div>
 
               {/* Account Name */}
@@ -188,6 +199,18 @@ export default function AccountsPage() {
                   )}`}
                 >
                   {account.mode.toUpperCase()}
+                </span>
+              </div>
+              {/* Status */}
+              <div className="my-2">
+                <span
+                  className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                    account.status === "active"
+                      ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300"
+                      : "bg-red-100 text-red-700 dark:bg-red-800 dark:text-red-300"
+                  }`}
+                >
+                  {account.status.toUpperCase()}
                 </span>
               </div>
 
@@ -223,8 +246,22 @@ export default function AccountsPage() {
               </p>
             </div>
             <div>
+              <p className="text-sm opacity-90">Total Accounts</p>
+              <p className="text-2xl font-bold text-center">
+                {accounts.length}
+              </p>
+            </div>
+            <div>
               <p className="text-sm opacity-90">Active Accounts</p>
-              <p className="text-2xl font-bold">{accounts.length}</p>
+              <p className="text-2xl font-bold text-center">
+                {accounts.filter((acc) => acc.status === "active").length}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm opacity-90">Closed Accounts</p>
+              <p className="text-2xl font-bold text-center ">
+                {accounts.filter((acc) => acc.status === "closed").length}
+              </p>
             </div>
           </div>
         </div>

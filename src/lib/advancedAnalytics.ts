@@ -243,7 +243,22 @@ export function getInstrumentVolumeAnalysis(trades: Trade[], limit: number = 10)
 
         const stats = instrumentMap.get(symbol)!;
         stats.tradeCount++;
-        stats.volume += trade.lot_size || 1;
+        stats.volume += trade.lot_size || 0;
+
+        // Profit/Loss тооцоолол
+        const profit = trade.profit || 0;
+        if (profit > 0) {
+            stats.totalProfit += profit;
+            stats.winCount++;
+        } else if (profit < 0) {
+            stats.totalLoss += Math.abs(profit);
+            stats.lossCount++;
+        }
+
+        stats.netProfit = stats.totalProfit - stats.totalLoss;
+        stats.winRate = stats.tradeCount > 0
+            ? (stats.winCount / stats.tradeCount) * 100
+            : 0;
     });
 
     return Array.from(instrumentMap.values())

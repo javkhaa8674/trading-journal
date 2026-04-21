@@ -53,13 +53,17 @@ export function LongShortAnalysis({ data }: LongShortAnalysisProps) {
           </h4>
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+              <PieChart
+                style={{
+                  fontSize: "10px",
+                }}
+              >
                 <Pie
                   data={pieData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={(entry) =>
+                  label={(entry: any) =>
                     `${entry.name}: ${entry.value} (${entry.winRate.toFixed(1)}% WR)`
                   }
                   outerRadius={90}
@@ -114,10 +118,10 @@ export function LongShortAnalysis({ data }: LongShortAnalysisProps) {
                     border: "1px solid #ccc",
                     borderRadius: "8px",
                   }}
-                  formatter={(value: any, name: string) => {
-                    if (name === "totalProfit")
+                  formatter={(value: any, name: any) => {
+                    if (name === "Total Profit")
                       return [`$${Number(value).toFixed(2)}`, "Total Profit"];
-                    if (name === "winRate")
+                    if (name === "Win Rate (%)")
                       return [`${Number(value).toFixed(1)}%`, "Win Rate"];
                     return [value, name];
                   }}

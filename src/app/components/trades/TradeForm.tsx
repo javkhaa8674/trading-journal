@@ -6,14 +6,14 @@ import { useAccounts } from "@/lib/hooks/useAccounts";
 import { useRouter } from "next/navigation";
 import { getCurrentUser } from "@/lib/getCurrentUser";
 
-type BulkTrade = {
+type ParsedTrade = {
   symbol: string;
   type: string;
   entry_price: number;
   exit_price: number;
   lot_size: number;
-  open_time: Date;
-  close_time: Date;
+  open_time: string;
+  close_time: string;
   stop_loss: number;
   take_profit: number;
   profit: number;
@@ -127,7 +127,7 @@ export default function TradeForm() {
           profit: Number(profit),
         };
       })
-      .filter(Boolean);
+      .filter((trade): trade is ParsedTrade => trade !== null);
   };
 
   // -------------------------
@@ -160,7 +160,13 @@ export default function TradeForm() {
       take_profit: t?.take_profit,
     }));
 
-    const { error } = await supabase.from("trades").insert(formatted);
+    // *** entry_price-ийн A-Z (өсөх) дарааллаар sort хийх ***
+    const sortedFormatted = formatted.sort(
+      (a, b) =>
+        new Date(a.open_time).getTime() - new Date(b.open_time).getTime(),
+    );
+
+    const { error } = await supabase.from("trades").insert(sortedFormatted);
 
     if (error) {
       console.log("error", error);
@@ -173,7 +179,7 @@ export default function TradeForm() {
     setBulkText("");
     router.replace("/trades");
   };
-
+  const filtedAccounts = accounts.filter((acc) => acc.status === "active");
   // -------------------------
   // UI
   // -------------------------
@@ -188,7 +194,7 @@ export default function TradeForm() {
         className="w-full p-2 border rounded"
       >
         <option value="">Select Account</option>
-        {accounts.map((acc) => (
+        {filtedAccounts.map((acc) => (
           <option key={acc.id} value={acc.id}>
             {acc.name}
           </option>

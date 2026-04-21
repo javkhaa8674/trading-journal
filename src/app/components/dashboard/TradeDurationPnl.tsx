@@ -20,6 +20,16 @@ interface TradeDurationPnLProps {
   data: DurationPnL[];
 }
 
+type Bucket = {
+  range: string;
+  min: number;
+  max: number;
+  wins: DurationPnL[];
+  losses: DurationPnL[];
+  totalProfit: number;
+  totalTrades: number;
+};
+
 export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
   // Split data into wins and losses for different colors
   const winData = data
@@ -49,7 +59,8 @@ export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
       symbol: item.symbol,
     }));
 
-  const buckets = [
+  // ✅ Explicitly type the buckets array
+  const buckets: Bucket[] = [
     {
       range: "0-1h",
       min: 0,
@@ -211,7 +222,7 @@ export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Scatter Plot - Colored by Win/Loss */}
+        {/* Scatter Plot */}
         <div>
           <h4 className="mb-2 text-sm font-medium text-gray-600">
             Individual Trades (Green = Win, Red = Loss)
@@ -226,7 +237,7 @@ export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
                   name="Duration"
                   label={{
                     value: "Duration (Hours)",
-                    position: "insideLeft",
+                    position: "bottom",
                     fontSize: 12,
                   }}
                   domain={[0, "dataMax"]}
@@ -254,7 +265,7 @@ export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
                     border: "1px solid #ccc",
                     borderRadius: "8px",
                   }}
-                  formatter={(value: any, name: string, props: any) => {
+                  formatter={(value: any, name: any, props: any) => {
                     if (name === "Duration")
                       return [`${Number(value).toFixed(1)} hours`, "Duration"];
                     if (name === "Profit")
@@ -270,7 +281,6 @@ export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
                   }}
                 />
                 <Legend />
-
                 <Scatter
                   name="Winning Trades"
                   data={winData}
@@ -300,7 +310,7 @@ export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
           </div>
         </div>
 
-        {/* Bar Chart - Win/Loss Distribution by Duration */}
+        {/* Bar Chart */}
         <div>
           <h4 className="mb-2 text-sm font-medium text-gray-600">
             Win/Loss Distribution by Duration
@@ -335,7 +345,7 @@ export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
                     border: "1px solid #ccc",
                     borderRadius: "8px",
                   }}
-                  formatter={(value: any, name: string) => {
+                  formatter={(value: any, name: any) => {
                     if (name === "winCount") return [value, "Winning Trades"];
                     if (name === "lossCount") return [value, "Losing Trades"];
                     if (name === "avgProfit")
@@ -373,7 +383,7 @@ export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
         </div>
       </div>
 
-      {/* Detailed Table for each duration bucket */}
+      {/* Detailed Table */}
       <div className="mt-4">
         <h4 className="mb-2 text-sm font-medium text-gray-600">
           Detailed Breakdown by Duration
@@ -437,22 +447,6 @@ export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
           </table>
         </div>
       </div>
-
-      {/* Insight Message */}
-      {avgWinDuration < avgLossDuration && winRate > 0 && (
-        <div className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-950/30 dark:text-blue-300">
-          💡 Insight: Your winning trades ({avgWinDuration.toFixed(1)}h) are
-          shorter than losing trades ({avgLossDuration.toFixed(1)}h). Consider
-          cutting losses earlier!
-        </div>
-      )}
-      {avgWinDuration > avgLossDuration && winRate > 0 && (
-        <div className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950/30 dark:text-green-300">
-          💡 Insight: Your winning trades ({avgWinDuration.toFixed(1)}h) last
-          longer than losing trades ({avgLossDuration.toFixed(1)}h). This is a
-          positive sign of letting profits run!
-        </div>
-      )}
     </div>
   );
 }

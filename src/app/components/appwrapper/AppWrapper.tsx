@@ -10,7 +10,10 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
   const { isCollapsed } = useSidebar();
 
   // Auth pages - No sidebar/header
-  const isAuthPage = pathname === "/login" || pathname === "/register";
+  const isAuthPage =
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/reset-password";
 
   if (isAuthPage) {
     return <>{children}</>;

@@ -90,8 +90,8 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
           <span
             className={`rounded-full px-2 py-1 text-xs font-medium ${
               type === "buy" || type === "long"
-                ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                : "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300"
+                ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300"
+                : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
             }`}
           >
             {type.toUpperCase()}
@@ -125,14 +125,14 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
     cols.push({
       accessorKey: "open_time",
       header: "Open Date",
-      cell: (info) => new Date(info.getValue() as string).toLocaleDateString(),
+      cell: (info) => new Date(info.getValue() as string).toLocaleString(),
     });
 
     // Close Date
     cols.push({
       accessorKey: "close_time",
       header: "Close Date",
-      cell: (info) => new Date(info.getValue() as string).toLocaleDateString(),
+      cell: (info) => new Date(info.getValue() as string).toLocaleString(),
     });
 
     // Profit

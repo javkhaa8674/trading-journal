@@ -5,7 +5,45 @@ import { Trade } from "@/types/trade";
  * 📊 EQUITY CURVE (FIXED)
  * =========================
  */
+
 export function buildEquityCurve(trades: Trade[], balance: number) {
+    // Return starting point if no trades
+    if (!trades || trades.length === 0) {
+        return [{
+            date: Date.now(),
+            equity: balance,
+            drawdown: 0,
+        }];
+    }
+
+    // Safe date to timestamp converter
+    const toTimestamp = (date: string | number | Date | undefined): number => {
+        if (date === undefined || date === null) return 0;
+        try {
+            const d = new Date(date);
+            return isNaN(d.getTime()) ? 0 : d.getTime();
+        } catch {
+            return 0;
+        }
+    };
+
+    // Filter trades with valid close_time and sort
+    const validTrades = trades.filter(t => t.close_time !== undefined);
+
+    if (validTrades.length === 0) {
+        return [{
+            date: Date.now(),
+            equity: balance,
+            drawdown: 0,
+        }];
+    }
+
+    const sortedTrades = [...validTrades].sort((a, b) => {
+        const timeA = toTimestamp(a.close_time);
+        const timeB = toTimestamp(b.close_time);
+        return timeA - timeB;
+    });
+
     let equity = balance;
     let peak = balance;
     const result: {
@@ -14,17 +52,31 @@ export function buildEquityCurve(trades: Trade[], balance: number) {
         drawdown: number;
     }[] = [];
 
-    for (const t of trades) {
-        equity += Number(t.profit || 0);
+    // Add starting point (one day before first trade)
+    const firstTradeTime = toTimestamp(sortedTrades[0].close_time);
+    const dayBefore = firstTradeTime - (24 * 60 * 60 * 1000);
 
-        if (equity > peak) peak = equity;
+    result.push({
+        date: dayBefore,
+        equity: balance,
+        drawdown: 0,
+    });
 
-        const dd = ((equity - peak) / peak) * 100;
+    // Process each trade
+    for (const trade of sortedTrades) {
+        const profit = Number(trade.profit || 0);
+        equity = Number((equity + profit).toFixed(2));
+
+        if (equity > peak) {
+            peak = equity;
+        }
+
+        const drawdownPercent = peak > 0 ? ((peak - equity) / peak) * 100 : 0;
 
         result.push({
-            date: new Date(t.close_time!).getTime(),
-            equity,
-            drawdown: dd,
+            date: toTimestamp(trade.close_time),
+            equity: equity,
+            drawdown: Number(drawdownPercent.toFixed(2)),
         });
     }
 
@@ -36,50 +88,83 @@ export function buildEquityCurve(trades: Trade[], balance: number) {
  * 📉 EQUITY + DRAWDOWN
  * =========================
  */
+
+const getTime = (date: string | number | Date | null | undefined): number => {
+    if (!date) return 0;
+    const d = new Date(date);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+};
+
+
 export function buildEquityWithDrawdown(trades: Trade[], balance: number) {
+    // Хоосон trades үед эхлэлийн цэг буцаах
     if (!trades || trades.length === 0) {
-        return [];
+        return [{
+            date: Date.now(),
+            equity: balance,
+            drawdown: 0,
+            peak: balance,
+        }];
     }
 
-    const sorted = [...trades]
-        .filter((t) => t.close_time)
-        .sort(
-            (a, b) =>
-                new Date(a.close_time!).getTime() - new Date(b.close_time!).getTime()
-        );
+    // Filter and sort
+    const validTrades = trades.filter(t => t.close_time);
 
-    if (sorted.length === 0) {
-        return [];
+    if (validTrades.length === 0) {
+        return [{
+            date: Date.now(),
+            equity: balance,
+            drawdown: 0,
+            peak: balance,
+        }];
     }
 
-    let equity = Number(balance);
-    let peak = Number(balance);
+    const sortedTrades = [...validTrades].sort((a, b) =>
+        getTime(a.close_time) - getTime(b.close_time)
+    );
 
-    return sorted.map((trade) => {
+    let equity = balance;
+    let peak = balance;
+    const result: {
+        date: number;
+        equity: number;
+        drawdown: number;
+        peak: number;
+    }[] = [];
+
+    // Эхлэлийн цэг
+    const firstTime = getTime(sortedTrades[0].close_time);
+    result.push({
+        date: firstTime - 86400000, // One day before
+        equity: balance,
+        drawdown: 0,
+        peak: balance,
+    });
+
+    // Trade бүрээр тооцоолох
+    for (const trade of sortedTrades) {
         const profit = Number(trade.profit || 0);
-
-        // Update equity
         equity = Number((equity + profit).toFixed(2));
 
-        // Calculate drawdown percentage (always negative or zero)
+        if (equity > peak) {
+            peak = equity;
+        }
+
         let drawdownPercent = 0;
         if (peak > 0 && equity < peak) {
             drawdownPercent = ((equity - peak) / peak) * 100;
             drawdownPercent = Number(drawdownPercent.toFixed(2));
         }
 
-        // Update peak AFTER calculating drawdown
-        if (equity > peak) {
-            peak = equity;
-        }
-
-        return {
-            date: new Date(trade.close_time!).getTime(),
+        result.push({
+            date: getTime(trade.close_time),
             equity: equity,
-            drawdown: drawdownPercent, // Will be 0 or negative
+            drawdown: drawdownPercent,
             peak: peak,
-        };
-    });
+        });
+    }
+
+    return result;
 }
 
 /**
@@ -102,3 +187,4 @@ export function buildRollingEquity(values: number[], window = 5) {
 
     return result;
 }
+

@@ -17,7 +17,9 @@ import { LongShortAnalysis } from "@/app/components/dashboard/LongShortAnalysis"
 import { TradeDurationPnL } from "@/app/components/dashboard/TradeDurationPnl";
 import { InstrumentProfitAnalysis } from "@/app/components/dashboard/InstrumentProfitAnalysis";
 import { InstrumentVolumeAnalysis } from "@/app/components/dashboard/InstrumentVolumeAnalysis";
-
+// =========================
+// 🆕 ADVANCED ANALYTICS
+// =========================
 import { buildDashboardData } from "@/lib/dashboardAnalytics";
 import {
   getTradingDayPerformance,
@@ -29,6 +31,8 @@ import {
   getInstrumentProfitAnalysis,
   getInstrumentVolumeAnalysis,
 } from "@/lib/advancedAnalytics";
+
+import { getStatusColor, getStatusIcon } from "@/lib/utils/statusUtils";
 
 export default function DashboardPage() {
   const [trades, setTrades] = useState<Trade[]>([]);
@@ -106,7 +110,7 @@ export default function DashboardPage() {
   const selectedAccount =
     accounts.find((a) => a.id === selectedAccountId) ?? accounts[0];
 
-  const balance = selectedAccount?.balance;
+  const balance = selectedAccount?.start_balance;
   const isValidBalance = typeof balance === "number" && balance > 0;
 
   // =========================
@@ -114,9 +118,8 @@ export default function DashboardPage() {
   // =========================
   const { chartData } = buildDashboardData(
     trades,
-    isValidBalance ? balance : undefined,
+    isValidBalance ? balance : 5000,
   );
-
   // =========================
   // 🆕 ADVANCED ANALYTICS DATA
   // =========================
@@ -147,8 +150,14 @@ export default function DashboardPage() {
         >
           <option value="">All Accounts</option>
           {accounts.map((acc) => (
-            <option key={acc.id} value={acc.id}>
-              {acc.name}
+            <option
+              key={acc.id}
+              value={acc.id}
+              className={getStatusColor(acc.status)}
+            >
+              {getStatusIcon(acc.status)} {acc.name}
+              {acc.status !== "active" && ` (${acc.status})`}
+              {acc.status === "active" && ` - $${acc.balance.toLocaleString()}`}
             </option>
           ))}
         </select>
@@ -167,7 +176,6 @@ export default function DashboardPage() {
         trades={trades}
         balance={isValidBalance ? balance : 5000}
       />
-
       <EquityCurveChart data={chartData} />
 
       <EquityDrawdownChart

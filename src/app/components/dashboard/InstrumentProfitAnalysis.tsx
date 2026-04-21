@@ -56,12 +56,12 @@ export function InstrumentProfitAnalysis({
                 border: "1px solid #ccc",
                 borderRadius: "8px",
               }}
-              formatter={(value: any, name: string) => {
+              formatter={(value: any, name: any) => {
                 if (name === "profit")
                   return [`$${Number(value).toFixed(2)}`, "Net Profit"];
                 if (name === "winRate")
                   return [`${Number(value).toFixed(1)}%`, "Win Rate"];
-                return [value, name];
+                return [Number(value).toFixed(2), name];
               }}
             />
             <ReferenceLine x={0} stroke="#666" />
