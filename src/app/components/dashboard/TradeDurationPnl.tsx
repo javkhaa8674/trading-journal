@@ -346,11 +346,13 @@ export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
                     borderRadius: "8px",
                   }}
                   formatter={(value: any, name: any) => {
-                    if (name === "winCount") return [value, "Winning Trades"];
-                    if (name === "lossCount") return [value, "Losing Trades"];
-                    if (name === "avgProfit")
+                    if (name === "Winning Trades")
+                      return [value, "Winning Trades"];
+                    if (name === "Losing Trades")
+                      return [value, "Losing Trades"];
+                    if (name === "Avg Profit")
                       return [`$${Number(value).toFixed(2)}`, "Avg Profit"];
-                    if (name === "winRate")
+                    if (name === "Win Rate")
                       return [`${Number(value).toFixed(1)}%`, "Win Rate"];
                     return [value, name];
                   }}

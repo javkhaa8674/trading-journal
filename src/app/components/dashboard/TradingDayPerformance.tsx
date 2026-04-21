@@ -77,9 +77,9 @@ export function TradingDayPerformance({ data }: TradingDayPerformanceProps) {
                 borderRadius: "8px",
               }}
               formatter={(value: any, name: any) => {
-                if (name === "netProfit")
+                if (name === "Net Profit")
                   return [`$${Number(value).toFixed(2)}`, "Net Profit"];
-                if (name === "tradeCount") return [value, "Trade Count"];
+                if (name === "Trade Count") return [value, "Trade Count"];
                 return [value, name];
               }}
             />
