@@ -15,6 +15,9 @@ const navItems: NavItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: "📊" },
   { name: "Trades", href: "/trades", icon: "💰" },
   { name: "Accounts", href: "/accounts", icon: "🏦" },
+  { name: "Trading Plan", href: "/trading-plan", icon: "🗺️" },
+  { name: "Deposits", href: "/deposits", icon: "📥" },
+  { name: "Withrawals", href: "/withrawals", icon: "💸" },
 ];
 
 export function Sidebar() {
