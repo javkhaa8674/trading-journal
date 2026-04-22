@@ -259,7 +259,7 @@ export default function WithdrawalsPage() {
 
     const { data: accountsData } = await supabase
       .from("accounts")
-      .select("id, name, balance, mode")
+      .select("id, name, balance, mode, status")
       .eq("user_id", user.id);
 
     setAccounts(accountsData || []);
