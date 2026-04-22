@@ -12,6 +12,8 @@ import {
   ReferenceLine,
 } from "recharts";
 import { InstrumentStats } from "@/lib/advancedAnalytics";
+import { metricsHelp } from "@/lib/constants/metricsHelp";
+import { HelpTooltip } from "./HelpTooltip";
 
 interface InstrumentProfitAnalysisProps {
   data: InstrumentStats[];
@@ -43,7 +45,16 @@ export function InstrumentProfitAnalysis({
 
   return (
     <div className="rounded-lg border bg-white p-4 dark:bg-gray-900">
-      <h3 className="mb-4 text-lg font-semibold">Instrument Profit Analysis</h3>
+      <div className="mb-4 flex flex-start justify-start gap-2">
+        <h3 className="mb-4 text-lg font-semibold">
+          Instrument Profit Analysis
+        </h3>
+        <HelpTooltip
+          title={metricsHelp.instrumentProfitAnalysis.title}
+          description={metricsHelp.instrumentProfitAnalysis.description}
+        />
+      </div>
+
       <div className="h-[450px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} layout="vertical">

@@ -2,6 +2,8 @@
 
 import { useMemo } from "react";
 import { Trade } from "@/types/trade";
+import { metricsHelp } from "@/lib/constants/metricsHelp";
+import { HelpTooltip } from "./HelpTooltip";
 
 type RiskData = {
   dailyLossPercent?: number;
@@ -131,13 +133,20 @@ export default function RiskPanel({
 
       <div className="grid grid-cols-2 gap-4">
         {/* 📉 Daily Loss */}
+
         <div
           className={`p-4 rounded-xl text-white transition-all ${
             isDailyBreached ? "bg-red-600" : "bg-green-600"
           }`}
         >
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium opacity-90">Daily Loss</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-medium opacity-90">Daily Loss</h3>{" "}
+              <HelpTooltip
+                title={metricsHelp.dailyLossLimit.title}
+                description={metricsHelp.dailyLossLimit.description}
+              />
+            </div>
             <span className="text-lg">📉</span>
           </div>
           <p className="text-2xl font-bold mt-2">{dailyLoss.toFixed(2)}%</p>
@@ -160,7 +169,13 @@ export default function RiskPanel({
           }`}
         >
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium opacity-90">Total Drawdown</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-medium opacity-90">Total Drawdown</h3>
+              <HelpTooltip
+                title={metricsHelp.totalLossLimit.title}
+                description={metricsHelp.totalLossLimit.description}
+              />
+            </div>
             <span className="text-lg">📊</span>
           </div>
           <p className="text-2xl font-bold mt-2">{totalDrawdown.toFixed(2)}%</p>

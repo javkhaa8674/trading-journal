@@ -14,6 +14,8 @@ import {
   Legend,
 } from "recharts";
 import { InstrumentStats } from "@/lib/advancedAnalytics";
+import { metricsHelp } from "@/lib/constants/metricsHelp";
+import { HelpTooltip } from "./HelpTooltip";
 
 interface InstrumentVolumeAnalysisProps {
   data: InstrumentStats[];
@@ -62,8 +64,15 @@ export function InstrumentVolumeAnalysis({
 
   return (
     <div className="rounded-lg border bg-white p-4 dark:bg-gray-900">
-      <h3 className="mb-4 text-lg font-semibold">Instrument Volume Analysis</h3>
-
+      <div className="mb-4 flex flex-start justify-start gap-2">
+        <h3 className="mb-4 text-lg font-semibold">
+          Instrument Volume Analysis
+        </h3>
+        <HelpTooltip
+          title={metricsHelp.instrumentVolumeAnalysis.title}
+          description={metricsHelp.instrumentVolumeAnalysis.description}
+        />
+      </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Pie Chart */}
         <div>

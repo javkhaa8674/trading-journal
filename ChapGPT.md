@@ -1,4 +1,4 @@
-# 📊 Trading Journal App – UPDATED ARCHITECTURE (v2.1 – FIXED + CONSISTENT)
+# 📊 Trading Journal App – UPDATED ARCHITECTURE (v3.0 – COMPLETE)
 
 ---
 
@@ -14,16 +14,20 @@ Trading journal + advanced analytics dashboard хийх:
 - Chart + Table dashboard
 - Advanced filtering (account / date)
 - Multi-user system (Supabase Auth)
+- **Prop Firm Challenge Rules (Daily Loss 5%, Total Drawdown 10%)**
+- **Help Tooltip бүх үзүүлэлт дээр (Монгол тайлбар)**
 
 ---
 
 # 🧠 1. System Architecture
 
-Frontend (Next.js App Router)  
+Frontend (Next.js App Router 16.2.4)  
   ↓  
-Supabase (Auth + PostgreSQL + RLS)
+Supabase (Auth + PostgreSQL + RLS)  
+  ↓  
+Vercel (Hosting)
 
-👉 Backend server шаардлагагүй (MVP / Pro dashboard phase)
+👉 Backend server шаардлагагүй (Full-stack on Supabase + Vercel)
 
 ---
 
@@ -42,6 +46,8 @@ Supabase (Auth + PostgreSQL + RLS)
 - Profit formatting (toFixed)
 - Profit color logic (green/red)
 - Modular component structure
+- **Account status (active/archived/closed) with color coding**
+- **Bulk trade upload (CSV/text format)**
 
 ---
 
@@ -57,6 +63,11 @@ Supabase (Auth + PostgreSQL + RLS)
 - RRR (Overall / Win / Loss)
 - Avg Position Size
 - Avg Holding Time
+- **Sharpe Ratio**
+- **Calmar Ratio**
+- **Consistency Score (Rolling Win Rate Stability)**
+- **Max Drawdown with Duration**
+- **Average Drawdown**
 
 ---
 
@@ -67,6 +78,24 @@ Supabase (Auth + PostgreSQL + RLS)
 - Drawdown curve
 - Equity + Drawdown overlay chart
 - Monthly performance aggregation
+- **Trading Day Performance (Bar + Line)**
+- **Most Traded Instruments (Horizontal Bar)**
+- **Daily Summary Calendar (Heatmap with month navigation)**
+- **Long vs Short Analysis (Pie + Bar)**
+- **PnL by Trade Duration (Scatter + Bar)**
+- **Instrument Profit Analysis (Horizontal Bar)**
+- **Instrument Volume Analysis (Pie + Profit/Lot)**
+- **Performance Radar (Spider Web Chart - Normalized/Absolute)**
+- **Risk Metrics (Daily Loss 5%, Total Drawdown 10% - Prop Firm Rules)**
+
+---
+
+### ✔ UI Components
+
+- **HelpTooltip** - Бүх үзүүлэлт дээр ? товч, монгол тайлбар
+- **MetricCard** - Дахин ашиглах боломжтой card компонент
+- **StatusBadge** - Account status-ийн өнгөт badge
+- **LoadingSkeleton** - Loading үед харагдах skeleton
 
 ---
 
@@ -81,10 +110,11 @@ broker text,
 name text,
 mode text,
 balance numeric,
-created_at timestamptz default now()
-
-
+status text default 'active',  -- 'active', 'archived', 'closed'
+created_at timestamptz default now(),
+updated_at timestamptz default now()
 trades
+sql
 id uuid primary key default gen_random_uuid(),
 user_id uuid not null,
 account_id uuid not null,
@@ -98,14 +128,42 @@ take_profit numeric,
 lot_size numeric,
 open_time timestamp,
 close_time timestamp
-🔗 4. Relationships
+Database Triggers
+sql
+-- Automatically update account balance when trades change
+CREATE OR REPLACE FUNCTION update_account_balance()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        UPDATE accounts SET balance = balance + NEW.profit WHERE id = NEW.account_id;
+    ELSIF TG_OP = 'UPDATE' THEN
+        IF OLD.profit IS DISTINCT FROM NEW.profit THEN
+            UPDATE accounts SET balance = balance - OLD.profit + NEW.profit WHERE id = NEW.account_id;
+        END IF;
+        RETURN NEW;
+    ELSIF TG_OP = 'DELETE' THEN
+        UPDATE accounts SET balance = balance - OLD.profit WHERE id = OLD.account_id;
+        RETURN OLD;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
 
+CREATE TRIGGER on_trade_change
+    AFTER INSERT OR UPDATE OR DELETE ON trades
+    FOR EACH ROW
+    EXECUTE FUNCTION update_account_balance();
+
+---
+🔗 4. Relationships
+text
 User (auth.users)
  └── Accounts (1 → many)
    └── Trades (1 → many)
 
+---
 🔐 5. RLS Security
 accounts
+sql
 alter table accounts enable row level security;
 
 create policy "Users own accounts"
@@ -113,116 +171,214 @@ on accounts
 for all
 using (auth.uid() = user_id);
 trades
+sql
 alter table trades enable row level security;
 
 create policy "Users own trades"
 on trades
 for all
 using (auth.uid() = user_id);
+
+---
 🚀 6. UI Pages Structure
-/trades
-   └── Trade list + filters + analytics base
-
-/trades/new
-   └── Create trade form
-
-/accounts
-   └── Account management
-
-/dashboard
-   └── FULL analytics dashboard (NEW)
-📊 7. Dashboard System (FINAL CORE)
-7.1 Metrics Layer
-Winrate = wins / total trades
-Profit Factor = gross profit / gross loss
-Net Profit = sum(profit)
-Expectancy = EV per trade
-Avg Win / Avg Loss
-RRR (Risk Reward Ratio)
-Avg Position Size
-Avg Holding Time
-7.2 Equity Curve Engine
-Cumulative equity over time
-Smooth equity (rolling window / EMA)
-Index + Date support
-Recharts-ready format
-7.3 Drawdown System
-Peak tracking
-Equity drop calculation
-Max Drawdown (%)
-Drawdown duration
-7.4 Monthly Performance
-Group by YYYY-MM
-Monthly PnL aggregation
-Heatmap-ready structure
-7.5 Equity vs Drawdown Overlay
-Green → Equity
-Red → Drawdown
-Institutional hedge-fund style visualization
-🧩 8. Project Architecture (FINAL)
-Core App Structure
+text
 /app
-   /components
-      /dashboard
-         ├── DashboardStats.tsx
-         ├── EquityCurveChart.tsx
-         ├── EquityDrawdownChart.tsx
-         ├── MonthlyHeatmap.tsx
-         ├── RiskPanel.tsx
-         ├── TradingDayPerformance.tsx
-         ├── MostTradedInstruments.tsx      # Bar chart - top instruments
-         ├── DailySummaryCalendar.tsx       # Calendar heatmap
-         ├── TradeDurationPnL.tsx           # PnL by duration (scatter/bar)
-         ├── InstrumentProfitAnalysis.tsx   # Profit by instrument (horizontal bar)
-         ├── InstrumentVolumeAnalysis.tsx   # Volume by instrument (pie/bar)
-         ├── LongShortAnalysis.tsx          # Long vs Short comparison
-         ├── KeyMetricsCards.tsx
-         └── RollingEquityChart.tsx
-      /trades
-         ├── TradeForm.tsx
-         ├── TradeList.tsx
-   /dashboard
-         ── page.tsx
-   /login
-         ── page.tsx
-   /register
-         ── page.tsx
-   /trades
-         /[id]
-            └── page.tsx
-         /new
-            └── page.tsx
-         └── page.tsx
+    /login/page.tsx
+    /register/page.tsx
+    /dashboard/page.tsx
+    /trades/
+       	page.tsx
+       	/[id]/page.tsx
+       	/new/page.tsx
+    /accounts/
+       	page.tsx
+       	/new/page.tsx
+    	/[id]/page.tsx
    layout.tsx
    page.tsx
+
+---
+📊 7. Dashboard System (FINAL CORE)
+
+7.1 Metrics Layer
+
+Metric	Formula
+
+Win Rate	wins / total trades * 100
+Loss Rate	losses / total trades * 100
+Profit Factor	gross profit / |gross loss|
+Net Profit	sum(profit)
+Expectancy	net profit / total trades
+Avg Win	total win / wins
+Avg Loss	total loss / losses
+RRR	avg win / |avg loss|
+Sharpe Ratio	(avg return / std dev) * sqrt(252)
+Calmar Ratio	total return % / max drawdown %
+Consistency	100 - (std dev of rolling win rate * 1.5)
+Max Drawdown	((peak - trough) / peak) * 100
+
+7.2 Prop Firm Challenge Rules
+
+Rule	Limit	Breach Condition
+Daily Loss	-5%	Daily P&L / Balance ≤ -5%
+Total Drawdown	-10%	(Peak - Current) / Peak ≥ 10%
+
+7.3 Visualization Components
+
+Component	Description
+
+DashboardStats	Core metrics cards
+EquityCurveChart	Equity line chart with smoothing
+EquityDrawdownChart	Equity + Drawdown overlay
+MonthlyHeatmap	Monthly profit heatmap
+RiskPanel	Prop Firm challenge status
+TradingDayPerformance	Daily profit + trade count
+MostTradedInstruments	Top instruments by trade count
+DailySummaryCalendar	Calendar heatmap with month navigation
+LongShortAnalysis	Long vs Short comparison
+TradeDurationPnL	Duration vs PnL scatter plot
+InstrumentProfitAnalysis	Profit by instrument
+InstrumentVolumeAnalysis	Volume distribution + profit/lot
+SpiderWebChart	Performance radar (Normalized/Absolute)
+KeyMetricsCards	Quick metrics overview
+HelpTooltip	Mongolian help tooltips
+
+🧩 8. Component Architecture (FINAL)
+
+text
+/components
+   /layout
+      ├── Sidebar.tsx
+      ├── Header.tsx
+      └── AppWrapper.tsx
+   /dashboard
+      ├── DashboardStats.tsx
+      ├── EquityCurveChart.tsx
+      ├── EquityDrawdownChart.tsx
+      ├── MonthlyHeatmap.tsx
+      ├── RiskPanel.tsx
+      ├── TradingDayPerformance.tsx
+      ├── MostTradedInstruments.tsx
+      ├── DailySummaryCalendar.tsx
+      ├── LongShortAnalysis.tsx
+      ├── TradeDurationPnL.tsx
+      ├── InstrumentProfitAnalysis.tsx
+      ├── InstrumentVolumeAnalysis.tsx
+      ├── SpiderWebChart.tsx
+      ├── KeyMetricsCards.tsx
+      └── HelpTooltip.tsx
+   /trades
+      ├── TradeForm.tsx
+      └── TradeList.tsx
+   /ui
+      ├── MetricCard.tsx
+      ├── LoadingSkeleton.tsx
+      └── StatusBadge.tsx
+📁 9. Core Library Structure
+text
 /lib
    /hooks
-      ├─useAccounts.ts
+      ├── useAccounts.ts
+      ├── useTrades.ts
+      └── useSidebar.tsx
+   ├── supabaseClient.ts
+   ├── getCurrentUser.ts
    ├── analytics.ts
    ├── equity.ts
    ├── dashboardAnalytics.ts
-   ├── getCurrentUser.ts
-   ├── supabaseClient.ts
-/types
-├── account.ts
-├── trade.ts
+   ├── advancedAnalytics.ts
+   /constants
+      └── metricsHelp.ts
+   /utils
+      ├── dateUtils.ts
+      └── statusUtils.ts
 
-🎛️ 9. Trade Filter Logic
-query = query.eq("account_id", selectedAccount);
-🧠 10. Key Improvements
-❌ No longer CRUD app
-✅ Now analytics platform
-✅ Clean layered architecture
-✅ No circular imports
-✅ Production-safe dashboard system
-✅ Financial-grade metrics engine
-📊 11. Current System State
-MVP → 90% COMPLETE
-Stable systems:
-Auth
-Database
-Trade flow
-Analytics engine
-Dashboard charts
-Equity + drawdown system
+🎯 10. Key Metrics & Their Mongolian Help Text
+
+Metric	Mongolian Description
+Win Rate	Нийт арилжаанаас ашигтайгаар хаагдсан арилжааны эзлэх хувь
+Profit Factor	Нийт ашгийг нийт алдагдалд харьцуулсан харьцаа. 1.5-с дээш байх нь сайн
+Net Profit	Бүх арилжааны ашгийн нийлбэр
+Expectancy	Дунджаар нэг арилжаанд ногдох ашиг
+Sharpe Ratio	Эрсдэлд тохируулсан ашиг. 1-с дээш сайн, 2-с дээш маш сайн
+Calmar Ratio	Жилийн ашгийг хамгийн их уналтад харьцуулсан харьцаа
+Consistency	Арилжааны үр дүнгийн тогтвортой байдал. 70% -с дээш тогтвортой
+Max Drawdown	Хамгийн өндөр цэгээс хамгийн доод цэг хүртэлх бууралтын хувь
+Risk/Reward	Дундаж ашгийг дундаж алдагдалд харьцуулсан харьцаа
+Daily Loss	Өдрийн алдагдлын хязгаар (5%). Хязгаар хэтэрвэл улаан
+Total Drawdown	Нийт уналтын хязгаар (10%). Хязгаар хэтэрвэл улаан
+
+🛠️ 11. Tech Stack
+
+Category	Technology
+Framework	Next.js 16.2.4 (App Router, Turbopack)
+Database	Supabase (PostgreSQL)
+Auth	Supabase Auth
+Styling	Tailwind CSS
+Charts	Recharts
+Date Handling	date-fns
+Icons	Emoji + Lucide React
+Deployment	Vercel
+Package Manager	npm
+
+📦 12. Deployment
+
+Vercel Configuration
+bash
+# Environment Variables
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+Supabase Configuration
+bash
+# CORS Settings
+Additional allowed origins:
+- https://trading-journal.vercel.app
+- http://localhost:3000
+
+# Auth Settings
+Site URL: https://trading-journal.vercel.app
+Redirect URLs: https://trading-journal.vercel.app/**
+
+✅ 13. Current System State
+
+COMPLETED (100%)
+✅ Authentication (Login/Register/Logout/Forgot Password)
+
+✅ Account Management (CRUD with status)
+
+✅ Trade Management (CRUD with bulk upload)
+
+✅ Analytics Engine (All metrics)
+
+✅ Dashboard Charts (All visualizations)
+
+✅ Prop Firm Challenge Rules
+
+✅ Help Tooltips (Mongolian language)
+
+✅ Responsive Layout (Mobile/Desktop)
+
+✅ Dark Mode Support
+
+✅ Database Triggers (Auto balance update)
+
+✅ RLS Security
+
+✅ Vercel Deployment Ready
+
+🎯 14. Future Enhancements
+
+Email notifications for challenge breaches
+
+Multi-chart comparison
+
+Export reports (PDF/CSV)
+
+Social sharing of performance
+
+Mobile app (React Native)
+
+Version: 3.0 – COMPLETE
+Last Updated: April 2026
+Status: Production Ready 🚀
 ```

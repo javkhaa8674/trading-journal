@@ -13,6 +13,8 @@ import {
   Legend,
 } from "recharts";
 import { DailyPerformance } from "@/lib/advancedAnalytics";
+import { metricsHelp } from "@/lib/constants/metricsHelp";
+import { HelpTooltip } from "./HelpTooltip";
 
 interface TradingDayPerformanceProps {
   data: DailyPerformance[];
@@ -38,7 +40,13 @@ export function TradingDayPerformance({ data }: TradingDayPerformanceProps) {
 
   return (
     <div className="rounded-lg border bg-white p-4 dark:bg-gray-900">
-      <h3 className="mb-4 text-lg font-semibold">Trading Day Performance</h3>
+      <div className="mb-4 flex flex-start justify-start gap-2">
+        <h3 className="mb-4 text-lg font-semibold">Trading Day Performance </h3>
+        <HelpTooltip
+          title={metricsHelp.tradingDayPerformance.title}
+          description={metricsHelp.tradingDayPerformance.description}
+        />
+      </div>
       <div className="h-[400px]">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData}>

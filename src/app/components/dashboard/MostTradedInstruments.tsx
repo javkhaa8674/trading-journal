@@ -11,6 +11,8 @@ import {
   Cell,
 } from "recharts";
 import { InstrumentStats } from "@/lib/advancedAnalytics";
+import { metricsHelp } from "@/lib/constants/metricsHelp";
+import { HelpTooltip } from "./HelpTooltip";
 
 interface MostTradedInstrumentsProps {
   data: InstrumentStats[];
@@ -46,7 +48,13 @@ export function MostTradedInstruments({ data }: MostTradedInstrumentsProps) {
 
   return (
     <div className="rounded-lg border bg-white p-4 dark:bg-gray-900">
-      <h3 className="mb-4 text-lg font-semibold">Most Traded Instruments</h3>
+      <div className="mb-4 flex items-start justify-start gap-2">
+        <h3 className="mb-4 text-lg font-semibold">Most Traded Instruments</h3>
+        <HelpTooltip
+          title={metricsHelp.mostTradedPairs.title}
+          description={metricsHelp.mostTradedPairs.description}
+        />
+      </div>
       <div className="h-[400px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} layout="vertical">

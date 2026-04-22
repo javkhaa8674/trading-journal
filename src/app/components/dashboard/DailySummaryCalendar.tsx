@@ -17,6 +17,8 @@ import {
   getYear,
   getMonth,
 } from "date-fns";
+import { metricsHelp } from "@/lib/constants/metricsHelp";
+import { HelpTooltip } from "./HelpTooltip";
 
 interface DailySummaryCalendarProps {
   data: Map<string, { count: number; profit: number }>;
@@ -195,8 +197,13 @@ export function DailySummaryCalendar({ data }: DailySummaryCalendarProps) {
     <div className="rounded-xl border bg-white p-6 shadow-sm dark:bg-gray-900">
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h3 className="text-xl font-semibold">Daily Summary</h3>
-
+        <div className="mb-4 flex flex-start justify-start gap-2">
+          <h3 className="text-xl font-semibold">Daily Summary</h3>
+          <HelpTooltip
+            title={metricsHelp.dailySummary.title}
+            description={metricsHelp.dailySummary.description}
+          />
+        </div>
         {/* Year Navigation + Dropdown */}
         <div className="flex items-center gap-2">
           {/* Year quick nav */}

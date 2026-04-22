@@ -15,6 +15,8 @@ import {
   Cell,
 } from "recharts";
 import { DurationPnL } from "@/lib/advancedAnalytics";
+import { metricsHelp } from "@/lib/constants/metricsHelp";
+import { HelpTooltip } from "./HelpTooltip";
 
 interface TradeDurationPnLProps {
   data: DurationPnL[];
@@ -162,9 +164,15 @@ export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
 
   return (
     <div className="rounded-lg border bg-white p-4 dark:bg-gray-900">
-      <h3 className="mb-4 text-lg font-semibold">
-        PnL Distribution by Duration
-      </h3>
+      <div className="mb-4 flex flex-start justify-start gap-2">
+        <h3 className="mb-4 text-lg font-semibold">
+          PnL Distribution by Duration
+        </h3>
+        <HelpTooltip
+          title={metricsHelp.pnlDisridbutionbyDuration.title}
+          description={metricsHelp.pnlDisridbutionbyDuration.description}
+        />
+      </div>
 
       {/* Summary Stats Cards */}
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">

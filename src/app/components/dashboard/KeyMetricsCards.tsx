@@ -1,4 +1,6 @@
 "use client";
+import { HelpTooltip } from "./HelpTooltip";
+import { metricsHelp } from "@/lib/constants/metricsHelp";
 
 interface KeyMetricsCardsProps {
   numberOfDays: number;
@@ -19,24 +21,28 @@ export function KeyMetricsCards({
       value: numberOfDays,
       icon: "📅",
       color: "blue",
+      metricKey: "numberOfTradingDays" as keyof typeof metricsHelp,
     },
     {
       title: "Total Lots Used",
       value: totalLotsUsed.toFixed(2),
       icon: "⚖️",
       color: "purple",
+      metricKey: "totalUsedLots" as keyof typeof metricsHelp,
     },
     {
       title: "Biggest Win",
       value: `$${biggestWin.toFixed(2)}`,
       icon: "🏆",
       color: "green",
+      metricKey: "biggestWin" as keyof typeof metricsHelp,
     },
     {
       title: "Biggest Loss",
       value: `$${Math.abs(biggestLoss).toFixed(2)}`,
       icon: "⚠️",
       color: "red",
+      metricKey: "biggestLoss" as keyof typeof metricsHelp,
     },
   ];
 
@@ -61,6 +67,10 @@ export function KeyMetricsCards({
             </span>
           </div>
           <div className="mt-2 text-2xl font-bold">{metric.value}</div>
+          <HelpTooltip
+            title={metricsHelp[metric.metricKey].title}
+            description={metricsHelp[metric.metricKey].description}
+          />
         </div>
       ))}
     </div>
