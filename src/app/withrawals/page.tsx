@@ -334,7 +334,7 @@ export default function WithdrawalsPage() {
           className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
         >
           <span className="text-lg">+</span>
-          <span>➕ Мөнгө гаргах / Withdraw</span>
+          <span>Мөнгө гаргах / Withdraw</span>
         </button>
       </div>
 
@@ -343,7 +343,7 @@ export default function WithdrawalsPage() {
         <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">💰</span>
-            <span className="text-sm">💰 Нийт гаргасан / Total Withdrawn</span>
+            <span className="text-sm">Нийт гаргасан / Total Withdrawn</span>
           </div>
           <div className="mt-2 text-2xl font-bold text-orange-600 dark:text-orange-400">
             ${totalWithdrawals.toLocaleString()}
@@ -352,9 +352,7 @@ export default function WithdrawalsPage() {
         <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">📊</span>
-            <span className="text-sm">
-              📊 Нийт гүйлгээ / Total Transactions
-            </span>
+            <span className="text-sm">Нийт гүйлгээ / Total Transactions</span>
           </div>
           <div className="mt-2 text-2xl font-bold dark:text-white">
             {withdrawals.length}
@@ -363,7 +361,7 @@ export default function WithdrawalsPage() {
         <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">🏦</span>
-            <span className="text-sm">🏦 Идэвхтэй данс / Active Accounts</span>
+            <span className="text-sm">Идэвхтэй данс / Active Accounts</span>
           </div>
           <div className="mt-2 text-2xl font-bold dark:text-white">
             {filteredAccounts.length}
