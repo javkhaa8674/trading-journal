@@ -16,23 +16,23 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
     pathname === "/reset-password";
 
   if (isAuthPage) {
-    return <>{children}</>;
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">{children}</div>
+    );
   }
 
   // Sidebar width: 256px (w-64), collapsed: 64px (w-16)
   const sidebarWidth = isCollapsed ? 64 : 256;
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen bg-gray-50 dark:bg-gray-950">
       <Sidebar />
       <div
         className="transition-all duration-300"
         style={{ marginLeft: `${sidebarWidth}px` }}
       >
         <Header />
-        <main className="min-h-screen bg-gray-50 p-6 dark:bg-gray-950">
-          {children}
-        </main>
+        <main className="p-6">{children}</main>
       </div>
     </div>
   );

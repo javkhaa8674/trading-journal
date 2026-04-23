@@ -38,10 +38,16 @@ function Card({
   sub?: string;
 }) {
   return (
-    <div className="p-4 border rounded-lg shadow-sm">
-      <p className="text-sm text-gray-500">{title}</p>
-      <h2 className={`text-2xl font-bold ${color}`}>{value}</h2>
-      {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
+    <div className="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-900 dark:border-gray-800">
+      <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
+      <h2
+        className={`text-2xl font-bold ${color} dark:${color.replace("text-", "dark:text-")}`}
+      >
+        {value}
+      </h2>
+      {sub && (
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{sub}</p>
+      )}
     </div>
   );
 }
@@ -67,7 +73,6 @@ export default function DashboardStats({ trades, balance }: Props) {
     const avgDrawdown = calculateAvgDrawdown(equity.map((e) => e.equity));
 
     // Calculate additional metrics for SpiderWebChart
-    // Risk/Reward Ratio (same as RRR overall)
     const riskReward = rrr.overall;
 
     // Sharpe Ratio (simplified)
@@ -85,7 +90,6 @@ export default function DashboardStats({ trades, balance }: Props) {
     let maxDrawdownPercent = 0;
     let runningEquity = balance;
     const sortedTrades = [...trades].sort((a, b) => {
-      // close_time байхгүй бол open_time ашиглах
       const timeA = a.close_time
         ? new Date(a.close_time).getTime()
         : new Date(a.open_time).getTime();
@@ -134,7 +138,6 @@ export default function DashboardStats({ trades, balance }: Props) {
       Math.abs(avgLoss) > 0 ? avgWin / Math.abs(avgLoss) : avgWin;
 
     return {
-      // For cards
       winRate,
       lossRate,
       tradeCount,
@@ -149,7 +152,6 @@ export default function DashboardStats({ trades, balance }: Props) {
       maxDrawdown,
       drawdownDuration: duration,
       avgDrawdown,
-      // For spider chart
       spiderMetrics: {
         winRate,
         profitFactor,
@@ -166,7 +168,7 @@ export default function DashboardStats({ trades, balance }: Props) {
   return (
     <div>
       {/* Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <MetricCard
           title="Total Trades"
           value={metrics.tradeCount}
@@ -249,11 +251,13 @@ export default function DashboardStats({ trades, balance }: Props) {
       </div>
 
       {/* Spider Web Chart - receives pre-calculated metrics */}
-      <SpiderWebChart
-        tradesLength={metrics.tradeCount}
-        metrics={metrics.spiderMetrics}
-        startingBalance={balance}
-      />
+      <div className="mt-6">
+        <SpiderWebChart
+          tradesLength={metrics.tradeCount}
+          metrics={metrics.spiderMetrics}
+          startingBalance={balance}
+        />
+      </div>
     </div>
   );
 }

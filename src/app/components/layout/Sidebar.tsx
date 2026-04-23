@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { name: "Trading Plan", href: "/trading-plan", icon: "🗺️" },
   { name: "Deposits", href: "/deposits", icon: "📥" },
   { name: "Withrawals", href: "/withrawals", icon: "💸" },
+  { name: "Psychology", href: "/psychology", icon: "🧠" },
 ];
 
 export function Sidebar() {
@@ -45,18 +46,18 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={`
-          fixed left-0 top-0 z-40 flex h-full flex-col border-r bg-white transition-all duration-300 dark:bg-gray-900
+          fixed left-0 top-0 z-40 flex h-full flex-col border-r bg-white transition-all duration-300 dark:bg-gray-900 dark:border-gray-800
           ${isCollapsed ? collapsedWidth : expandedWidth}
         `}
       >
         {/* Logo */}
         <div
-          className={`flex h-16 items-center border-b px-4 ${isCollapsed ? "justify-center" : "justify-between"}`}
+          className={`flex h-16 items-center border-b px-4 ${isCollapsed ? "justify-center" : "justify-between"} dark:border-gray-800`}
         >
           {!isCollapsed ? (
             <Link href="/dashboard" className="flex items-center gap-2">
               <span className="text-2xl">📈</span>
-              <span className="font-bold">Trading Journal</span>
+              <span className="font-bold dark:text-white">Trading Journal</span>
             </Link>
           ) : (
             <Link href="/dashboard" className="text-2xl">
@@ -67,7 +68,7 @@ export function Sidebar() {
           {/* Toggle button inside sidebar */}
           <button
             onClick={toggleSidebar}
-            className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
             title={isCollapsed ? "Expand" : "Collapse"}
           >
             {isCollapsed ? "→" : "←"}
@@ -102,7 +103,9 @@ export function Sidebar() {
         </nav>
 
         {/* User section */}
-        <div className={`border-t p-4 ${isCollapsed ? "text-center" : ""}`}>
+        <div
+          className={`border-t p-4 ${isCollapsed ? "text-center" : ""} dark:border-gray-800`}
+        >
           {!isCollapsed ? (
             <LogoutButton />
           ) : (
@@ -112,7 +115,7 @@ export function Sidebar() {
                 await supabase.auth.signOut();
                 window.location.href = "/login";
               }}
-              className="flex w-full items-center justify-center text-red-500"
+              className="flex w-full items-center justify-center text-red-500 hover:text-red-600"
               title="Logout"
             >
               ➜]

@@ -15,9 +15,11 @@ export type Deposit = {
 export type DepositMethod = {
     id: string;
     name: string;
+    nameMn: string;  // ✅ Монгол нэрийг нэмэх
     icon: string;
     minAmount: number;
     maxAmount: number;
     processingTime: string;
+    processingTimeMn: string;  // ✅ Монгол боловсруулах хугацаа
     fee: number;
 };

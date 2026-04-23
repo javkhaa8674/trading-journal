@@ -68,8 +68,10 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-6 rounded-lg bg-white p-8 shadow-lg dark:bg-gray-900">
           <div className="text-center">
             <div className="text-4xl mb-2">🔐</div>
-            <h1 className="text-2xl font-bold">Reset Password</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <h1 className="text-2xl font-bold dark:text-white">
+              Reset Password
+            </h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               Enter your email to receive reset link
             </p>
           </div>
@@ -77,19 +79,21 @@ export default function LoginPage() {
           {!resetSent ? (
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
+                <label className="block text-sm font-medium dark:text-gray-300 mb-1">
+                  Email
+                </label>
                 <input
                   type="email"
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
-                  className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                   placeholder="your@email.com"
                   required
                 />
               </div>
 
               {resetError && (
-                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">
                   {resetError}
                 </div>
               )}
@@ -105,21 +109,21 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={backToLogin}
-                className="w-full text-sm text-gray-500 hover:text-gray-700"
+                className="w-full text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
               >
                 ← Back to Login
               </button>
             </form>
           ) : (
             <div className="space-y-4 text-center">
-              <div className="rounded-lg bg-green-50 p-4 text-green-600">
+              <div className="rounded-lg bg-green-50 p-4 text-green-600 dark:bg-green-950/50 dark:text-green-400">
                 <p className="font-medium">✓ Check your email</p>
                 <p className="text-sm mt-1">
                   We've sent a password reset link to{" "}
                   <strong>{resetEmail}</strong>
                 </p>
               </div>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Didn't receive the email? Check your spam folder or try again.
               </p>
               <button
@@ -141,36 +145,43 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6 rounded-lg bg-white p-8 shadow-lg dark:bg-gray-900">
         <div className="text-center">
           <div className="text-4xl mb-2">📈</div>
-          <h1 className="text-2xl font-bold">Trading Journal</h1>
-          <p className="text-sm text-gray-500 mt-1">Login to your account</p>
+          <h1 className="text-2xl font-bold dark:text-white">
+            Trading Journal
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Login to your account
+          </p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
+            <label className="block text-sm font-medium dark:text-gray-300 mb-1">
+              Email
+            </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
               placeholder="your@email.com"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
+            <label className="block text-sm font-medium dark:text-gray-300 mb-1">
+              Password
+            </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
               placeholder="••••••••"
               required
             />
           </div>
 
-          {/* Forgot password link */}
           <div className="text-right">
             <button
               type="button"
@@ -182,7 +193,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">
               {error}
             </div>
           )}
@@ -196,8 +207,8 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-500">
-          Don't have an account?{" "}
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+          Don&apos;t have an account?{" "}
           <Link href="/register" className="text-blue-500 hover:underline">
             Register
           </Link>

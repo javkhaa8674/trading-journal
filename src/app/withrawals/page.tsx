@@ -31,59 +31,74 @@ type Withdrawal = {
 type WithdrawalMethod = {
   id: string;
   name: string;
+  nameMn: string;
   icon: string;
   minAmount: number;
   maxAmount: number;
   processingTime: string;
+  processingTimeMn: string;
   fee: number;
   accountField?: string;
   accountFieldLabel?: string;
+  accountFieldLabelMn?: string;
 };
 
 const withdrawalMethods: WithdrawalMethod[] = [
   {
     id: "bank_transfer",
     name: "Bank Transfer",
+    nameMn: "Банкны шилжүүлэг",
     icon: "🏦",
     minAmount: 100,
     maxAmount: 50000,
     processingTime: "2-5 business days",
+    processingTimeMn: "2-5 ажлын өдөр",
     fee: 0,
     accountField: "bank_account",
     accountFieldLabel: "Bank Account Number",
+    accountFieldLabelMn: "Банкны дансны дугаар",
   },
   {
     id: "crypto",
     name: "Cryptocurrency",
+    nameMn: "Крипто валют",
     icon: "₿",
     minAmount: 50,
     maxAmount: 100000,
     processingTime: "10-30 minutes",
+    processingTimeMn: "10-30 минут",
     fee: 1,
     accountField: "wallet_address",
     accountFieldLabel: "Wallet Address",
+    accountFieldLabelMn: "Хэтэвчний хаяг",
   },
   {
     id: "paypal",
     name: "PayPal",
+    nameMn: "PayPal",
     icon: "💙",
     minAmount: 10,
     maxAmount: 10000,
     processingTime: "1-2 business days",
+    processingTimeMn: "1-2 ажлын өдөр",
     fee: 2.5,
     accountField: "paypal_email",
     accountFieldLabel: "PayPal Email",
+    accountFieldLabelMn: "PayPal имэйл",
   },
   {
     id: "other",
     name: "Other",
+    nameMn: "Бусад",
     icon: "💵",
     minAmount: 10,
     maxAmount: 5000,
     processingTime: "Varies",
+    processingTimeMn: "Хувьсах",
     fee: 0,
     accountField: "account_details",
     accountFieldLabel: "Account Details",
+    accountFieldLabelMn: "Дансны дэлгэрэнгүй",
   },
 ];
 
@@ -148,32 +163,32 @@ export default function WithdrawalsPage() {
 
     const user = await getCurrentUser();
     if (!user) {
-      setError("Please login first");
+      setError("Нэвтрэнэ үү / Please login first");
       setSubmitting(false);
       return;
     }
 
     if (!formData.account_id) {
-      setError("Please select an account");
+      setError("Дансаа сонгоно уу / Please select an account");
       setSubmitting(false);
       return;
     }
 
     if (formData.amount <= 0) {
-      setError("Amount must be greater than 0");
+      setError("Дүн 0-с их байх ёстой / Amount must be greater than 0");
       setSubmitting(false);
       return;
     }
 
     if (!selectedAccount) {
-      setError("Selected account not found");
+      setError("Сонгосон данс олдсонгүй / Selected account not found");
       setSubmitting(false);
       return;
     }
 
     if (formData.amount > selectedAccount.balance) {
       setError(
-        `Insufficient balance. Available: $${selectedAccount.balance.toLocaleString()}`,
+        `Хүрэлцэхгүй баланс. Боломжтой: $${selectedAccount.balance.toLocaleString()} / Insufficient balance. Available: $${selectedAccount.balance.toLocaleString()}`,
       );
       setSubmitting(false);
       return;
@@ -181,12 +196,16 @@ export default function WithdrawalsPage() {
 
     if (selectedMethod) {
       if (formData.amount < selectedMethod.minAmount) {
-        setError(`Minimum withdrawal amount is $${selectedMethod.minAmount}`);
+        setError(
+          `Хамгийн бага дүн: $${selectedMethod.minAmount} / Minimum withdrawal amount is $${selectedMethod.minAmount}`,
+        );
         setSubmitting(false);
         return;
       }
       if (formData.amount > selectedMethod.maxAmount) {
-        setError(`Maximum withdrawal amount is $${selectedMethod.maxAmount}`);
+        setError(
+          `Хамгийн их дүн: $${selectedMethod.maxAmount} / Maximum withdrawal amount is $${selectedMethod.maxAmount}`,
+        );
         setSubmitting(false);
         return;
       }
@@ -230,13 +249,15 @@ export default function WithdrawalsPage() {
     if (updateError) {
       // Rollback - delete withdrawal
       await supabase.from("withdrawals").delete().eq("id", withdrawalData.id);
-      setError("Failed to update account balance");
+      setError(
+        "Дансны баланс шинэчлэгдсэнгүй / Failed to update account balance",
+      );
       setSubmitting(false);
       return;
     }
 
     setSuccess(
-      `Withdrawal request of $${formData.amount.toFixed(2)} submitted successfully!`,
+      `$${formData.amount.toFixed(2)} -ийн мөнгө авах хүсэлт амжилттай илгээгдлээ! / Withdrawal request of $${formData.amount.toFixed(2)} submitted successfully!`,
     );
     setShowForm(false);
     setFormData({
@@ -281,47 +302,39 @@ export default function WithdrawalsPage() {
   };
 
   const getMethodName = (method: string) => {
-    switch (method) {
-      case "bank_transfer":
-        return "Bank Transfer";
-      case "crypto":
-        return "Crypto";
-      case "paypal":
-        return "PayPal";
-      default:
-        return "Other";
-    }
+    const m = withdrawalMethods.find((m) => m.id === method);
+    return m ? m.nameMn : "Бусад";
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "completed":
         return (
-          <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-700">
-            ✅ Completed
+          <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-700 dark:bg-green-950 dark:text-green-400">
+            ✅ Амжилттай / Completed
           </span>
         );
       case "pending":
         return (
-          <span className="rounded-full bg-yellow-100 px-2 py-1 text-xs text-yellow-700">
-            ⏳ Pending
+          <span className="rounded-full bg-yellow-100 px-2 py-1 text-xs text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400">
+            ⏳ Хүлээгдэж буй / Pending
           </span>
         );
       case "failed":
         return (
-          <span className="rounded-full bg-red-100 px-2 py-1 text-xs text-red-700">
-            ❌ Failed
+          <span className="rounded-full bg-red-100 px-2 py-1 text-xs text-red-700 dark:bg-red-950 dark:text-red-400">
+            ❌ Амжилтгүй / Failed
           </span>
         );
       case "cancelled":
         return (
-          <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700">
-            ❌ Cancelled
+          <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-400">
+            ❌ Цуцлагдсан / Cancelled
           </span>
         );
       default:
         return (
-          <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700">
+          <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-400">
             {status}
           </span>
         );
@@ -342,20 +355,27 @@ export default function WithdrawalsPage() {
       <div className="flex h-96 items-center justify-center">
         <div className="text-center">
           <div className="mb-2 text-2xl">💸</div>
-          <div className="text-gray-500">Loading withdrawals...</div>
+          <div className="text-gray-500 dark:text-gray-400">
+            Ачааллаж байна / Loading...
+          </div>
         </div>
       </div>
     );
   }
+
   const filteredAccounts = accounts.filter((acc) => acc.status === "active");
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Withdrawals</h1>
-          <p className="text-sm text-gray-500">
-            Request withdrawals from your trading accounts
+          <h1 className="text-2xl font-bold dark:text-white">
+            💸 Мөнгө авах хүсэлт / Withdrawals
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Арилжааны данснаас мөнгө авах хүсэлт илгээх / Request withdrawals
+            from your trading accounts
           </p>
         </div>
         <button
@@ -363,43 +383,45 @@ export default function WithdrawalsPage() {
           className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
         >
           <span className="text-lg">+</span>
-          <span>Request Withdrawal</span>
+          <span>Шинэ хүсэлт / New Request</span>
         </button>
       </div>
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900">
-          <div className="flex items-center gap-2 text-gray-500">
+        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
+          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">💰</span>
-            <span className="text-sm">Total Withdrawn</span>
+            <span className="text-sm">Нийт авсан / Total Withdrawn</span>
           </div>
-          <div className="mt-2 text-2xl font-bold text-orange-600">
+          <div className="mt-2 text-2xl font-bold text-orange-600 dark:text-orange-400">
             ${totalWithdrawals.toLocaleString()}
           </div>
         </div>
-        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900">
-          <div className="flex items-center gap-2 text-gray-500">
+        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
+          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">⏳</span>
-            <span className="text-sm">Pending</span>
+            <span className="text-sm">Хүлээгдэж буй / Pending</span>
           </div>
-          <div className="mt-2 text-2xl font-bold text-yellow-600">
+          <div className="mt-2 text-2xl font-bold text-yellow-600 dark:text-yellow-400">
             ${pendingWithdrawals.toLocaleString()}
           </div>
         </div>
-        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900">
-          <div className="flex items-center gap-2 text-gray-500">
+        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
+          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">📊</span>
-            <span className="text-sm">Total Requests</span>
+            <span className="text-sm">Нийт хүсэлт / Total Requests</span>
           </div>
-          <div className="mt-2 text-2xl font-bold">{withdrawals.length}</div>
+          <div className="mt-2 text-2xl font-bold dark:text-white">
+            {withdrawals.length}
+          </div>
         </div>
-        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900">
-          <div className="flex items-center gap-2 text-gray-500">
+        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
+          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">✅</span>
-            <span className="text-sm">Completed</span>
+            <span className="text-sm">Амжилттай / Completed</span>
           </div>
-          <div className="mt-2 text-2xl font-bold text-green-600">
+          <div className="mt-2 text-2xl font-bold text-green-600 dark:text-green-400">
             {withdrawals.filter((w) => w.status === "completed").length}
           </div>
         </div>
@@ -407,22 +429,24 @@ export default function WithdrawalsPage() {
 
       {/* Withdrawal Form */}
       {showForm && (
-        <div className="rounded-lg border bg-white p-6 dark:bg-gray-900">
-          <h2 className="mb-4 text-lg font-semibold">Request Withdrawal</h2>
+        <div className="rounded-lg border bg-white p-6 dark:bg-gray-900 dark:border-gray-800">
+          <h2 className="mb-4 text-lg font-semibold dark:text-white">
+            📝 Шинэ хүсэлт / New Withdrawal Request
+          </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium">
-                Select Account *
+              <label className="block text-sm font-medium dark:text-gray-300">
+                🏦 Данс сонгох / Select Account *
               </label>
               <select
                 value={formData.account_id}
                 onChange={(e) =>
                   setFormData({ ...formData, account_id: e.target.value })
                 }
-                className="mt-1 w-full rounded-lg border p-2"
+                className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                 required
               >
-                <option value="">Select an account</option>
+                <option value="">📋 Данс сонгох / Select an account</option>
                 {filteredAccounts.map((acc) => (
                   <option
                     key={acc.id}
@@ -439,7 +463,9 @@ export default function WithdrawalsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium">Amount *</label>
+              <label className="block text-sm font-medium dark:text-gray-300">
+                💰 Дүн / Amount *
+              </label>
               <div className="relative mt-1">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
                   $
@@ -455,22 +481,24 @@ export default function WithdrawalsPage() {
                       amount: parseFloat(e.target.value),
                     })
                   }
-                  className="w-full rounded-lg border p-2 pl-7"
+                  className="w-full rounded-lg border p-2 pl-7 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                   placeholder="0.00"
                   required
                 />
               </div>
               {selectedAccount && formData.amount > selectedAccount.balance && (
                 <p className="mt-1 text-xs text-red-500">
-                  Insufficient balance. Available: $
+                  ⚠️ Хүрэлцэхгүй баланс. Боломжтой: $
+                  {selectedAccount.balance.toLocaleString()} / Insufficient
+                  balance. Available: $
                   {selectedAccount.balance.toLocaleString()}
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium">
-                Withdrawal Method *
+              <label className="block text-sm font-medium dark:text-gray-300">
+                💳 Арга / Withdrawal Method *
               </label>
               <div className="mt-1 grid grid-cols-2 gap-2 md:grid-cols-4">
                 {withdrawalMethods.map((method) => (
@@ -487,13 +515,14 @@ export default function WithdrawalsPage() {
                     className={`rounded-lg border p-3 text-center transition-all ${
                       formData.method === method.id
                         ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
-                        : "hover:border-gray-400"
+                        : "hover:border-gray-400 dark:border-gray-700"
                     }`}
                   >
                     <div className="text-2xl">{method.icon}</div>
                     <div className="mt-1 text-xs font-medium">
-                      {method.name}
+                      {method.nameMn}
                     </div>
+                    <div className="text-xs text-gray-400">{method.name}</div>
                   </button>
                 ))}
               </div>
@@ -501,7 +530,8 @@ export default function WithdrawalsPage() {
 
             {selectedMethod && selectedMethod.accountField && (
               <div>
-                <label className="block text-sm font-medium">
+                <label className="block text-sm font-medium dark:text-gray-300">
+                  {selectedMethod.accountFieldLabelMn} /{" "}
                   {selectedMethod.accountFieldLabel} *
                 </label>
                 <input
@@ -513,16 +543,16 @@ export default function WithdrawalsPage() {
                       account_details: e.target.value,
                     })
                   }
-                  className="mt-1 w-full rounded-lg border p-2"
-                  placeholder={`Enter your ${selectedMethod.accountFieldLabel}`}
+                  className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                  placeholder={`${selectedMethod.accountFieldLabelMn} оруулна уу / Enter your ${selectedMethod.accountFieldLabel}`}
                   required
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium">
-                Transaction ID (Optional)
+              <label className="block text-sm font-medium dark:text-gray-300">
+                🔢 Гүйлгээний ID / Transaction ID (Нэмэлт / Optional)
               </label>
               <input
                 type="text"
@@ -530,23 +560,23 @@ export default function WithdrawalsPage() {
                 onChange={(e) =>
                   setFormData({ ...formData, transaction_id: e.target.value })
                 }
-                className="mt-1 w-full rounded-lg border p-2"
+                className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                 placeholder="e.g., TXN-123456"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium">
-                Description (Optional)
+              <label className="block text-sm font-medium dark:text-gray-300">
+                📝 Тайлбар / Description (Нэмэлт / Optional)
               </label>
               <textarea
                 value={formData.description}
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
-                className="mt-1 w-full rounded-lg border p-2"
+                className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                 rows={2}
-                placeholder="Additional notes..."
+                placeholder="Нэмэлт мэдээлэл / Additional notes..."
               />
             </div>
 
@@ -554,18 +584,18 @@ export default function WithdrawalsPage() {
             {selectedMethod && selectedMethod.fee > 0 && (
               <div className="rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-800">
                 <div className="flex justify-between">
-                  <span>Withdrawal Amount:</span>
+                  <span>💰 Хүсэлтийн дүн / Withdrawal Amount:</span>
                   <span>${formData.amount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-red-600">
-                  <span>Fee ({selectedMethod.fee}%):</span>
+                  <span>📉 Шимтгэл ({selectedMethod.fee}%) / Fee:</span>
                   <span>
                     -$
                     {((formData.amount * selectedMethod.fee) / 100).toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between font-semibold">
-                  <span>Net Amount:</span>
+                  <span>✅ Авах дүн / Net Amount:</span>
                   <span>
                     $
                     {(
@@ -578,14 +608,14 @@ export default function WithdrawalsPage() {
             )}
 
             {error && (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-                {error}
+              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">
+                ⚠️ {error}
               </div>
             )}
 
             {success && (
-              <div className="rounded-lg bg-green-50 p-3 text-sm text-green-600">
-                {success}
+              <div className="rounded-lg bg-green-50 p-3 text-sm text-green-600 dark:bg-green-950/50 dark:text-green-400">
+                ✅ {success}
               </div>
             )}
 
@@ -595,14 +625,16 @@ export default function WithdrawalsPage() {
                 disabled={submitting}
                 className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
               >
-                {submitting ? "Processing..." : "Submit Request"}
+                {submitting
+                  ? "Илгээж байна / Processing..."
+                  : "✉️ Хүсэлт илгээх / Submit Request"}
               </button>
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="rounded-lg border px-4 py-2 hover:bg-gray-50"
+                className="rounded-lg border px-4 py-2 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
               >
-                Cancel
+                ❌ Цуцлах / Cancel
               </button>
             </div>
           </form>
@@ -610,39 +642,47 @@ export default function WithdrawalsPage() {
       )}
 
       {/* Withdrawals History Table */}
-      <div className="rounded-lg border bg-white dark:bg-gray-900">
-        <div className="border-b p-4">
-          <h2 className="text-lg font-semibold">Withdrawal History</h2>
+      <div className="rounded-lg border bg-white dark:bg-gray-900 dark:border-gray-800">
+        <div className="border-b p-4 dark:border-gray-800">
+          <h2 className="text-lg font-semibold dark:text-white">
+            📋 Хүсэлтийн түүх / Withdrawal History
+          </h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Date
+                <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
+                  📅 Огноо / Date
                 </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Account
+                <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
+                  🏦 Данс / Account
                 </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Method
+                <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
+                  💳 Арга / Method
                 </th>
-                <th className="px-4 py-3 text-right text-sm font-medium">
-                  Amount
+                <th className="px-4 py-3 text-right text-sm font-medium dark:text-gray-300">
+                  💰 Дүн / Amount
                 </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Status
+                <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
+                  📊 Төлөв / Status
                 </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Transaction ID
+                <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
+                  🔢 Гүйлгээний ID / Transaction ID
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y dark:divide-gray-800">
               {withdrawals.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-gray-500">
-                    No withdrawals yet. Click "Request Withdrawal" to add one.
+                  <td
+                    colSpan={6}
+                    className="py-8 text-center text-gray-500 dark:text-gray-400"
+                  >
+                    📭 Хүсэлт байхгүй байна / No withdrawals yet.
+                    <br />
+                    ✏️ &quot;Шинэ хүсэлт&quot; товч дарж нэмэх / Click &quot;New
+                    Request&quot; to add one.
                   </td>
                 </tr>
               ) : (
@@ -655,25 +695,25 @@ export default function WithdrawalsPage() {
                       key={withdrawal.id}
                       className="hover:bg-gray-50 dark:hover:bg-gray-800"
                     >
-                      <td className="px-4 py-3 text-sm">
+                      <td className="px-4 py-3 text-sm dark:text-gray-300">
                         {new Date(withdrawal.date).toLocaleDateString()}
                       </td>
-                      <td className="px-4 py-3 text-sm">
+                      <td className="px-4 py-3 text-sm dark:text-gray-300">
                         {account?.name || withdrawal.account_id}
                       </td>
-                      <td className="px-4 py-3 text-sm">
+                      <td className="px-4 py-3 text-sm dark:text-gray-300">
                         <span className="flex items-center gap-1">
                           {getMethodIcon(withdrawal.method)}{" "}
                           {getMethodName(withdrawal.method)}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right text-sm font-medium text-red-600">
+                      <td className="px-4 py-3 text-right text-sm font-medium text-red-600 dark:text-red-400">
                         -${withdrawal.amount.toLocaleString()}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         {getStatusBadge(withdrawal.status)}
                       </td>
-                      <td className="px-4 py-3 text-sm font-mono text-xs">
+                      <td className="px-4 py-3 text-sm font-mono text-xs dark:text-gray-400">
                         {withdrawal.transaction_id || "-"}
                       </td>
                     </tr>
@@ -686,19 +726,35 @@ export default function WithdrawalsPage() {
       </div>
 
       {/* Withdrawal Rules */}
-      <div className="rounded-lg border bg-blue-50 p-4 dark:bg-blue-950/20">
+      <div className="rounded-lg border bg-blue-50 p-4 dark:bg-blue-950/20 dark:border-blue-800/30">
         <div className="flex items-center gap-2">
           <span className="text-lg">📋</span>
-          <h3 className="font-semibold">Withdrawal Rules</h3>
+          <h3 className="font-semibold dark:text-white">
+            📋 Дүрэм / Withdrawal Rules
+          </h3>
         </div>
         <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-gray-700 dark:text-gray-300">
-          <li>Minimum withdrawal amount varies by method</li>
-          <li>Processing time depends on selected method</li>
-          <li>Withdrawals are subject to review before processing</li>
           <li>
-            Funded accounts must meet minimum trading days before withdrawal
+            💰 Хамгийн бага дүн аргаас хамаарч өөр өөр / Minimum withdrawal
+            amount varies by method
           </li>
-          <li>Withdrawal fees apply for some methods</li>
+          <li>
+            ⏳ Боловсруулах хугацаа аргаас хамаарна / Processing time depends on
+            selected method
+          </li>
+          <li>
+            🔍 Хүсэлтүүд боловсруулахаас өмнө хянагдана / Withdrawals are
+            subject to review before processing
+          </li>
+          <li>
+            📆 Санхүүжүүлсэн дансууд мөнгө авахаас өмнө хамгийн бага арилжааны
+            өдрийн тоог хангасан байх ёстой / Funded accounts must meet minimum
+            trading days before withdrawal
+          </li>
+          <li>
+            💸 Зарим аргуудад шимтгэл авна / Withdrawal fees apply for some
+            methods
+          </li>
         </ul>
       </div>
     </div>

@@ -158,32 +158,54 @@ export function LongShortAnalysis({ data }: LongShortAnalysisProps) {
         {data.map((item) => (
           <div
             key={item.type}
-            className={`rounded-lg border p-3 ${item.type === "Long" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"} dark:bg-opacity-10`}
+            className={`rounded-lg border p-3 ${
+              item.type === "Long"
+                ? "border-green-200 bg-green-50 dark:border-green-800/50 dark:bg-green-950/30"
+                : "border-red-200 bg-red-50 dark:border-red-800/50 dark:bg-red-950/30"
+            }`}
           >
-            <div className="mb-2 text-lg font-semibold">{item.type}</div>
+            <div className="mb-2 text-lg font-semibold dark:text-white">
+              {item.type}
+            </div>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
-                <div className="text-gray-600">Total Trades</div>
-                <div className="font-mono font-medium">{item.totalTrades}</div>
+                <div className="text-gray-600 dark:text-gray-400">
+                  Total Trades
+                </div>
+                <div className="font-mono font-medium dark:text-white">
+                  {item.totalTrades}
+                </div>
               </div>
               <div>
-                <div className="text-gray-600">Win Rate</div>
+                <div className="text-gray-600 dark:text-gray-400">Win Rate</div>
                 <div
-                  className={`font-mono font-medium ${item.winRate >= 50 ? "text-green-600" : "text-red-600"}`}
+                  className={`font-mono font-medium ${
+                    item.winRate >= 50
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  }`}
                 >
                   {item.winRate.toFixed(1)}%
                 </div>
               </div>
               <div>
-                <div className="text-gray-600">Wins / Losses</div>
-                <div className="font-mono font-medium">
+                <div className="text-gray-600 dark:text-gray-400">
+                  Wins / Losses
+                </div>
+                <div className="font-mono font-medium dark:text-white">
                   {item.wins} / {item.loss}
                 </div>
               </div>
               <div>
-                <div className="text-gray-600">Avg Profit/Trade</div>
+                <div className="text-gray-600 dark:text-gray-400">
+                  Avg Profit/Trade
+                </div>
                 <div
-                  className={`font-mono font-medium ${item.avgProfit >= 0 ? "text-green-600" : "text-red-600"}`}
+                  className={`font-mono font-medium ${
+                    item.avgProfit >= 0
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  }`}
                 >
                   ${item.avgProfit.toFixed(2)}
                 </div>

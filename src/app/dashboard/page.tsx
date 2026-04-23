@@ -98,7 +98,9 @@ export default function DashboardPage() {
       <div className="flex h-96 items-center justify-center p-6">
         <div className="text-center">
           <div className="mb-4 text-2xl">📊</div>
-          <div className="text-gray-500">Loading dashboard data...</div>
+          <div className="text-gray-500 dark:text-gray-400">
+            Loading dashboard data...
+          </div>
         </div>
       </div>
     );
@@ -137,14 +139,14 @@ export default function DashboardPage() {
   // =========================
   return (
     <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <h1 className="text-2xl font-bold dark:text-white">Dashboard</h1>
 
       {/* =========================
-          🏦 ACCOUNT SELECTOR
-      ========================= */}
+      🏦 ACCOUNT SELECTOR
+  ========================= */}
       <div className="mb-4">
         <select
-          className="rounded border p-2"
+          className="rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
           value={selectedAccountId || ""}
           onChange={(e) => setSelectedAccountId(e.target.value || null)}
         >
@@ -163,15 +165,15 @@ export default function DashboardPage() {
         </select>
 
         {/* Trade count info */}
-        <div className="mt-2 text-sm text-gray-500">
+        <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
           Showing {trades.length} trades
           {selectedAccountId && ` from ${selectedAccount?.name}`}
         </div>
       </div>
 
       {/* =========================
-          📊 EXISTING DASHBOARD COMPONENTS
-      ========================= */}
+      📊 EXISTING DASHBOARD COMPONENTS
+  ========================= */}
       <DashboardStats
         trades={trades}
         balance={isValidBalance ? balance : 5000}
@@ -184,8 +186,8 @@ export default function DashboardPage() {
       />
 
       {/* =========================
-          🆕 NEW METRICS CARDS
-      ========================= */}
+      🆕 NEW METRICS CARDS
+  ========================= */}
       <KeyMetricsCards
         numberOfDays={keyMetrics.numberOfDays}
         totalLotsUsed={keyMetrics.totalLotsUsed}
@@ -194,48 +196,51 @@ export default function DashboardPage() {
       />
 
       {/* =========================
-          🆕 TRADING DAY PERFORMANCE
-      ========================= */}
+      🆕 TRADING DAY PERFORMANCE
+  ========================= */}
       <TradingDayPerformance data={tradingDayData} />
 
       {/* =========================
-          🆕 TWO COLUMN LAYOUT
-      ========================= */}
+      🆕 TWO COLUMN LAYOUT
+  ========================= */}
       <div className="grid gap-6 lg:grid-cols-2">
         <MostTradedInstruments data={mostTradedData} />
         <LongShortAnalysis data={longShortData} />
       </div>
 
       {/* =========================
-          🆕 DAILY SUMMARY CALENDAR
-      ========================= */}
+      🆕 DAILY SUMMARY CALENDAR
+  ========================= */}
       <DailySummaryCalendar data={dailySummary} />
+
       {/* =========================
-          🆕 TRADE DURATION ANALYSIS
-      ========================= */}
+      🆕 TRADE DURATION ANALYSIS
+  ========================= */}
       <TradeDurationPnL data={durationData} />
 
       {/* =========================
-          🆕 INSTRUMENT ANALYSIS
-      ========================= */}
+      🆕 INSTRUMENT ANALYSIS
+  ========================= */}
       <div className="grid gap-6 lg:grid-cols-2">
         <InstrumentProfitAnalysis data={profitAnalysisData} />
         <InstrumentVolumeAnalysis data={volumeAnalysisData} />
       </div>
 
       {/* =========================
-          📊 EXISTING COMPONENTS
-      ========================= */}
+      📊 EXISTING COMPONENTS
+  ========================= */}
       <RiskPanel data={trades} />
 
       {/* =========================
-          🚨 EMPTY STATE
-      ========================= */}
+      🚨 EMPTY STATE
+  ========================= */}
       {trades.length === 0 && (
-        <div className="mt-12 rounded-lg border-2 border-dashed p-12 text-center">
+        <div className="mt-12 rounded-lg border-2 border-dashed p-12 text-center dark:border-gray-700">
           <div className="mb-2 text-4xl">📭</div>
-          <h3 className="text-lg font-semibold">No trades found</h3>
-          <p className="text-gray-500">
+          <h3 className="text-lg font-semibold dark:text-white">
+            No trades found
+          </h3>
+          <p className="text-gray-500 dark:text-gray-400">
             {selectedAccountId
               ? "This account has no trades yet"
               : "Start adding trades to see your analytics"}

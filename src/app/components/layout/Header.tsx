@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { ThemeToggle } from "@/app/components/ui/ThemeToggle";
 
 export function Header() {
   const pathname = usePathname();
@@ -33,6 +34,7 @@ export function Header() {
       <h1 className="text-xl font-semibold">{getPageTitle()}</h1>
 
       <div className="flex items-center gap-3">
+        <ThemeToggle /> {/* ✅ Dark mode toggle */}
         <span className="text-sm text-gray-500">{userEmail}</span>
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-white">
           👤
