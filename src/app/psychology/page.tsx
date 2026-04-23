@@ -22,7 +22,9 @@ type PsychologyEntry = {
 type Mistake = {
   id: string;
   name: string;
+  nameMn: string;
   category: string;
+  categoryMn: string;
 };
 
 const moodIcons = {
@@ -68,16 +70,76 @@ const moodIcons = {
 };
 
 const commonMistakes: Mistake[] = [
-  { id: "1", name: "FOMO (Fear Of Missing Out)", category: "emotional" },
-  { id: "2", name: "Revenge trading", category: "emotional" },
-  { id: "3", name: "Over-leveraging", category: "risk" },
-  { id: "4", name: "Moving stop loss", category: "discipline" },
-  { id: "5", name: "Not following plan", category: "discipline" },
-  { id: "6", name: "Trading during news", category: "strategy" },
-  { id: "7", name: "Overtrading", category: "discipline" },
-  { id: "8", name: "Not taking profit", category: "greed" },
-  { id: "9", name: "Holding losers too long", category: "fear" },
-  { id: "10", name: "Entering without confirmation", category: "discipline" },
+  {
+    id: "1",
+    name: "FOMO (Fear Of Missing Out)",
+    nameMn: "Алдах вий гэх айдас (FOMO)",
+    category: "emotional",
+    categoryMn: "сэтгэл хөдлөл",
+  },
+  {
+    id: "2",
+    name: "Revenge trading",
+    nameMn: "Өшөө хонзойх арилжаа",
+    category: "emotional",
+    categoryMn: "сэтгэл хөдлөл",
+  },
+  {
+    id: "3",
+    name: "Over-leveraging",
+    nameMn: "Хэт их хөшүүрэг ашиглах",
+    category: "risk",
+    categoryMn: "эрсдэл",
+  },
+  {
+    id: "4",
+    name: "Moving stop loss",
+    nameMn: "Stop loss-ийг зөөх",
+    category: "discipline",
+    categoryMn: "сахилга бат",
+  },
+  {
+    id: "5",
+    name: "Not following plan",
+    nameMn: "Төлөвлөгөөгөө дагахгүй байх",
+    category: "discipline",
+    categoryMn: "сахилга бат",
+  },
+  {
+    id: "6",
+    name: "Trading during news",
+    nameMn: "Мэдээний үеэр арилжаалах",
+    category: "strategy",
+    categoryMn: "стратеги",
+  },
+  {
+    id: "7",
+    name: "Overtrading",
+    nameMn: "Хэт их арилжаалах",
+    category: "discipline",
+    categoryMn: "сахилга бат",
+  },
+  {
+    id: "8",
+    name: "Not taking profit",
+    nameMn: "Ашгаа авахгүй байх",
+    category: "greed",
+    categoryMn: "шунал",
+  },
+  {
+    id: "9",
+    name: "Holding losers too long",
+    nameMn: "Алдагдалтай арилжааг удаан барих",
+    category: "fear",
+    categoryMn: "айдас",
+  },
+  {
+    id: "10",
+    name: "Entering without confirmation",
+    nameMn: "Баталгаажуулалтгүйгээр орох",
+    category: "discipline",
+    categoryMn: "сахилга бат",
+  },
 ];
 
 export default function PsychologyPage() {
@@ -490,7 +552,10 @@ export default function PsychologyPage() {
                         }}
                         className="rounded dark:bg-gray-800"
                       />
-                      {mistake.name}
+                      <span>{mistake.nameMn}</span>
+                      <span className="text-xs text-gray-400">
+                        ({mistake.name})
+                      </span>
                     </label>
                   ))}
                 </div>
