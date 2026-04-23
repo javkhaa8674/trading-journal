@@ -149,7 +149,6 @@ export default function PsychologyPage() {
   const [selectedMistakes, setSelectedMistakes] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [dateRange, setDateRange] = useState<"week" | "month" | "all">("week");
-
   const [formData, setFormData] = useState({
     date: new Date().toISOString().slice(0, 10),
     mood: "calm" as PsychologyEntry["mood"],
@@ -203,36 +202,47 @@ export default function PsychologyPage() {
 
     const user = await getCurrentUser();
     if (!user) {
-      alert("Please login first");
+      alert("Please login first / Нэвтрэнэ үү");
       setSubmitting(false);
       return;
     }
 
-    const { error } = await supabase.from("psychology_entries").insert({
-      user_id: user.id,
-      date: formData.date,
-      mood: formData.mood,
-      confidence_level: formData.confidence_level,
-      mistakes: selectedMistakes,
-      lesson_learned: formData.lesson_learned,
-      notes: formData.notes,
-      trades_count: formData.trades_count,
-      winning_trades: formData.winning_trades,
-      losing_trades: formData.losing_trades,
-      profit_loss: formData.profit_loss,
-    });
+    // UPSERT - if exists update, else insert
+    const { error } = await supabase.from("psychology_entries").upsert(
+      {
+        user_id: user.id,
+        date: formData.date,
+        mood: formData.mood,
+        confidence_level: formData.confidence_level,
+        mistakes: selectedMistakes,
+        lesson_learned: formData.lesson_learned,
+        notes: formData.notes,
+        trades_count: formData.trades_count,
+        winning_trades: formData.winning_trades,
+        losing_trades: formData.losing_trades,
+        profit_loss: formData.profit_loss,
+      },
+      {
+        onConflict: "user_id,date", // ✅ If conflict, update existing row
+      },
+    );
 
     if (error) {
       console.error(error);
-      alert("Error saving entry");
+      alert(error.message);
     } else {
+      alert("Entry saved successfully! / Амжилттай хадгалагдлаа!");
+
+      // Refresh entries
       const { data } = await supabase
         .from("psychology_entries")
         .select("*")
         .eq("user_id", user.id)
         .order("date", { ascending: false });
+
       setEntries(data || []);
       setShowForm(false);
+
       setFormData({
         date: new Date().toISOString().slice(0, 10),
         mood: "calm",
@@ -513,11 +523,12 @@ export default function PsychologyPage() {
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.profit_loss}
+                  value={formData.profit_loss || 0} // ✅ Default to 0 if NaN or empty
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      profit_loss: parseFloat(e.target.value),
+                      profit_loss:
+                        e.target.value === "" ? 0 : parseFloat(e.target.value),
                     })
                   }
                   className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
@@ -646,7 +657,8 @@ export default function PsychologyPage() {
                       {new Date(entry.date).toLocaleDateString()}
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      Confidence: {entry.confidence_level}/10 | Win Rate:{" "}
+                      Confidence/ Өөртөө итгэх итгэл: {entry.confidence_level}
+                      /10 | Win Rate/ Ялалтын хувь:{" "}
                       {entry.trades_count > 0
                         ? (
                             (entry.winning_trades / entry.trades_count) *
@@ -683,7 +695,7 @@ export default function PsychologyPage() {
                         key={mistakeId}
                         className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600 dark:bg-red-950/50 dark:text-red-400"
                       >
-                        {mistake.name}
+                        {mistake.name}/ {mistake.nameMn}
                       </span>
                     ) : null;
                   })}

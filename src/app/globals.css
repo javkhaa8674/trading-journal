@@ -25,3 +25,358 @@ body {
   color: var(--color-foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* app/globals.css дээр нэмэх */
+
+/* Editor Content Styles - Medium/Notion like */
+.ProseMirror {
+  outline: none;
+}
+
+.ProseMirror p {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+  color: #1a1a1a;
+}
+
+.dark .ProseMirror p {
+  color: #e5e5e5;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #9ca3af;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Headings */
+.ProseMirror h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.025em;
+  line-height: 1.3;
+}
+
+.ProseMirror h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.025em;
+  line-height: 1.4;
+}
+
+/* Lists */
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.ProseMirror li {
+  margin-bottom: 0.25rem;
+  line-height: 1.6;
+}
+
+/* Blockquote */
+.ProseMirror blockquote {
+  border-left: 4px solid #3b82f6;
+  padding-left: 1rem;
+  margin: 1rem 0;
+  font-style: italic;
+  color: #6b7280;
+}
+
+.dark .ProseMirror blockquote {
+  color: #9ca3af;
+}
+
+/* Code */
+.ProseMirror code {
+  background-color: #f3f4f6;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-family: monospace;
+  font-size: 0.875em;
+}
+
+.dark .ProseMirror code {
+  background-color: #1f2937;
+}
+
+.ProseMirror pre {
+  background-color: #1f2937;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.ProseMirror pre code {
+  background-color: transparent;
+  padding: 0;
+  color: #e5e5e5;
+}
+
+/* Images */
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+/* Links */
+.ProseMirror a {
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ProseMirror a:hover {
+  color: #2563eb;
+}
+
+/* Box стильүүд view mode-д харагдах */
+.prose div[style*="background-color"] {
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 1.5rem !important;
+  margin: 0.5rem 0 !important;
+}
+
+.prose ul {
+  list-style-type: disc !important;
+}
+
+.prose ol {
+  list-style-type: decimal !important;
+}
+
+.prose li {
+  margin: 0.25rem 0 !important;
+}
+
+.prose ul ul {
+  list-style-type: circle !important;
+}
+
+.prose ol ol {
+  list-style-type: lower-alpha !important;
+}
+/* app/globals.css - дээр нэмэх */
+
+/* Box стильүүд */
+.trading-plan-content div[style*="background-color"] {
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  padding: 1rem;
+}
+
+.trading-plan-content ul,
+.trading-plan-content ol {
+  padding-left: 1.5rem !important;
+  margin: 0.5rem 0 !important;
+}
+
+.trading-plan-content ul {
+  list-style-type: disc !important;
+}
+
+.trading-plan-content ol {
+  list-style-type: decimal !important;
+}
+
+.trading-plan-content li {
+  margin: 0.25rem 0 !important;
+  line-height: 1.5 !important;
+}
+
+.trading-plan-content ul ul {
+  list-style-type: circle !important;
+}
+
+.trading-plan-content ol ol {
+  list-style-type: lower-alpha !important;
+}
+
+/* Heading styles inside boxes */
+.trading-plan-content div h2 {
+  margin-top: 0 !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.trading-plan-content div h3 {
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.25rem !important;
+}
+
+/* Strong text inside boxes */
+.trading-plan-content div strong {
+  color: #2563eb;
+}
+
+.dark .trading-plan-content div strong {
+  color: #60a5fa;
+}
+
+/* app/globals.css */
+
+/* Custom Box Styles for View Mode */
+.custom-box {
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  padding: 1rem;
+}
+
+.custom-box p {
+  margin: 0 !important;
+}
+
+/* Trading Plan Content */
+.trading-plan-content div[style*="background-color"] {
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  padding: 1rem;
+}
+
+.trading-plan-content div[style*="background-color"] p {
+  margin: 0 !important;
+}
+
+.trading-plan-content ul,
+.trading-plan-content ol {
+  padding-left: 1.5rem !important;
+  margin: 0.5rem 0 !important;
+}
+
+.trading-plan-content ul {
+  list-style-type: disc !important;
+}
+
+.trading-plan-content ol {
+  list-style-type: decimal !important;
+}
+
+.trading-plan-content li {
+  margin: 0.25rem 0 !important;
+}
+/* Trading Plan Content Styles */
+.trading-plan-content div[style*="background-color"] {
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  padding: 1rem;
+}
+
+.trading-plan-content div[style*="background-color"] p {
+  margin: 0 !important;
+}
+
+.trading-plan-content ul,
+.trading-plan-content ol {
+  padding-left: 1.5rem !important;
+  margin: 0.5rem 0 !important;
+}
+
+.trading-plan-content ul {
+  list-style-type: disc !important;
+}
+
+.trading-plan-content ol {
+  list-style-type: decimal !important;
+}
+
+.trading-plan-content li {
+  margin: 0.25rem 0 !important;
+  line-height: 1.5 !important;
+}
+/* Light mode */
+.box-step-1 {
+  background-color: #eff6ff;
+  border-left: 4px solid #3b82f6;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.box-step-2 {
+  background-color: #f5f3ff;
+  border-left: 4px solid #8b5cf6;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.box-step-3 {
+  background-color: #ecfdf5;
+  border-left: 4px solid #10b981;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.box-step-4 {
+  background-color: #fff7ed;
+  border-left: 4px solid #f97316;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+/* Dark mode */
+.dark .box-step-1 {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-left-color: #3b82f6;
+}
+
+.dark .box-step-2 {
+  background-color: rgba(139, 92, 246, 0.1);
+  border-left-color: #8b5cf6;
+}
+
+.dark .box-step-3 {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-left-color: #10b981;
+}
+
+.dark .box-step-4 {
+  background-color: rgba(249, 115, 22, 0.1);
+  border-left-color: #f97316;
+}
+
+.dark .box-step-1 h4,
+.dark .box-step-2 h4,
+.dark .box-step-3 h4,
+.dark .box-step-4 h4 {
+  color: #ffffff;
+}
+
+.dark .box-step-1 ul,
+.dark .box-step-2 ul,
+.dark .box-step-3 ul,
+.dark .box-step-4 ul {
+  color: #d1d5db;
+}
