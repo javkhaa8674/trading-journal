@@ -83,14 +83,14 @@ export default function EditTradePage() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="text-gray-500">Loading trade...</div>
+        <div className="text-gray-500 dark:text-gray-400">Loading trade...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-lg bg-red-50 p-4 text-red-600">
+      <div className="rounded-lg bg-red-50 p-4 text-red-600 dark:bg-red-950/50 dark:text-red-400">
         Error: {error}
       </div>
     );
@@ -98,34 +98,38 @@ export default function EditTradePage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-bold">Edit Trade</h1>
+      <h1 className="mb-6 text-2xl font-bold dark:text-white">Edit Trade</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium">Symbol</label>
+            <label className="block text-sm font-medium dark:text-gray-300">
+              Symbol
+            </label>
             <input
               type="text"
               value={formData.symbol || ""}
               onChange={(e) =>
                 setFormData({ ...formData, symbol: e.target.value })
               }
-              className="mt-1 w-full rounded border p-2"
+              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Type</label>
+            <label className="block text-sm font-medium dark:text-gray-300">
+              Type
+            </label>
             <select
               value={formData.type || "buy"}
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  type: e.target.value as "buy" | "sell", // ✅ Type assertion
+                  type: e.target.value as "buy" | "sell",
                 })
               }
-              className="mt-1 w-full rounded border p-2"
+              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
             >
               <option value="buy">Buy (Long)</option>
               <option value="sell">Sell (Short)</option>
@@ -133,7 +137,9 @@ export default function EditTradePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Entry Price</label>
+            <label className="block text-sm font-medium dark:text-gray-300">
+              Entry Price
+            </label>
             <input
               type="number"
               step="0.00001"
@@ -144,13 +150,15 @@ export default function EditTradePage() {
                   entry_price: parseFloat(e.target.value),
                 })
               }
-              className="mt-1 w-full rounded border p-2"
+              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Exit Price</label>
+            <label className="block text-sm font-medium dark:text-gray-300">
+              Exit Price
+            </label>
             <input
               type="number"
               step="0.00001"
@@ -161,13 +169,15 @@ export default function EditTradePage() {
                   exit_price: parseFloat(e.target.value),
                 })
               }
-              className="mt-1 w-full rounded border p-2"
+              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Lot Size</label>
+            <label className="block text-sm font-medium dark:text-gray-300">
+              Lot Size
+            </label>
             <input
               type="number"
               step="0.01"
@@ -178,13 +188,15 @@ export default function EditTradePage() {
                   lot_size: parseFloat(e.target.value),
                 })
               }
-              className="mt-1 w-full rounded border p-2"
+              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Profit</label>
+            <label className="block text-sm font-medium dark:text-gray-300">
+              Profit
+            </label>
             <input
               type="number"
               step="0.01"
@@ -192,13 +204,15 @@ export default function EditTradePage() {
               onChange={(e) =>
                 setFormData({ ...formData, profit: parseFloat(e.target.value) })
               }
-              className="mt-1 w-full rounded border p-2"
+              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Stop Loss</label>
+            <label className="block text-sm font-medium dark:text-gray-300">
+              Stop Loss
+            </label>
             <input
               type="number"
               step="0.00001"
@@ -209,12 +223,14 @@ export default function EditTradePage() {
                   stop_loss: parseFloat(e.target.value),
                 })
               }
-              className="mt-1 w-full rounded border p-2"
+              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Take Profit</label>
+            <label className="block text-sm font-medium dark:text-gray-300">
+              Take Profit
+            </label>
             <input
               type="number"
               step="0.00001"
@@ -225,12 +241,14 @@ export default function EditTradePage() {
                   take_profit: parseFloat(e.target.value),
                 })
               }
-              className="mt-1 w-full rounded border p-2"
+              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Open Time</label>
+            <label className="block text-sm font-medium dark:text-gray-300">
+              Open Time
+            </label>
             <input
               type="datetime-local"
               value={
@@ -241,12 +259,14 @@ export default function EditTradePage() {
               onChange={(e) =>
                 setFormData({ ...formData, open_time: e.target.value })
               }
-              className="mt-1 w-full rounded border p-2"
+              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Close Time</label>
+            <label className="block text-sm font-medium dark:text-gray-300">
+              Close Time
+            </label>
             <input
               type="datetime-local"
               value={
@@ -257,14 +277,14 @@ export default function EditTradePage() {
               onChange={(e) =>
                 setFormData({ ...formData, close_time: e.target.value })
               }
-              className="mt-1 w-full rounded border p-2"
+              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
             />
           </div>
         </div>
 
         {error && (
-          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-            {error}
+          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">
+            Error: {error}
           </div>
         )}
 
@@ -272,7 +292,7 @@ export default function EditTradePage() {
           <button
             type="button"
             onClick={() => router.push("/trades")}
-            className="rounded-lg border px-4 py-2 hover:bg-gray-50"
+            className="rounded-lg border px-4 py-2 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
           >
             Cancel
           </button>

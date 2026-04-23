@@ -179,19 +179,21 @@ export default function TradeForm() {
     setBulkText("");
     router.replace("/trades");
   };
+
   const filtedAccounts = accounts.filter((acc) => acc.status === "active");
+
   // -------------------------
   // UI
   // -------------------------
   return (
-    <div className="max-w-2xl mx-auto p-6 border rounded-xl shadow space-y-4 bg-white">
-      <h2 className="text-xl font-semibold">Add New Trade</h2>
+    <div className="max-w-2xl mx-auto p-6 border rounded-xl shadow space-y-4 bg-white dark:bg-gray-900 dark:border-gray-800">
+      <h2 className="text-xl font-semibold dark:text-white">Add New Trade</h2>
 
       {/* ACCOUNT */}
       <select
         value={accountId}
         onChange={(e) => setAccountId(e.target.value)}
-        className="w-full p-2 border rounded"
+        className="w-full p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
       >
         <option value="">Select Account</option>
         {filtedAccounts.map((acc) => (
@@ -206,12 +208,12 @@ export default function TradeForm() {
         <input
           placeholder="Symbol (EURUSD)"
           onChange={(e) => setSymbol(e.target.value)}
-          className="p-2 border rounded"
+          className="p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
         />
 
         <select
           onChange={(e) => setType(e.target.value)}
-          className="p-2 border rounded"
+          className="p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
         >
           <option value="buy">Buy</option>
           <option value="sell">Sell</option>
@@ -224,13 +226,13 @@ export default function TradeForm() {
           type="number"
           placeholder="Entry"
           onChange={(e) => setEntry(+e.target.value)}
-          className="p-2 border rounded"
+          className="p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
         />
         <input
           type="number"
           placeholder="Exit"
           onChange={(e) => setExit(+e.target.value)}
-          className="p-2 border rounded"
+          className="p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
         />
       </div>
 
@@ -239,25 +241,25 @@ export default function TradeForm() {
           type="number"
           placeholder="SL"
           onChange={(e) => setSl(+e.target.value)}
-          className="p-2 border rounded"
+          className="p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
         />
         <input
           type="number"
           placeholder="TP"
           onChange={(e) => setTp(+e.target.value)}
-          className="p-2 border rounded"
+          className="p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
         />
         <input
           type="number"
           placeholder="Lot"
           onChange={(e) => setLot(+e.target.value)}
-          className="p-2 border rounded"
+          className="p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
         />
         <input
           type="number"
           placeholder="Profit"
           onChange={(e) => setProfit(+e.target.value)}
-          className="p-2 border rounded"
+          className="p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
         />
       </div>
 
@@ -266,12 +268,12 @@ export default function TradeForm() {
         <input
           type="datetime-local"
           onChange={(e) => setOpenTime(e.target.value)}
-          className="p-2 border rounded"
+          className="p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
         />
         <input
           type="datetime-local"
           onChange={(e) => setCloseTime(e.target.value)}
-          className="p-2 border rounded"
+          className="p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
         />
       </div>
 
@@ -283,7 +285,7 @@ export default function TradeForm() {
         Save Single Trade
       </button>
 
-      <hr />
+      <hr className="dark:border-gray-700" />
 
       {/* BULK INPUT */}
       <textarea
@@ -291,7 +293,7 @@ export default function TradeForm() {
 symbol	type	entry_price	exit_price	lot_size	open_time	close_time	stop_loss	take_profit	profit"
         value={bulkText}
         onChange={(e) => setBulkText(e.target.value)}
-        className="w-full p-2 border rounded h-40"
+        className="w-full p-2 border rounded h-40 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
       />
 
       {/* BULK SUBMIT */}

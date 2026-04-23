@@ -99,14 +99,16 @@ export default function EditAccountPage() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="text-gray-500">Loading account...</div>
+        <div className="text-gray-500 dark:text-gray-400">
+          Loading account...
+        </div>
       </div>
     );
   }
 
   if (error || !formData) {
     return (
-      <div className="rounded-lg bg-red-50 p-4 text-red-600">
+      <div className="rounded-lg bg-red-50 p-4 text-red-600 dark:bg-red-950/50 dark:text-red-400">
         Error: {error || "Account not found"}
       </div>
     );
@@ -114,19 +116,19 @@ export default function EditAccountPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-bold">Edit Account</h1>
+      <h1 className="mb-6 text-2xl font-bold dark:text-white">Edit Account</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Account Name - Editable */}
         <div>
           <div className="flex items-center justify-between">
-            <label className="block text-sm font-medium mb-1">
+            <label className="block text-sm font-medium mb-1 dark:text-gray-300">
               Account Name
             </label>
             <button
               type="button"
               onClick={() => setRegenerateName(true)}
-              className="text-xs text-blue-500 hover:text-blue-600"
+              className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
             >
               🔄 Regenerate
             </button>
@@ -135,16 +137,16 @@ export default function EditAccountPage() {
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Format: Broker + Mode + Balance + Timestamp
           </p>
         </div>
 
         {/* Regenerate Confirmation */}
         {regenerateName && (
-          <div className="rounded-lg bg-yellow-50 p-3 dark:bg-yellow-950">
+          <div className="rounded-lg bg-yellow-50 p-3 dark:bg-yellow-950/30 dark:border dark:border-yellow-800/50">
             <p className="text-sm text-yellow-800 dark:text-yellow-300">
               Regenerate account name with current values?
             </p>
@@ -159,7 +161,7 @@ export default function EditAccountPage() {
               <button
                 type="button"
                 onClick={() => setRegenerateName(false)}
-                className="rounded border px-3 py-1 text-xs hover:bg-gray-50"
+                className="rounded border px-3 py-1 text-xs hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 Cancel
               </button>
@@ -169,25 +171,29 @@ export default function EditAccountPage() {
 
         {/* Broker */}
         <div>
-          <label className="block text-sm font-medium mb-1">Broker *</label>
+          <label className="block text-sm font-medium mb-1 dark:text-gray-300">
+            Broker *
+          </label>
           <input
             type="text"
             value={formData.broker}
             onChange={(e) =>
               setFormData({ ...formData, broker: e.target.value })
             }
-            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
             required
           />
         </div>
 
         {/* Mode */}
         <div>
-          <label className="block text-sm font-medium mb-1">Mode *</label>
+          <label className="block text-sm font-medium mb-1 dark:text-gray-300">
+            Mode *
+          </label>
           <select
             value={formData.mode}
             onChange={(e) => setFormData({ ...formData, mode: e.target.value })}
-            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
           >
             <option value="demo">Demo</option>
             <option value="live">Live</option>
@@ -197,24 +203,28 @@ export default function EditAccountPage() {
             <option value="funded">Funded</option>
           </select>
         </div>
+
         {/* Status */}
         <div>
-          <label className="block text-sm font-medium mb-1">Status</label>
+          <label className="block text-sm font-medium mb-1 dark:text-gray-300">
+            Status
+          </label>
           <select
             value={formData.status}
             onChange={(e) =>
               setFormData({ ...formData, status: e.target.value })
             }
-            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
           >
             <option value="active">Active</option>
             <option value="closed">Closed</option>
+            <option value="achieved">Achieved</option>
           </select>
         </div>
 
         {/* Balance */}
         <div>
-          <label className="block text-sm font-medium mb-1">
+          <label className="block text-sm font-medium mb-1 dark:text-gray-300">
             Balance ($) *
           </label>
           <input
@@ -224,13 +234,13 @@ export default function EditAccountPage() {
             onChange={(e) =>
               setFormData({ ...formData, balance: parseFloat(e.target.value) })
             }
-            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
             required
           />
         </div>
 
         {error && (
-          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">
             Error: {error}
           </div>
         )}
@@ -239,7 +249,7 @@ export default function EditAccountPage() {
           <button
             type="button"
             onClick={() => router.push("/accounts")}
-            className="rounded-lg border px-4 py-2 hover:bg-gray-50"
+            className="rounded-lg border px-4 py-2 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
           >
             Cancel
           </button>

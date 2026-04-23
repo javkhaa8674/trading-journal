@@ -60,12 +60,14 @@ export default function CreateAccountPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-bold">Create New Account</h1>
+      <h1 className="mb-6 text-2xl font-bold dark:text-white">
+        Create New Account
+      </h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Broker */}
         <div>
-          <label className="block text-sm font-medium mb-1">
+          <label className="block text-sm font-medium mb-1 dark:text-gray-300">
             Broker Name *
           </label>
           <input
@@ -74,7 +76,7 @@ export default function CreateAccountPage() {
             onChange={(e) =>
               setFormData({ ...formData, broker: e.target.value })
             }
-            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
             placeholder="e.g., Interactive Brokers"
             required
           />
@@ -82,11 +84,13 @@ export default function CreateAccountPage() {
 
         {/* Mode */}
         <div>
-          <label className="block text-sm font-medium mb-1">Mode *</label>
+          <label className="block text-sm font-medium mb-1 dark:text-gray-300">
+            Mode *
+          </label>
           <select
             value={formData.mode}
             onChange={(e) => setFormData({ ...formData, mode: e.target.value })}
-            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
           >
             <option value="demo">Demo</option>
             <option value="live">Live</option>
@@ -99,7 +103,7 @@ export default function CreateAccountPage() {
 
         {/* Balance */}
         <div>
-          <label className="block text-sm font-medium mb-1">
+          <label className="block text-sm font-medium mb-1 dark:text-gray-300">
             Initial Balance ($) *
           </label>
           <input
@@ -109,34 +113,40 @@ export default function CreateAccountPage() {
             onChange={(e) =>
               setFormData({ ...formData, balance: parseFloat(e.target.value) })
             }
-            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
             placeholder="10000"
             required
           />
         </div>
+
+        {/* Status */}
         <div>
-          <label className="block text-sm font-medium mb-1">Status</label>
+          <label className="block text-sm font-medium mb-1 dark:text-gray-300">
+            Status
+          </label>
           <select
             value={formData.status}
             onChange={(e) =>
               setFormData({ ...formData, status: e.target.value })
             }
-            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
           >
-            <option value="active">active</option>
-            <option value="closed">closed</option>
+            <option value="active">Active</option>
+            <option value="closed">Closed</option>
+            <option value="achieved">Achieved</option>
           </select>
         </div>
+
         {/* Preview Account Name */}
         {previewName && (
-          <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-950">
+          <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-950/30 dark:border dark:border-blue-800/50">
             <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
               Account Name Preview:
             </p>
             <p className="mt-1 text-sm text-blue-600 dark:text-blue-400">
               {previewName}
             </p>
-            <p className="mt-2 text-xs text-blue-500">
+            <p className="mt-2 text-xs text-blue-500 dark:text-blue-400/70">
               ℹ️ Account name will be automatically generated as: Broker + Mode
               + Balance + Timestamp
             </p>
@@ -144,7 +154,7 @@ export default function CreateAccountPage() {
         )}
 
         {error && (
-          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">
             Error: {error}
           </div>
         )}
@@ -153,7 +163,7 @@ export default function CreateAccountPage() {
           <button
             type="button"
             onClick={() => router.push("/accounts")}
-            className="rounded-lg border px-4 py-2 hover:bg-gray-50"
+            className="rounded-lg border px-4 py-2 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
           >
             Cancel
           </button>

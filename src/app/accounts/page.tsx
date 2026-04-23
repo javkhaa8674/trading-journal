@@ -100,8 +100,8 @@ export default function AccountsPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Accounts</h1>
-          <p className="text-sm text-gray-500">Manage your trading accounts</p>
+          <h1 className="text-2xl font-bold">Данс/ Accounts</h1>
+          <p className="text-sm text-gray-500">Арилжааны данснуудыг удирдах</p>
         </div>
 
         <button
