@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
-import { Deposit, DepositMethod } from "@/types/deposit";
+import { DepositMethod } from "@/types/deposit";
 import { getStatusColor, getStatusIcon } from "@/lib/utils/statusUtils";
 
 type Account = {
@@ -12,6 +12,18 @@ type Account = {
   name: string;
   balance: number;
   status: string;
+};
+
+type Deposit = {
+  id: string;
+  user_id: string;
+  account_id: string;
+  amount: number;
+  method: "bank_transfer" | "crypto" | "credit_card" | "paypal" | "other";
+  transaction_id?: string;
+  description?: string;
+  date: string;
+  created_at: string;
 };
 
 const depositMethods: DepositMethod[] = [
@@ -162,51 +174,19 @@ export default function DepositsPage() {
       }
     }
 
-    // Calculate fee
-    const fee = selectedMethod
-      ? (formData.amount * selectedMethod.fee) / 100
-      : 0;
-    const netAmount = formData.amount - fee;
-
-    // Insert deposit
-    const { data: depositData, error: depositError } = await supabase
-      .from("deposits")
-      .insert({
-        user_id: user.id,
-        account_id: formData.account_id,
-        amount: formData.amount,
-        method: formData.method,
-        transaction_id: formData.transaction_id || null,
-        description: formData.description || null,
-        status: "completed",
-        date: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    // Insert deposit (status хадгалахгүй, balance шинэчлэхгүй)
+    const { error: depositError } = await supabase.from("deposits").insert({
+      user_id: user.id,
+      account_id: formData.account_id,
+      amount: formData.amount,
+      method: formData.method,
+      transaction_id: formData.transaction_id || null,
+      description: formData.description || null,
+      date: new Date().toISOString(),
+    });
 
     if (depositError) {
       setError(depositError.message);
-      setSubmitting(false);
-      return;
-    }
-
-    // Update account balance
-    const { error: updateError } = await supabase
-      .from("accounts")
-      .update({
-        balance: supabase.rpc("increment", {
-          row_id: formData.account_id,
-          amount: netAmount,
-        }),
-      })
-      .eq("id", formData.account_id);
-
-    if (updateError) {
-      // Rollback - delete deposit
-      await supabase.from("deposits").delete().eq("id", depositData.id);
-      setError(
-        "Дансны баланс шинэчлэгдсэнгүй / Failed to update account balance",
-      );
       setSubmitting(false);
       return;
     }
@@ -262,39 +242,7 @@ export default function DepositsPage() {
     return m ? m.nameMn : "Бусад";
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "completed":
-        return (
-          <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-700 dark:bg-green-950 dark:text-green-400">
-            ✅ Амжилттай / Completed
-          </span>
-        );
-      case "pending":
-        return (
-          <span className="rounded-full bg-yellow-100 px-2 py-1 text-xs text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400">
-            ⏳ Хүлээгдэж буй / Pending
-          </span>
-        );
-      case "failed":
-        return (
-          <span className="rounded-full bg-red-100 px-2 py-1 text-xs text-red-700 dark:bg-red-950 dark:text-red-400">
-            ❌ Амжилтгүй / Failed
-          </span>
-        );
-      default:
-        return (
-          <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-400">
-            {status}
-          </span>
-        );
-    }
-  };
-
-  const totalDeposits = deposits.reduce(
-    (sum, d) => sum + (d.status === "completed" ? d.amount : 0),
-    0,
-  );
+  const totalDeposits = deposits.reduce((sum, d) => sum + d.amount, 0);
 
   if (loading) {
     return (
@@ -347,9 +295,7 @@ export default function DepositsPage() {
         <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">📊</span>
-            <span className="text-sm">
-              Нийт хадгаламж / Total Deposits (All Time)
-            </span>
+            <span className="text-sm">Нийт гүйлгээ / Total Transactions</span>
           </div>
           <div className="mt-2 text-2xl font-bold dark:text-white">
             {deposits.length}
@@ -361,7 +307,7 @@ export default function DepositsPage() {
             <span className="text-sm">Идэвхтэй данс / Active Accounts</span>
           </div>
           <div className="mt-2 text-2xl font-bold dark:text-white">
-            {accounts.length}
+            {filteredAccounts.length}
           </div>
         </div>
       </div>
@@ -505,7 +451,7 @@ export default function DepositsPage() {
               >
                 {submitting
                   ? "Боловсруулж байна / Processing..."
-                  : "✅ Хадгалах / Confirm Deposit"}
+                  : "✅ Хадгалах / Deposit"}
               </button>
               <button
                 type="button"
@@ -543,9 +489,6 @@ export default function DepositsPage() {
                   💰 Дүн / Amount
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
-                  📊 Төлөв / Status
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
                   🔢 Гүйлгээний ID / Transaction ID
                 </th>
               </tr>
@@ -554,13 +497,13 @@ export default function DepositsPage() {
               {deposits.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={5}
                     className="py-8 text-center text-gray-500 dark:text-gray-400"
                   >
                     📭 Хадгаламж байхгүй байна / No deposits yet.
                     <br />
-                    ✏️ &quot;Шинэ хадгаламж&quot; товч дарж нэмэх / Click
-                    &quot;New Deposit&quot; to add one.
+                    ✏️ "Шинэ хадгаламж" товч дарж нэмэх / Click "New Deposit" to
+                    add one.
                   </td>
                 </tr>
               ) : (
@@ -587,9 +530,6 @@ export default function DepositsPage() {
                       </td>
                       <td className="px-4 py-3 text-right text-sm font-medium text-green-600 dark:text-green-400">
                         +${deposit.amount.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {getStatusBadge(deposit.status)}
                       </td>
                       <td className="px-4 py-3 text-sm font-mono text-xs dark:text-gray-400">
                         {deposit.transaction_id || "-"}

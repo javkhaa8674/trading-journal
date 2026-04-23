@@ -20,11 +20,9 @@ type Withdrawal = {
   account_id: string;
   amount: number;
   method: "bank_transfer" | "crypto" | "paypal" | "other";
-  status: "pending" | "completed" | "failed" | "cancelled";
   transaction_id?: string;
   description?: string;
   date: string;
-  processed_at?: string;
   created_at: string;
 };
 
@@ -135,7 +133,7 @@ export default function WithdrawalsPage() {
 
       setAccounts(accountsData || []);
 
-      // Load withdrawals
+      // Load withdrawals (status байхгүй, бүгд амжилттай гэж үзнэ)
       const { data: withdrawalsData } = await supabase
         .from("withdrawals")
         .select("*")
@@ -217,8 +215,8 @@ export default function WithdrawalsPage() {
       : 0;
     const netAmount = formData.amount - fee;
 
-    // Insert withdrawal
-    const { data: withdrawalData, error: withdrawalError } = await supabase
+    // Insert withdrawal (status хадгалахгүй)
+    const { error: withdrawalError } = await supabase
       .from("withdrawals")
       .insert({
         user_id: user.id,
@@ -228,11 +226,8 @@ export default function WithdrawalsPage() {
         transaction_id: formData.transaction_id || null,
         description: formData.description || null,
         account_details: formData.account_details || null,
-        status: "pending",
         date: new Date().toISOString(),
-      })
-      .select()
-      .single();
+      });
 
     if (withdrawalError) {
       setError(withdrawalError.message);
@@ -240,15 +235,13 @@ export default function WithdrawalsPage() {
       return;
     }
 
-    // Update account balance
+    // Update account balance (мөнгийг хасах)
     const { error: updateError } = await supabase
       .from("accounts")
       .update({ balance: selectedAccount.balance - netAmount })
       .eq("id", formData.account_id);
 
     if (updateError) {
-      // Rollback - delete withdrawal
-      await supabase.from("withdrawals").delete().eq("id", withdrawalData.id);
       setError(
         "Дансны баланс шинэчлэгдсэнгүй / Failed to update account balance",
       );
@@ -257,7 +250,7 @@ export default function WithdrawalsPage() {
     }
 
     setSuccess(
-      `$${formData.amount.toFixed(2)} -ийн мөнгө авах хүсэлт амжилттай илгээгдлээ! / Withdrawal request of $${formData.amount.toFixed(2)} submitted successfully!`,
+      `$${formData.amount.toFixed(2)} -ийн мөнгө амжилттай гаргалаа! / Successfully withdrew $${formData.amount.toFixed(2)}!`,
     );
     setShowForm(false);
     setFormData({
@@ -306,49 +299,7 @@ export default function WithdrawalsPage() {
     return m ? m.nameMn : "Бусад";
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "completed":
-        return (
-          <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-700 dark:bg-green-950 dark:text-green-400">
-            ✅ Амжилттай / Completed
-          </span>
-        );
-      case "pending":
-        return (
-          <span className="rounded-full bg-yellow-100 px-2 py-1 text-xs text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400">
-            ⏳ Хүлээгдэж буй / Pending
-          </span>
-        );
-      case "failed":
-        return (
-          <span className="rounded-full bg-red-100 px-2 py-1 text-xs text-red-700 dark:bg-red-950 dark:text-red-400">
-            ❌ Амжилтгүй / Failed
-          </span>
-        );
-      case "cancelled":
-        return (
-          <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-400">
-            ❌ Цуцлагдсан / Cancelled
-          </span>
-        );
-      default:
-        return (
-          <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-400">
-            {status}
-          </span>
-        );
-    }
-  };
-
-  const totalWithdrawals = withdrawals.reduce(
-    (sum, w) => sum + (w.status === "completed" ? w.amount : 0),
-    0,
-  );
-  const pendingWithdrawals = withdrawals.reduce(
-    (sum, w) => sum + (w.status === "pending" ? w.amount : 0),
-    0,
-  );
+  const totalWithdrawals = withdrawals.reduce((sum, w) => sum + w.amount, 0);
 
   if (loading) {
     return (
@@ -371,11 +322,11 @@ export default function WithdrawalsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold dark:text-white">
-            💸 Мөнгө авах хүсэлт / Withdrawals
+            💸 Мөнгө авах / Withdrawals
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Арилжааны данснаас мөнгө авах хүсэлт илгээх / Request withdrawals
-            from your trading accounts
+            Арилжааны данснаас мөнгө гаргах / Withdraw money from your trading
+            accounts
           </p>
         </div>
         <button
@@ -383,16 +334,16 @@ export default function WithdrawalsPage() {
           className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
         >
           <span className="text-lg">+</span>
-          <span>Шинэ хүсэлт / New Request</span>
+          <span>➕ Мөнгө гаргах / Withdraw</span>
         </button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">💰</span>
-            <span className="text-sm">Нийт авсан / Total Withdrawn</span>
+            <span className="text-sm">💰 Нийт гаргасан / Total Withdrawn</span>
           </div>
           <div className="mt-2 text-2xl font-bold text-orange-600 dark:text-orange-400">
             ${totalWithdrawals.toLocaleString()}
@@ -400,17 +351,10 @@ export default function WithdrawalsPage() {
         </div>
         <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span className="text-lg">⏳</span>
-            <span className="text-sm">Хүлээгдэж буй / Pending</span>
-          </div>
-          <div className="mt-2 text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-            ${pendingWithdrawals.toLocaleString()}
-          </div>
-        </div>
-        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
-          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">📊</span>
-            <span className="text-sm">Нийт хүсэлт / Total Requests</span>
+            <span className="text-sm">
+              📊 Нийт гүйлгээ / Total Transactions
+            </span>
           </div>
           <div className="mt-2 text-2xl font-bold dark:text-white">
             {withdrawals.length}
@@ -418,11 +362,11 @@ export default function WithdrawalsPage() {
         </div>
         <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span className="text-lg">✅</span>
-            <span className="text-sm">Амжилттай / Completed</span>
+            <span className="text-lg">🏦</span>
+            <span className="text-sm">🏦 Идэвхтэй данс / Active Accounts</span>
           </div>
-          <div className="mt-2 text-2xl font-bold text-green-600 dark:text-green-400">
-            {withdrawals.filter((w) => w.status === "completed").length}
+          <div className="mt-2 text-2xl font-bold dark:text-white">
+            {filteredAccounts.length}
           </div>
         </div>
       </div>
@@ -431,7 +375,7 @@ export default function WithdrawalsPage() {
       {showForm && (
         <div className="rounded-lg border bg-white p-6 dark:bg-gray-900 dark:border-gray-800">
           <h2 className="mb-4 text-lg font-semibold dark:text-white">
-            📝 Шинэ хүсэлт / New Withdrawal Request
+            📝 Мөнгө гаргах / Withdrawal
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -584,7 +528,7 @@ export default function WithdrawalsPage() {
             {selectedMethod && selectedMethod.fee > 0 && (
               <div className="rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-800">
                 <div className="flex justify-between">
-                  <span>💰 Хүсэлтийн дүн / Withdrawal Amount:</span>
+                  <span>💰 Гаргах дүн / Withdrawal Amount:</span>
                   <span>${formData.amount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-red-600">
@@ -626,8 +570,8 @@ export default function WithdrawalsPage() {
                 className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
               >
                 {submitting
-                  ? "Илгээж байна / Processing..."
-                  : "✉️ Хүсэлт илгээх / Submit Request"}
+                  ? "Боловсруулж байна / Processing..."
+                  : "✅ Мөнгө гаргах / Withdraw"}
               </button>
               <button
                 type="button"
@@ -645,7 +589,7 @@ export default function WithdrawalsPage() {
       <div className="rounded-lg border bg-white dark:bg-gray-900 dark:border-gray-800">
         <div className="border-b p-4 dark:border-gray-800">
           <h2 className="text-lg font-semibold dark:text-white">
-            📋 Хүсэлтийн түүх / Withdrawal History
+            📋 Гүйлгээний түүх / Withdrawal History
           </h2>
         </div>
         <div className="overflow-x-auto">
@@ -665,9 +609,6 @@ export default function WithdrawalsPage() {
                   💰 Дүн / Amount
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
-                  📊 Төлөв / Status
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
                   🔢 Гүйлгээний ID / Transaction ID
                 </th>
               </tr>
@@ -676,13 +617,13 @@ export default function WithdrawalsPage() {
               {withdrawals.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={5}
                     className="py-8 text-center text-gray-500 dark:text-gray-400"
                   >
-                    📭 Хүсэлт байхгүй байна / No withdrawals yet.
+                    📭 Гүйлгээ байхгүй байна / No withdrawals yet.
                     <br />
-                    ✏️ &quot;Шинэ хүсэлт&quot; товч дарж нэмэх / Click &quot;New
-                    Request&quot; to add one.
+                    ✏️ "Мөнгө гаргах" товч дарж нэмэх / Click "Withdraw" to add
+                    one.
                   </td>
                 </tr>
               ) : (
@@ -710,9 +651,6 @@ export default function WithdrawalsPage() {
                       <td className="px-4 py-3 text-right text-sm font-medium text-red-600 dark:text-red-400">
                         -${withdrawal.amount.toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-sm">
-                        {getStatusBadge(withdrawal.status)}
-                      </td>
                       <td className="px-4 py-3 text-sm font-mono text-xs dark:text-gray-400">
                         {withdrawal.transaction_id || "-"}
                       </td>
@@ -723,39 +661,6 @@ export default function WithdrawalsPage() {
             </tbody>
           </table>
         </div>
-      </div>
-
-      {/* Withdrawal Rules */}
-      <div className="rounded-lg border bg-blue-50 p-4 dark:bg-blue-950/20 dark:border-blue-800/30">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">📋</span>
-          <h3 className="font-semibold dark:text-white">
-            📋 Дүрэм / Withdrawal Rules
-          </h3>
-        </div>
-        <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-gray-700 dark:text-gray-300">
-          <li>
-            💰 Хамгийн бага дүн аргаас хамаарч өөр өөр / Minimum withdrawal
-            amount varies by method
-          </li>
-          <li>
-            ⏳ Боловсруулах хугацаа аргаас хамаарна / Processing time depends on
-            selected method
-          </li>
-          <li>
-            🔍 Хүсэлтүүд боловсруулахаас өмнө хянагдана / Withdrawals are
-            subject to review before processing
-          </li>
-          <li>
-            📆 Санхүүжүүлсэн дансууд мөнгө авахаас өмнө хамгийн бага арилжааны
-            өдрийн тоог хангасан байх ёстой / Funded accounts must meet minimum
-            trading days before withdrawal
-          </li>
-          <li>
-            💸 Зарим аргуудад шимтгэл авна / Withdrawal fees apply for some
-            methods
-          </li>
-        </ul>
       </div>
     </div>
   );
