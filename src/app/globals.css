@@ -155,3 +155,51 @@ body {
 .ProseMirror a:hover {
   color: #2563eb;
 }
+
+/* Dark mode styles for trading plan */
+.dark .dark-mode-box {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  border-left-color: #3b82f6 !important;
+}
+
+.dark .dark-mode-title {
+  color: #ffffff !important;
+}
+
+.dark .dark-mode-text {
+  color: #d1d5db !important;
+}
+
+/* Box-specific overrides for different colors */
+.dark div[style*="background-color: #EFF6FF"] {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+.dark div[style*="background-color: #F5F3FF"] {
+  background-color: rgba(139, 92, 246, 0.15) !important;
+}
+.dark div[style*="background-color: #ECFDF5"] {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+}
+.dark div[style*="background-color: #FFF7ED"] {
+  background-color: rgba(249, 115, 22, 0.15) !important;
+}
+.dark div[style*="background-color: #FEFCE8"] {
+  background-color: rgba(234, 179, 8, 0.15) !important;
+}
+.dark div[style*="background-color: #EEF2FF"] {
+  background-color: rgba(99, 102, 241, 0.15) !important;
+}
+
+.dark h2[style*="color: #1E3A8A"],
+.dark h2[style*="color: #4C1D95"],
+.dark h2[style*="color: #065F46"],
+.dark h2[style*="color: #9A3412"],
+.dark h2[style*="color: #854D0E"],
+.dark h2[style*="color: #3730A3"] {
+  color: #ffffff !important;
+}
+
+.dark li[style*="color: #374151"],
+.dark p[style*="color: #374151"] {
+  color: #d1d5db !important;
+}
