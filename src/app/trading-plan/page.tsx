@@ -16,98 +16,217 @@ type Section = {
 
 // Default content with box styles
 const defaultContents = {
-  strategy: `<div style="background-color: #EFF6FF; border-left: 4px solid #3B82F6; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
-  <h2 style="color: #1E3A8A; margin-top: 0;">Алхам 1: Зах зээлийн бүтэц ба чиглэл (Market Structure &amp; Trend)</h2>
-  <p>Өдөр тутмын (<strong>Daily, D1</strong>) болон 4 цагийн (<strong>4H, H4</strong>) графикаас зах зээлийн <strong>бүтэц ба чиглэлийг тодорхойлно</strong>.</p>
-  <ul>
-    <li><strong>Чиглэлтэйгээ нийцсэн (in line with trend)</strong> арилжааг илүү өндөр магадлалтай гэж үзнэ.</li>
-    <li>H4 болон H1-г ашиглан бүтцээ <strong>нарийвчлан тодорхойлж (refined structure)</strong>, өмнөх түвшин, mitigation-ийг санаж, одоогийн үнийн байршлыг ойлгоно.</li>
-  </ul>
+  strategy: `<div style="margin-bottom: 1rem;">
+  <!-- Step 1 - Blue Box -->
+  <div style="background-color: #EFF6FF; border-left: 4px solid #3B82F6; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; --dark-mode-bg: rgba(59, 130, 246, 0.15);">
+    <h4 style="color: #1E3A8A; font-weight: 600; margin: 0 0 0.5rem 0; --dark-mode-text: #ffffff;">
+      Алхам 1: Зах зээлийн бүтэц ба чиглэл (Market Structure &amp; Trend)
+    </h4>
+    <ul style="margin: 0.5rem 0 0 1.5rem; padding-left: 0; list-style-type: disc;">
+      <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;">Өдөр тутмын (<span style="font-family: monospace;">Daily, D1</span>) болон 4 цагийн (<span style="font-family: monospace;">4H, H4</span>) графикаас зах зээлийн <strong>бүтэц ба чиглэлийг тодорхойлно</strong>.</li>
+      <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;"><strong>Чиглэлтэйгээ нийцсэн (in line with trend)</strong> арилжааг илүү өндөр магадлалтай гэж үзнэ.</li>
+      <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;">H4 болон H1-г ашиглан бүтцээ <strong>нарийвчлан тодорхойлж (refined structure)</strong>, өмнөх түвшин, mitigation-ийг санаж, одоогийн үнийн байршлыг ойлгоно.</li>
+    </ul>
+  </div>
+
+  <!-- Step 2 - Purple Box -->
+  <div style="background-color: #F5F3FF; border-left: 4px solid #8B5CF6; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; --dark-mode-bg: rgba(139, 92, 246, 0.15);">
+    <h4 style="color: #4C1D95; font-weight: 600; margin: 0 0 0.5rem 0; --dark-mode-text: #ffffff;">
+      Алхам 2: Сонирхолтой бүс (Points of Interest, POI)
+    </h4>
+    <ul style="margin: 0.5rem 0 0 1.5rem; padding-left: 0; list-style-type: disc;">
+      <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;">Одоогийн тренд дотор <strong>imbalanced supply/demand</strong> бүсийг хайж, үнэ татах боломжтой бүсийг тодорхойлно.</li>
+      <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;">Өмнөх ёроолуудаас "<strong>liquidity sweep</strong>" хийх боломжтой бүсийг ч анхаарна.</li>
+      <li style="margin: 0.5rem 0 0 0; font-weight: 500; --dark-mode-text: #d1d5db;">Хүчинтэй эсэх POI-ийн шалгуур:</li>
+      <ul style="margin: 0.25rem 0 0 1.5rem; padding-left: 0; list-style-type: circle;">
+        <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;">✓ Одоогийн тренд дотор байрлах supply/demand бүс байгаа эсэх</li>
+        <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;">✓ <strong>Premium</strong> эсвэл <strong>discount</strong> дээр (50%-ийн retracement-ээс дээш/доош)</li>
+        <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;">✓ Бүтэц дотор <strong>imbalance үүсгэсэн (created imbalance)</strong> эсэх</li>
+        <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;">✓ Supply-бүсийн доор, эсвэл demand-бүсийн дээр <strong>liquidity</strong> байгаа эсэх</li>
+      </ul>
+      <li style="margin: 0.5rem 0 0 0; color: #6B7280; --dark-mode-text: #9ca3af;"><strong>Тэмдэглэл:</strong> Хэрэв үнэ хурдтай хөдөлж байвал <strong>high momentum</strong>-тэй учраас таны том цагийн POI-д хүрэхгүй байх магадлалтай. Ийм тохиолдолд <strong>доод хугацааны график (lower timeframes)</strong> ашиглан бүтцээ нарийвчлан харах.</li>
+    </ul>
+  </div>
+
+  <!-- Step 3 - Green Box -->
+  <div style="background-color: #ECFDF5; border-left: 4px solid #10B981; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; --dark-mode-bg: rgba(16, 185, 129, 0.15);">
+    <h4 style="color: #065F46; font-weight: 600; margin: 0 0 0.5rem 0; --dark-mode-text: #ffffff;">
+      Алхам 3: Оруулах цэг (Entry Setup, M5)
+    </h4>
+    <ul style="margin: 0.5rem 0 0 1.5rem; padding-left: 0; list-style-type: disc;">
+      <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;">Үнэ POI-д хүрсний дараа <strong>M5 график</strong> дээр шилжиж, зах зээлийн бүтцийг <strong>тодорхойлно</strong>.</li>
+      <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;"><strong>CHoCH (Change of Character)</strong>-г хүлээнэ:
+        <ul style="margin: 0.25rem 0 0 1.5rem; padding-left: 0; list-style-type: circle;">
+          <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;">Одоогийн <strong>higher low</strong> хаагдах (wick тооцохгүй)</li>
+          <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;">Одоогийн <strong>lower high</strong> хаагдах</li>
+        </ul>
+      </li>
+      <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;">M5 дээрх <strong>imbalanced supply/demand areas</strong>-ийг тодорхойлно.</li>
+      <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;">Эдгээр бүсэд <strong>limit order</strong> тавина.</li>
+      <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;"><strong style="color: #2563EB;">Процессийг механик байлгаж, илүү их бодохгүй байх.</strong></li>
+    </ul>
+  </div>
+
+  <!-- Step 4 - Orange Box -->
+  <div style="background-color: #FFF7ED; border-left: 4px solid #F97316; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; --dark-mode-bg: rgba(249, 115, 22, 0.15);">
+    <h4 style="color: #9A3412; font-weight: 600; margin: 0 0 0.5rem 0; --dark-mode-text: #ffffff;">
+      Алхам 4: SL &amp; TP (Stop Loss &amp; Take Profit)
+    </h4>
+    <ul style="margin: 0.5rem 0 0 1.5rem; padding-left: 0; list-style-type: disc;">
+      <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;"><strong>SL:</strong> CHoCH-ийн өмнөх <strong>high/low</strong>-оос хэдэн pip-ийн зайтай байрлуулна.</li>
+      <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;"><strong>TP:</strong>
+        <ul style="margin: 0.25rem 0 0 1.5rem; padding-left: 0; list-style-type: circle;">
+          <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;">Хүрэх цэг илэрхий тодорхой биш байвал <strong>mechanical 1:3 R:R</strong></li>
+          <li style="margin: 0.25rem 0; color: #374151; --dark-mode-text: #d1d5db;">Өмнөх <strong>liquidity zones</strong>, хамгийн багадаа <strong>1:3 R:R</strong></li>
+        </ul>
+      </li>
+    </ul>
+  </div>
 </div>
 
-<div style="background-color: #F5F3FF; border-left: 4px solid #8B5CF6; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
-  <h2 style="color: #4C1D95; margin-top: 0;">Алхам 2: Сонирхолтой бүс (Points of Interest, POI)</h2>
-  <ul>
-    <li>Одоогийн тренд дотор <strong>imbalanced supply/demand</strong> бүсийг хайж, үнэ татах боломжтой бүсийг тодорхойлно.</li>
-    <li>Өмнөх ёроолуудаас "<strong>liquidity sweep</strong>" хийх боломжтой бүсийг ч анхаарна.</li>
-  </ul>
-  <h3>Хүчинтэй POI-ийн шалгуур:</h3>
-  <ul>
-    <li>✓ Одоогийн тренд дотор байрлах supply/demand бүс байгаа эсэх</li>
-    <li>✓ <strong>Premium</strong> эсвэл <strong>discount</strong> дээр (50%-ийн retracement-ээс дээш/доош)</li>
-    <li>✓ Бүтэц дотор <strong>imbalance үүсгэсэн (created imbalance)</strong> эсэх</li>
-    <li>✓ Supply-бүсийн доор, эсвэл demand-бүсийн дээр <strong>liquidity</strong> байгаа эсэх</li>
-  </ul>
+<style>
+  /* Dark mode styles - CSS variables approach */
+  .dark div[style*="background-color: #EFF6FF"] {
+    background-color: rgba(59, 130, 246, 0.15) !important;
+  }
+  .dark div[style*="background-color: #F5F3FF"] {
+    background-color: rgba(139, 92, 246, 0.15) !important;
+  }
+  .dark div[style*="background-color: #ECFDF5"] {
+    background-color: rgba(16, 185, 129, 0.15) !important;
+  }
+  .dark div[style*="background-color: #FFF7ED"] {
+    background-color: rgba(249, 115, 22, 0.15) !important;
+  }
+  .dark h4[style*="color: #1E3A8A"],
+  .dark h4[style*="color: #4C1D95"],
+  .dark h4[style*="color: #065F46"],
+  .dark h4[style*="color: #9A3412"] {
+    color: #ffffff !important;
+  }
+  .dark li[style*="color: #374151"],
+  .dark li[style*="color: #6B7280"] {
+    color: #d1d5db !important;
+  }
+</style>`,
+  risk_management: `<div style="margin-bottom: 1rem;">
+  <!-- Live Accounts - Green Box -->
+  <div style="background-color: #ECFDF5; border-left: 4px solid #10B981; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+    <h4 style="color: #065F46; font-weight: 600; margin: 0 0 0.5rem 0;">
+      💰 Live дансууд (Live Accounts)
+    </h4>
+    <ul style="margin: 0.5rem 0 0 1.5rem; padding-left: 0; list-style-type: disc;">
+      <li style="margin: 0.25rem 0; color: #374151;"><strong>1% эрсдэл (risk)</strong> нэг арилжаанд</li>
+      <li style="margin: 0.25rem 0; color: #374151;">Сэтгэл хөдлөлөөс үл хамааран <strong>consistent risk</strong></li>
+      <li style="margin: 0.25rem 0; color: #374151;"><strong>No breakeven, no partials</strong> – SL эсвэл TP хүртэл барих</li>
+      <li style="margin: 0.25rem 0; color: #374151;"><strong>1:3 mechanical TP</strong> дүрэм дагах</li>
+    </ul>
+  </div>
+
+  <!-- Funded Accounts - Yellow Box -->
+  <div style="background-color: #FEFCE8; border-left: 4px solid #EAB308; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+    <h4 style="color: #854D0E; font-weight: 600; margin: 0 0 0.5rem 0;">
+      🏆 Funded дансууд
+    </h4>
+    <ul style="margin: 0.5rem 0 0 1.5rem; padding-left: 0; list-style-type: disc;">
+      <li style="margin: 0.25rem 0; color: #374151;"><strong>1-р шат:</strong> 2% эрсдэл</li>
+      <li style="margin: 0.25rem 0; color: #374151;"><strong>2-р шат:</strong> 1% эрсдэл</li>
+      <li style="margin: 0.25rem 0; color: #374151;"><strong>Live funded:</strong> 1% эрсдэл (secure refund first)</li>
+    </ul>
+  </div>
+
+  <!-- Scaling Rule - Blue Box -->
+  <div style="background-color: #EFF6FF; border-left: 4px solid #3B82F6; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+    <h4 style="color: #1E3A8A; font-weight: 600; margin: 0 0 0.5rem 0;">
+      📈 Дансны хэмжээг өсгөх дүрэм (Scaling Rule)
+    </h4>
+    <ul style="margin: 0.5rem 0 0 1.5rem; padding-left: 0; list-style-type: disc;">
+      <li style="margin: 0.25rem 0; color: #374151;">Дараагийн challenge-г зөвхөн <strong>≥3x challenge fee</strong> орсон тохиолдолд авна.</li>
+      <li style="margin: 0.5rem 0 0 0; background-color: #F3F4F6; padding: 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; color: #374151;">
+        <strong>Жишээ:</strong> Challenge төлбөр: $75, Ашиг хуваах хэмжээ: 95% (30 хоногт 1 удаа татах)<br/>
+        → Дараагийн challenge авахдаа ≥ $225-с дээш ашиг орсон байх<br/>
+        → Ингэснээр <strong>risk:reward ≥1:3</strong> хадгалагдана.
+      </li>
+    </ul>
+  </div>
 </div>
 
-<div style="background-color: #ECFDF5; border-left: 4px solid #10B981; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
-  <h2 style="color: #065F46; margin-top: 0;">Алхам 3: Оруулах цэг (Entry Setup, M5)</h2>
-  <ul>
-    <li>Үнэ POI-д хүрсний дараа <strong>M5 график</strong> дээр шилжиж, зах зээлийн бүтцийг <strong>тодорхойлно</strong>.</li>
-    <li><strong>CHoCH (Change of Character)</strong>-г хүлээнэ</li>
-    <li>M5 дээрх <strong>imbalanced supply/demand areas</strong>-ийг тодорхойлно</li>
-    <li>Эдгээр бүсэд <strong>limit order</strong> тавина</li>
-    <li><strong style="color: #2563EB;">Процессийг механик байлгаж, илүү их бодохгүй байх.</strong></li>
-  </ul>
+<style>
+  /* Dark mode styles */
+  .dark div[style*="background-color: #ECFDF5"] {
+    background-color: rgba(16, 185, 129, 0.15) !important;
+  }
+  .dark div[style*="background-color: #FEFCE8"] {
+    background-color: rgba(234, 179, 8, 0.15) !important;
+  }
+  .dark div[style*="background-color: #EFF6FF"] {
+    background-color: rgba(59, 130, 246, 0.15) !important;
+  }
+  .dark h4[style*="color: #065F46"],
+  .dark h4[style*="color: #854D0E"],
+  .dark h4[style*="color: #1E3A8A"] {
+    color: #ffffff !important;
+  }
+  .dark li[style*="color: #374151"] {
+    color: #d1d5db !important;
+  }
+  .dark li[style*="background-color: #F3F4F6"] {
+    background-color: rgba(55, 65, 81, 0.5) !important;
+    color: #d1d5db !important;
+  }
+</style>`,
+  key_processes: `<div style="margin-bottom: 1rem;">
+  <!-- Trade Journaling - Purple Box -->
+  <div style="background-color: #F5F3FF; border-left: 4px solid #8B5CF6; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+    <h4 style="color: #4C1D95; font-weight: 600; margin: 0 0 0.5rem 0;">
+      📓 Арилжааны дэвтэр (Trade Journaling)
+    </h4>
+    <ul style="margin: 0.5rem 0 0 1.5rem; padding-left: 0; list-style-type: disc;">
+      <li style="margin: 0.25rem 0; color: #374151;">Бүх арилжааг <strong>Trading Journal</strong> -д тэмдэглэнэ.</li>
+      <li style="margin: 0.5rem 0 0 0; font-weight: 500; color: #374151;">Өдөр бүр:</li>
+      <ul style="margin: 0.25rem 0 0 1.5rem; padding-left: 0; list-style-type: circle;">
+        <li style="margin: 0.25rem 0; color: #374151;">Price action recap</li>
+        <li style="margin: 0.25rem 0; color: #374151;">Алдаатай буюу авалгүй өнгөрсөн <strong>valid setups</strong></li>
+        <li style="margin: 0.25rem 0; color: #374151;"><strong>Technical overview</strong> + <strong>psychology notes</strong></li>
+        <li style="margin: 0.25rem 0; color: #374151;">Алдаж орхисон арилжаа: <strong>reason under psychology</strong> тэмдэглэх</li>
+      </ul>
+    </ul>
+  </div>
+
+  <!-- Weekly/Monthly/Quarterly ASR - Indigo Box -->
+  <div style="background-color: #EEF2FF; border-left: 4px solid #6366F1; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+    <h4 style="color: #3730A3; font-weight: 600; margin: 0 0 0.5rem 0;">
+      📊 Weekly/Monthly/Quarterly ASR (Analyze, Summarize, Review)
+    </h4>
+    <ul style="margin: 0.5rem 0 0 1.5rem; padding-left: 0; list-style-type: disc;">
+      <li style="margin: 0.25rem 0; color: #374151;"><strong>Өөрийн зохиосон загвар</strong> ашиглах</li>
+      <li style="margin: 0.25rem 0; color: #374151;">Өмнөх хугацааг <strong>backtest</strong> хийх (week/month/quarter)
+        <ul style="margin: 0.25rem 0 0 1.5rem; padding-left: 0; list-style-type: circle;">
+          <li style="margin: 0.25rem 0; color: #374151;"><strong>Rewind price</strong> ба бар бүрээр судлах</li>
+          <li style="margin: 0.25rem 0; color: #374151;">Алдаатай арилжаа, bias шалгах</li>
+          <li style="margin: 0.25rem 0; color: #374151;">Алдаж орхисон арилжааг template-д тэмдэглэх</li>
+        </ul>
+      </li>
+    </ul>
+  </div>
 </div>
 
-<div style="background-color: #FFF7ED; border-left: 4px solid #F97316; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
-  <h2 style="color: #9A3412; margin-top: 0;">Алхам 4: SL &amp; TP (Stop Loss &amp; Take Profit)</h2>
-  <ul>
-    <li><strong>SL:</strong> CHoCH-ийн өмнөх <strong>high/low</strong>-оос хэдэн pip-ийн зайтай байрлуулна.</li>
-    <li><strong>TP:</strong> Хүрэх цэг илэрхий тодорхой биш байвал <strong>mechanical 1:3 R:R</strong>, эсвэл өмнөх <strong>liquidity zones</strong></li>
-  </ul>
-</div>`,
-
-  riskManagement: `<div style="background-color: #ECFDF5; border-left: 4px solid #10B981; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
-  <h2 style="color: #065F46; margin-top: 0;">💰 Live дансууд (Live Accounts)</h2>
-  <ul>
-    <li><strong>1% эрсдэл (risk)</strong> нэг арилжаанд</li>
-    <li>Сэтгэл хөдлөлөөс үл хамааран <strong>consistent risk</strong></li>
-    <li><strong>No breakeven, no partials</strong> – SL эсвэл TP хүртэл барих</li>
-    <li><strong>1:3 mechanical TP</strong> дүрэм дагах</li>
-  </ul>
-</div>
-
-<div style="background-color: #FEFCE8; border-left: 4px solid #EAB308; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
-  <h2 style="color: #854D0E; margin-top: 0;">🏆 Funded дансууд</h2>
-  <ul>
-    <li><strong>1-р шат:</strong> 2% эрсдэл</li>
-    <li><strong>2-р шат:</strong> 1% эрсдэл</li>
-    <li><strong>Live funded:</strong> 1% эрсдэл (secure refund first)</li>
-  </ul>
-</div>
-
-<div style="background-color: #EFF6FF; border-left: 4px solid #3B82F6; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
-  <h2 style="color: #1E3A8A; margin-top: 0;">📈 Дансны хэмжээг өсгөх дүрэм (Scaling Rule)</h2>
-  <ul>
-    <li>Дараагийн challenge-г зөвхөн <strong>≥3x challenge fee</strong> орсон тохиолдолд авна.</li>
-  </ul>
-  <p><strong>Жишээ:</strong> Challenge төлбөр: $75, Ашиг хуваах хэмжээ: 95% (30 хоногт 1 удаа татах)<br/>
-  → Дараагийн challenge авахдаа ≥ $225-с дээш ашиг орсон байх<br/>
-  → Ингэснээр <strong>risk:reward ≥1:3</strong> хадгалагдана.</p>
-</div>`,
-
-  keyProcesses: `<div style="background-color: #F5F3FF; border-left: 4px solid #8B5CF6; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
-  <h2 style="color: #4C1D95; margin-top: 0;">📓 Арилжааны дэвтэр (Trade Journaling)</h2>
-  <p>Өдөр бүр:</p>
-  <ul>
-    <li>Price action recap</li>
-    <li>Алдаатай буюу авалгүй өнгөрсөн <strong>valid setups</strong></li>
-    <li><strong>Technical overview</strong> + <strong>psychology notes</strong></li>
-    <li>Алдаж орхисон арилжаа: <strong>reason under psychology</strong> тэмдэглэх</li>
-  </ul>
-</div>
-
-<div style="background-color: #EEF2FF; border-left: 4px solid #6366F1; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
-  <h2 style="color: #3730A3; margin-top: 0;">📊 Weekly/Monthly/Quarterly ASR (Analyze, Summarize, Review)</h2>
-  <ul>
-    <li>Өмнөх хугацааг <strong>backtest</strong> хийх (week/month/quarter)</li>
-    <li><strong>Rewind price</strong> ба бар бүрээр судлах</li>
-    <li>Алдаатай арилжаа, bias шалгах</li>
-    <li>Алдаж орхисон арилжааг тэмдэглэх</li>
-  </ul>
-</div>`,
+<style>
+  /* Dark mode styles */
+  .dark div[style*="background-color: #F5F3FF"] {
+    background-color: rgba(139, 92, 246, 0.15) !important;
+  }
+  .dark div[style*="background-color: #EEF2FF"] {
+    background-color: rgba(99, 102, 241, 0.15) !important;
+  }
+  .dark h4[style*="color: #4C1D95"],
+  .dark h4[style*="color: #3730A3"] {
+    color: #ffffff !important;
+  }
+  .dark li[style*="color: #374151"] {
+    color: #d1d5db !important;
+  }
+</style>`,
 };
 
 const sections: Section[] = [
@@ -120,20 +239,20 @@ const sections: Section[] = [
     defaultContent: defaultContents.strategy,
   },
   {
-    id: "risk-management",
+    id: "risk_management",
     title: "⚖️ 2. Эрсдэлийн удирдлага (Risk Management)",
     icon: "⚖️",
     placeholder:
       "Enter your risk management rules...\n\n• 1% risk per trade\n• Consistent risk\n• No breakeven, no partials\n• 1:3 mechanical TP",
-    defaultContent: defaultContents.riskManagement,
+    defaultContent: defaultContents.risk_management,
   },
   {
-    id: "key-processes",
+    id: "key_processes",
     title: "📝 3. Гол процессууд (Key Processes)",
     icon: "📝",
     placeholder:
       "Enter your key processes...\n\n• Daily trade journaling\n• Weekly/Monthly ASR\n• Price action recap",
-    defaultContent: defaultContents.keyProcesses,
+    defaultContent: defaultContents.key_processes,
   },
 ];
 
@@ -143,11 +262,11 @@ export default function TradingPlanPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [planData, setPlanData] = useState({
     strategy: defaultContents.strategy,
-    riskManagement: defaultContents.riskManagement,
-    keyProcesses: defaultContents.keyProcesses,
+    risk_management: defaultContents.risk_management,
+    key_processes: defaultContents.key_processes,
   });
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(["strategy", "risk-management", "key-processes"]),
+    new Set(["strategy", "risk_management", "key_processes"]),
   );
 
   // Load user's trading plan
@@ -155,11 +274,6 @@ export default function TradingPlanPage() {
     const loadPlan = async () => {
       const user = await getCurrentUser();
       if (!user) {
-        setPlanData({
-          strategy: defaultContents.strategy,
-          riskManagement: defaultContents.riskManagement,
-          keyProcesses: defaultContents.keyProcesses,
-        });
         setLoading(false);
         return;
       }
@@ -171,17 +285,27 @@ export default function TradingPlanPage() {
         .maybeSingle();
 
       if (data && !error) {
+        // ✅ Зөвхөн database-с ирсэн утгыг ашиглах, хоосон бол default-ийг ашиглах
         setPlanData({
-          strategy: data.strategy || defaultContents.strategy,
-          riskManagement:
-            data.risk_management || defaultContents.riskManagement,
-          keyProcesses: data.key_processes || defaultContents.keyProcesses,
+          strategy:
+            data.strategy && data.strategy.trim() !== ""
+              ? data.strategy
+              : defaultContents.strategy,
+          risk_management:
+            data.risk_management && data.risk_management.trim() !== ""
+              ? data.risk_management
+              : defaultContents.risk_management,
+          key_processes:
+            data.key_processes && data.key_processes.trim() !== ""
+              ? data.key_processes
+              : defaultContents.key_processes,
         });
       } else {
+        // ✅ Хэрэв data байхгүй бол default утгуудыг ашиглах
         setPlanData({
           strategy: defaultContents.strategy,
-          riskManagement: defaultContents.riskManagement,
-          keyProcesses: defaultContents.keyProcesses,
+          risk_management: defaultContents.risk_management,
+          key_processes: defaultContents.key_processes,
         });
       }
       setLoading(false);
@@ -213,8 +337,8 @@ export default function TradingPlanPage() {
       {
         user_id: user.id,
         strategy: planData.strategy,
-        risk_management: planData.riskManagement,
-        key_processes: planData.keyProcesses,
+        risk_management: planData.risk_management,
+        key_processes: planData.key_processes,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },
@@ -230,13 +354,18 @@ export default function TradingPlanPage() {
   };
 
   // Safe HTML render function
+
   const renderSafeHTML = (html: string | undefined): string => {
-    if (!html || typeof html !== "string" || html.trim() === "") {
-      return '<p class="text-gray-400 italic">No content yet. Click "Edit Plan" to add your trading strategy.</p>';
+    if (
+      !html ||
+      typeof html !== "string" ||
+      html.trim() === "" ||
+      html === "<p></p>"
+    ) {
+      return '<p class="text-gray-400 italic">No content yet. Click "Edit Plan" to add your content.</p>';
     }
     return html;
   };
-
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
