@@ -32,15 +32,15 @@ export default function TradeForm() {
   const [accountId, setAccountId] = useState("");
   const [symbol, setSymbol] = useState("");
   const [type, setType] = useState("buy");
-  const [entry, setEntry] = useState(0);
-  const [exit, setExit] = useState(0);
-  const [sl, setSl] = useState(0);
-  const [tp, setTp] = useState(0);
-  const [lot, setLot] = useState(0.1);
+  const [entry, setEntry] = useState<string>("");
+  const [exit, setExit] = useState<string>("");
+  const [tp, setTp] = useState<string>("");
+  const [sl, setSl] = useState<string>("");
+  const [lot, setLot] = useState<string>("");
 
   const [openTime, setOpenTime] = useState("");
   const [closeTime, setCloseTime] = useState("");
-  const [profit, setProfit] = useState(0);
+  const [profit, setProfit] = useState<string>("");
 
   // 📌 BULK INPUT STATE
   const [bulkText, setBulkText] = useState("");
@@ -65,12 +65,12 @@ export default function TradeForm() {
       account_id: accountId,
       symbol,
       type,
-      entry_price: entry,
-      exit_price: exit,
+      entry_price: parseFloat(entry),
+      exit_price: parseFloat(exit),
       profit,
-      stop_loss: sl,
-      take_profit: tp,
-      lot_size: lot,
+      stop_loss: sl === "" ? 0 : parseFloat(sl),
+      take_profit: tp === "" ? 0 : parseFloat(tp),
+      lot_size: lot === "" ? 0.1 : parseFloat(lot),
       open_time: openTime ? new Date(openTime) : new Date(),
       close_time: closeTime ? new Date(closeTime) : new Date(),
     });
@@ -86,14 +86,14 @@ export default function TradeForm() {
     setAccountId("");
     setSymbol("");
     setType("buy");
-    setEntry(0);
-    setExit(0);
-    setSl(0);
-    setTp(0);
-    setLot(0.1);
+    setEntry("");
+    setExit("");
+    setSl("");
+    setTp("");
+    setLot("");
     setOpenTime("");
     setCloseTime("");
-    setProfit(0);
+    setProfit("");
 
     router.replace("/trades");
   };
@@ -365,14 +365,14 @@ export default function TradeForm() {
               type="number"
               placeholder="Entry Price / Нээлтийн үнэ"
               value={entry}
-              onChange={(e) => setEntry(+e.target.value)}
+              onChange={(e) => setEntry(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
             />
             <input
               type="number"
               placeholder="Exit Price / Хаалтын үнэ"
               value={exit}
-              onChange={(e) => setExit(+e.target.value)}
+              onChange={(e) => setExit(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
             />
           </div>
@@ -382,46 +382,56 @@ export default function TradeForm() {
               type="number"
               placeholder="SL"
               value={sl}
-              onChange={(e) => setSl(+e.target.value)}
+              onChange={(e) => setSl(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
             />
             <input
               type="number"
               placeholder="TP"
               value={tp}
-              onChange={(e) => setTp(+e.target.value)}
+              onChange={(e) => setTp(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
             />
             <input
               type="number"
               placeholder="Lot / Лот"
               value={lot}
-              onChange={(e) => setLot(+e.target.value)}
+              onChange={(e) => setLot(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
             />
             <input
               type="number"
               placeholder="Profit / Ашиг"
               value={profit}
-              onChange={(e) => setProfit(+e.target.value)}
+              onChange={(e) => setProfit(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
             />
           </div>
 
           {/* TIME */}
           <div className="grid grid-cols-2 gap-2">
-            <input
-              type="datetime-local"
-              value={openTime}
-              onChange={(e) => setOpenTime(e.target.value)}
-              className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            />
-            <input
-              type="datetime-local"
-              value={closeTime}
-              onChange={(e) => setCloseTime(e.target.value)}
-              className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            />
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Нээлтийн цаг / Open Time
+              </label>
+              <input
+                type="datetime-local"
+                value={openTime || ""}
+                onChange={(e) => setOpenTime(e.target.value)}
+                className="w-full p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Хаалтын цаг / Close Time
+              </label>
+              <input
+                type="datetime-local"
+                value={closeTime || ""}
+                onChange={(e) => setCloseTime(e.target.value)}
+                className="w-full p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              />
+            </div>
           </div>
 
           {/* SINGLE SUBMIT */}

@@ -119,12 +119,13 @@ export default function LoginPage() {
               <div className="rounded-lg bg-green-50 p-4 text-green-600 dark:bg-green-950/50 dark:text-green-400">
                 <p className="font-medium">✓ Check your email</p>
                 <p className="text-sm mt-1">
-                  We've sent a password reset link to{" "}
+                  We&apos;ve sent a password reset link to{" "}
                   <strong>{resetEmail}</strong>
                 </p>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Didn't receive the email? Check your spam folder or try again.
+                Didn&apos;t receive the email? Check your spam folder or try
+                again.
               </p>
               <button
                 onClick={backToLogin}
