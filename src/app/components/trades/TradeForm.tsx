@@ -355,7 +355,7 @@ export default function TradeForm() {
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
               <option value="buy">Buy / Худалдаж авах</option>
-              <option value="sell">Sell / Худалдах</option>
+              <option value="sell">Sell / Зарах</option>
             </select>
           </div>
 

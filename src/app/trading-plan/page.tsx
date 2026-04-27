@@ -380,139 +380,141 @@ export default function TradingPlanPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold dark:text-white">
-            📋 Trading Plan
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            My personal trading strategy, risk management rules, and key
-            processes
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() =>
-              setExpandedSections(
-                new Set(["strategy", "risk-management", "key-processes"]),
-              )
-            }
-            className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            Expand All
-          </button>
-          <button
-            onClick={() => setExpandedSections(new Set())}
-            className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            Collapse All
-          </button>
-          {!isEditing ? (
+    <>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold dark:text-white">
+              📋 Trading Plan
+            </h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              My personal trading strategy, risk management rules, and key
+              processes
+            </p>
+          </div>
+          <div className="flex gap-2">
             <button
-              onClick={() => setIsEditing(true)}
-              className="rounded-lg bg-blue-500 px-4 py-1 text-sm text-white hover:bg-blue-600"
+              onClick={() =>
+                setExpandedSections(
+                  new Set(["strategy", "risk-management", "key-processes"]),
+                )
+              }
+              className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
             >
-              ✏️ Edit Plan
+              Expand All
             </button>
-          ) : (
-            <>
+            <button
+              onClick={() => setExpandedSections(new Set())}
+              className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              Collapse All
+            </button>
+            {!isEditing ? (
               <button
-                onClick={handleSave}
-                disabled={saving}
-                className="rounded-lg bg-green-500 px-4 py-1 text-sm text-white hover:bg-green-600 disabled:opacity-50"
+                onClick={() => setIsEditing(true)}
+                className="rounded-lg bg-blue-500 px-4 py-1 text-sm text-white hover:bg-blue-600"
               >
-                {saving ? "Saving..." : "💾 Save"}
+                ✏️ Edit Plan
               </button>
-              <button
-                onClick={() => {
-                  setIsEditing(false);
-                  window.location.reload();
-                }}
-                className="rounded-lg border px-4 py-1 text-sm hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
-                Cancel
-              </button>
-            </>
-          )}
+            ) : (
+              <>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="rounded-lg bg-green-500 px-4 py-1 text-sm text-white hover:bg-green-600 disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "💾 Save"}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditing(false);
+                    window.location.reload();
+                  }}
+                  className="rounded-lg border px-4 py-1 text-sm hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Sections */}
-      <div className="space-y-4">
-        {sections.map((section) => (
-          <div
-            key={section.id}
-            className="overflow-hidden rounded-lg border bg-white dark:bg-gray-900 dark:border-gray-800"
-          >
-            <button
-              onClick={() => toggleSection(section.id)}
-              className="flex w-full items-center justify-between p-4 text-left font-semibold hover:bg-gray-50 dark:hover:bg-gray-800"
+        {/* Sections */}
+        <div className="space-y-4">
+          {sections.map((section) => (
+            <div
+              key={section.id}
+              className="overflow-hidden rounded-lg border bg-white dark:bg-gray-900 dark:border-gray-800"
             >
-              <span className="text-lg dark:text-white">{section.title}</span>
-              <span className="text-xl dark:text-white">
-                {expandedSections.has(section.id) ? "▼" : "▶"}
-              </span>
-            </button>
-            {expandedSections.has(section.id) && (
-              <div className="border-t p-4 dark:border-gray-800">
-                {isEditing ? (
-                  <RichTextEditor
-                    value={
-                      planData[section.id as keyof typeof planData] ||
-                      section.defaultContent
-                    }
-                    onChange={(value) =>
-                      setPlanData({ ...planData, [section.id]: value })
-                    }
-                    placeholder={section.placeholder}
-                    className="min-h-[300px]"
-                  />
-                ) : (
-                  <div
-                    className="trading-plan-content prose prose-sm max-w-none dark:prose-invert
+              <button
+                onClick={() => toggleSection(section.id)}
+                className="flex w-full items-center justify-between p-4 text-left font-semibold hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <span className="text-lg dark:text-white">{section.title}</span>
+                <span className="text-xl dark:text-white">
+                  {expandedSections.has(section.id) ? "▼" : "▶"}
+                </span>
+              </button>
+              {expandedSections.has(section.id) && (
+                <div className="border-t p-4 dark:border-gray-800">
+                  {isEditing ? (
+                    <RichTextEditor
+                      value={
+                        planData[section.id as keyof typeof planData] ||
+                        section.defaultContent
+                      }
+                      onChange={(value) =>
+                        setPlanData({ ...planData, [section.id]: value })
+                      }
+                      placeholder={section.placeholder}
+                      className="min-h-[300px]"
+                    />
+                  ) : (
+                    <div
+                      className="trading-plan-content prose prose-sm max-w-none dark:prose-invert
                       [&_div]:rounded-lg [&_div]:p-4 [&_div]:my-4
                       [&_div_h2]:mt-0 [&_div_h2]:mb-2
                       [&_div_h3]:mt-2 [&_div_h3]:mb-1
                       [&_div_ul]:my-2 [&_div_li]:my-1
                       [&_div_strong]:text-blue-600 dark:[&_div_strong]:text-blue-400"
-                    dangerouslySetInnerHTML={{
-                      __html: renderSafeHTML(
-                        planData[section.id as keyof typeof planData],
-                      ),
-                    }}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+                      dangerouslySetInnerHTML={{
+                        __html: renderSafeHTML(
+                          planData[section.id as keyof typeof planData],
+                        ),
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
 
-      {/* Quick Summary Card */}
-      <div className="rounded-lg border bg-gradient-to-r from-blue-500 to-purple-600 p-4 text-white">
-        <div className="flex items-center gap-3">
-          <div className="text-3xl">🎯</div>
-          <div>
-            <h3 className="font-semibold">Trading Plan Summary</h3>
-            <p className="text-sm opacity-90">
-              Strategy: ICT / Smart Money Concepts | Risk: 1-2% per trade | R:R:
-              Minimum 1:3
-            </p>
+        {/* Quick Summary Card */}
+        <div className="rounded-lg border bg-gradient-to-r from-blue-500 to-purple-600 p-4 text-white">
+          <div className="flex items-center gap-3">
+            <div className="text-3xl">🎯</div>
+            <div>
+              <h3 className="font-semibold">Trading Plan Summary</h3>
+              <p className="text-sm opacity-90">
+                Strategy: ICT / Smart Money Concepts | Risk: 1-2% per trade |
+                R:R: Minimum 1:3
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* PDF Export Button */}
-      <div className="flex justify-end">
-        <button
-          onClick={() => window.print()}
-          className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-        >
-          🖨️ Print / Save as PDF
-        </button>
+        {/* PDF Export Button */}
+        <div className="flex justify-end no-print">
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            🖨️ Print / Save as PDF
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

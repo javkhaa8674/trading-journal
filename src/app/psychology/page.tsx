@@ -146,9 +146,16 @@ export default function PsychologyPage() {
   const [entries, setEntries] = useState<PsychologyEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<PsychologyEntry | null>(
+    null,
+  );
   const [selectedMistakes, setSelectedMistakes] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [dateRange, setDateRange] = useState<"week" | "month" | "all">("week");
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     date: new Date().toISOString().slice(0, 10),
     mood: "calm" as PsychologyEntry["mood"],
@@ -196,42 +203,104 @@ export default function PsychologyPage() {
     return true;
   });
 
+  // Handle edit
+  const handleEdit = (entry: PsychologyEntry) => {
+    setEditingEntry(entry);
+    setFormData({
+      date: entry.date.slice(0, 10),
+      mood: entry.mood,
+      confidence_level: entry.confidence_level,
+      lesson_learned: entry.lesson_learned || "",
+      notes: entry.notes || "",
+      trades_count: entry.trades_count || 0,
+      winning_trades: entry.winning_trades || 0,
+      losing_trades: entry.losing_trades || 0,
+      profit_loss: entry.profit_loss || 0,
+    });
+    setSelectedMistakes(entry.mistakes || []);
+    setShowForm(true);
+    setError(null);
+    setSuccess(null);
+  };
+
+  // Handle delete
+  const handleDelete = async (id: string) => {
+    const user = await getCurrentUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("psychology_entries")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id);
+
+    if (error) {
+      setError(error.message);
+    } else {
+      setEntries(entries.filter((e) => e.id !== id));
+      setSuccess("Entry deleted successfully!");
+      setTimeout(() => setSuccess(null), 3000);
+    }
+    setDeleteConfirm(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setError(null);
+    setSuccess(null);
 
     const user = await getCurrentUser();
     if (!user) {
-      alert("Please login first / Нэвтрэнэ үү");
+      setError("Please login first / Нэвтрэнэ үү");
       setSubmitting(false);
       return;
     }
 
-    // UPSERT - if exists update, else insert
-    const { error } = await supabase.from("psychology_entries").upsert(
-      {
-        user_id: user.id,
-        date: formData.date,
-        mood: formData.mood,
-        confidence_level: formData.confidence_level,
-        mistakes: selectedMistakes,
-        lesson_learned: formData.lesson_learned,
-        notes: formData.notes,
-        trades_count: formData.trades_count,
-        winning_trades: formData.winning_trades,
-        losing_trades: formData.losing_trades,
-        profit_loss: formData.profit_loss,
-      },
-      {
-        onConflict: "user_id,date", // ✅ If conflict, update existing row
-      },
-    );
+    const dataToSave = {
+      user_id: user.id,
+      date: formData.date,
+      mood: formData.mood,
+      confidence_level: formData.confidence_level,
+      mistakes: selectedMistakes,
+      lesson_learned: formData.lesson_learned,
+      notes: formData.notes,
+      trades_count: formData.trades_count,
+      winning_trades: formData.winning_trades,
+      losing_trades: formData.losing_trades,
+      profit_loss: formData.profit_loss,
+    };
+
+    let error;
+    if (editingEntry) {
+      // Update existing entry
+      const { error: updateError } = await supabase
+        .from("psychology_entries")
+        .update(dataToSave)
+        .eq("id", editingEntry.id)
+        .eq("user_id", user.id);
+      error = updateError;
+    } else {
+      // Insert new entry
+      const { error: insertError } = await supabase
+        .from("psychology_entries")
+        .upsert(dataToSave, {
+          onConflict: "user_id,date",
+        });
+      error = insertError;
+    }
+
+    setSubmitting(false);
 
     if (error) {
       console.error(error);
-      alert(error.message);
+      setError(error.message);
     } else {
-      alert("Entry saved successfully! / Амжилттай хадгалагдлаа!");
+      setSuccess(
+        editingEntry
+          ? "Entry updated successfully! / Амжилттай шинэчлэгдлээ!"
+          : "Entry saved successfully! / Амжилттай хадгалагдлаа!",
+      );
 
       // Refresh entries
       const { data } = await supabase
@@ -242,7 +311,7 @@ export default function PsychologyPage() {
 
       setEntries(data || []);
       setShowForm(false);
-
+      setEditingEntry(null);
       setFormData({
         date: new Date().toISOString().slice(0, 10),
         mood: "calm",
@@ -255,8 +324,27 @@ export default function PsychologyPage() {
         profit_loss: 0,
       });
       setSelectedMistakes([]);
+
+      setTimeout(() => setSuccess(null), 3000);
     }
-    setSubmitting(false);
+  };
+
+  const cancelEdit = () => {
+    setShowForm(false);
+    setEditingEntry(null);
+    setFormData({
+      date: new Date().toISOString().slice(0, 10),
+      mood: "calm",
+      confidence_level: 5,
+      lesson_learned: "",
+      notes: "",
+      trades_count: 0,
+      winning_trades: 0,
+      losing_trades: 0,
+      profit_loss: 0,
+    });
+    setSelectedMistakes([]);
+    setError(null);
   };
 
   const avgMood = () => {
@@ -302,13 +390,28 @@ export default function PsychologyPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            setShowForm(!showForm);
+            setEditingEntry(null);
+          }}
           className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 transition-colors"
         >
           <span className="text-lg">+</span>
           <span>Add Entry / Нэмэх</span>
         </button>
       </div>
+
+      {/* Error / Success Messages */}
+      {error && (
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">
+          ⚠️ {error}
+        </div>
+      )}
+      {success && (
+        <div className="rounded-lg bg-green-50 p-3 text-sm text-green-600 dark:bg-green-950/50 dark:text-green-400">
+          ✅ {success}
+        </div>
+      )}
 
       {/* Psychology Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -394,9 +497,12 @@ export default function PsychologyPage() {
       {showForm && (
         <div className="rounded-lg border bg-white p-6 dark:bg-gray-900 dark:border-gray-800">
           <h2 className="mb-4 text-lg font-semibold dark:text-white">
-            Daily Psychology Entry / Өдрийн тэмдэглэл
+            {editingEntry
+              ? "Edit Entry / Засварлах"
+              : "Daily Psychology Entry / Өдрийн тэмдэглэл"}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* ... form fields (өмнөхтэй ижил) ... */}
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium dark:text-gray-300">
@@ -523,7 +629,7 @@ export default function PsychologyPage() {
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.profit_loss || 0} // ✅ Default to 0 if NaN or empty
+                  value={formData.profit_loss || 0}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
@@ -607,11 +713,15 @@ export default function PsychologyPage() {
                 disabled={submitting}
                 className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
               >
-                {submitting ? "Saving..." : "Save Entry / Хадгалах"}
+                {submitting
+                  ? "Saving..."
+                  : editingEntry
+                    ? "Update Entry / Шинэчлэх"
+                    : "Save Entry / Хадгалах"}
               </button>
               <button
                 type="button"
-                onClick={() => setShowForm(false)}
+                onClick={cancelEdit}
                 className="rounded-lg border px-4 py-2 bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel / Цуцлах
@@ -621,7 +731,7 @@ export default function PsychologyPage() {
         </div>
       )}
 
-      {/* Psychology Entries List */}
+      {/* Psychology Entries List with Edit & Delete buttons */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold dark:text-white">
           📓 Psychology Journal / Сэтгэл зүйн тэмдэглэл
@@ -669,15 +779,52 @@ export default function PsychologyPage() {
                     </div>
                   </div>
                 </div>
-                <div
-                  className={`rounded-full px-2 py-1 text-xs ${
-                    entry.profit_loss >= 0
-                      ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
-                      : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
-                  }`}
-                >
-                  {entry.profit_loss >= 0 ? "+" : ""}
-                  {entry.profit_loss.toFixed(2)} USD
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`rounded-full px-2 py-1 text-xs ${
+                      entry.profit_loss >= 0
+                        ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
+                        : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
+                    }`}
+                  >
+                    {entry.profit_loss >= 0 ? "+" : ""}
+                    {entry.profit_loss.toFixed(2)} USD
+                  </div>
+
+                  {/* Edit & Delete Buttons */}
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleEdit(entry)}
+                      className="rounded p-1 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950"
+                      title="Edit"
+                    >
+                      ✏️
+                    </button>
+                    {deleteConfirm === entry.id ? (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleDelete(entry.id)}
+                          className="rounded px-2 py-1 text-xs bg-red-500 text-white hover:bg-red-600"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(null)}
+                          className="rounded px-2 py-1 text-xs border hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setDeleteConfirm(entry.id)}
+                        className="rounded p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+                        title="Delete"
+                      >
+                        🗑️
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -695,7 +842,7 @@ export default function PsychologyPage() {
                         key={mistakeId}
                         className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600 dark:bg-red-950/50 dark:text-red-400"
                       >
-                        {mistake.name}/ {mistake.nameMn}
+                        {mistake.nameMn} ({mistake.name})
                       </span>
                     ) : null;
                   })}
