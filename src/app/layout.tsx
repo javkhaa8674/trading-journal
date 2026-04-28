@@ -1,10 +1,8 @@
-// app/layout.tsx
+// app/layout.tsx - Server Component (metadata-тай)
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { ThemeProvider } from "./providers/ThemeProvider";
 import "./globals.css";
-import { SidebarProvider } from "@/app/context/SidebarContext";
-import { AppWrapper } from "@/app/components/appwrapper/AppWrapper";
+import { ClientLayout } from "@/app/components/layout/ClientLayout";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,11 +19,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ThemeProvider>
-          <SidebarProvider>
-            <AppWrapper>{children}</AppWrapper>
-          </SidebarProvider>
-        </ThemeProvider>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );

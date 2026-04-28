@@ -4,11 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useSidebar } from "@/app/context/SidebarContext";
+import { getCurrentUser } from "@/lib/getCurrentUser";
+import { supabase } from "@/lib/supabaseClient";
 
 interface NavItem {
   name: string;
   href: string;
   icon: string;
+  adminOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -17,14 +20,16 @@ const navItems: NavItem[] = [
   { name: "Accounts", href: "/accounts", icon: "🏦" },
   { name: "Trading Plan", href: "/trading-plan", icon: "🗺️" },
   { name: "Deposits", href: "/deposits", icon: "📥" },
-  { name: "Withrawals", href: "/withrawals", icon: "💸" },
+  { name: "Withdrawals", href: "/withdrawals", icon: "💸" },
   { name: "Psychology", href: "/psychology", icon: "🧠" },
+  { name: "Admin Panel", href: "/admin/signups", icon: "👑", adminOnly: true },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { isCollapsed, toggleSidebar } = useSidebar();
   const [isMobile, setIsMobile] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     setIsMobile(window.innerWidth < 1024);
@@ -37,9 +42,41 @@ export function Sidebar() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // components/layout/Sidebar.tsx
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const user = await getCurrentUser();
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+
+      // ✅ profiles таблиц ашиглах (recursion алдаагүй)
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error fetching profile:", error);
+        setIsAdmin(false);
+      } else {
+        setIsAdmin(data?.role === "admin");
+      }
+    };
+
+    checkAdmin();
+  }, []);
+
   // Sidebar widths
   const expandedWidth = "w-64";
   const collapsedWidth = "w-16";
+
+  // Filter nav items based on admin role
+  const visibleNavItems = navItems.filter(
+    (item) => !item.adminOnly || (item.adminOnly && isAdmin),
+  );
 
   return (
     <>
@@ -77,7 +114,7 @@ export function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 p-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(item.href + "/");
             return (

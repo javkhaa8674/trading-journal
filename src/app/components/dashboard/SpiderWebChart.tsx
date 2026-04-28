@@ -403,7 +403,9 @@ export default function SpiderWebChart({
         </div>
       </div>
 
-      <div style={{ width: "100%", height: 450 }}>
+      <div
+        style={{ width: "100%", height: 450, minWidth: 300, minHeight: 350 }}
+      >
         <ResponsiveContainer>
           <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData}>
             <PolarGrid stroke="#e5e7eb" />

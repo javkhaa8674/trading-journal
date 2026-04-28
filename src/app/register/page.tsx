@@ -13,24 +13,39 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  // app/register/page.tsx
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      setLoading(false);
-      return;
-    }
-
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
 
     setLoading(false);
 
     if (error) {
-      setError(error.message);
+      // ✅ Hook-оос буцаасан алдааны мессежийг монгол хэлээр харуулах
+      if (
+        error.message.includes("not authorized") ||
+        error.message.includes("Your email address is not authorized")
+      ) {
+        setError(
+          "✉️ Таны имэйл хаяг бүртгүүлэх эрхгүй байна. Админ-аас зөвшөөрөл аваарай.",
+        );
+      } else if (error.message.includes("User already registered")) {
+        setError("👤 Энэ имэйл хаяг аль хэдийн бүртгүүлсэн байна.");
+      } else if (error.message.includes("Password")) {
+        setError(
+          "🔒 Нууц үг хангалттай нууцлалтай биш байна (хамгийн багадаа 6 тэмдэгт)",
+        );
+      } else {
+        setError(`❌ Алдаа гарлаа: ${error.message}`);
+      }
     } else {
+      alert("✅ Бүртгэл амжилттай үүслээ!");
       router.push("/dashboard");
     }
   };

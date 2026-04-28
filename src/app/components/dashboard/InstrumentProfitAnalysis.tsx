@@ -55,8 +55,8 @@ export function InstrumentProfitAnalysis({
         />
       </div>
 
-      <div className="h-[450px]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="h-[400px]">
+        <ResponsiveContainer width="100%" height="100%" minHeight={300}>
           <BarChart data={chartData} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis type="number" />
