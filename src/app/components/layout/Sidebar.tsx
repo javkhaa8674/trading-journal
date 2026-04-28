@@ -20,29 +20,33 @@ const navItems: NavItem[] = [
   { name: "Accounts", href: "/accounts", icon: "🏦" },
   { name: "Trading Plan", href: "/trading-plan", icon: "🗺️" },
   { name: "Deposits", href: "/deposits", icon: "📥" },
-  { name: "Withdrawals", href: "/withdrawals", icon: "💸" },
+  { name: "Withdrawals", href: "/withrawals", icon: "💸" },
   { name: "Psychology", href: "/psychology", icon: "🧠" },
   { name: "Admin Panel", href: "/admin/signups", icon: "👑", adminOnly: true },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { isCollapsed, toggleSidebar } = useSidebar();
+  const { isCollapsed, toggleSidebar, setIsCollapsed } = useSidebar();
   const [isMobile, setIsMobile] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // Check mobile
   useEffect(() => {
-    setIsMobile(window.innerWidth < 1024);
-
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024);
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) {
+        setIsCollapsed(true);
+      }
     };
 
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, [setIsCollapsed]);
 
-  // components/layout/Sidebar.tsx
+  // Check admin role
   useEffect(() => {
     const checkAdmin = async () => {
       const user = await getCurrentUser();
@@ -51,7 +55,6 @@ export function Sidebar() {
         return;
       }
 
-      // ✅ profiles таблиц ашиглах (recursion алдаагүй)
       const { data, error } = await supabase
         .from("profiles")
         .select("role")
@@ -69,10 +72,6 @@ export function Sidebar() {
     checkAdmin();
   }, []);
 
-  // Sidebar widths
-  const expandedWidth = "w-64";
-  const collapsedWidth = "w-16";
-
   // Filter nav items based on admin role
   const visibleNavItems = navItems.filter(
     (item) => !item.adminOnly || (item.adminOnly && isAdmin),
@@ -83,18 +82,29 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={`
-          fixed left-0 top-0 z-40 flex h-full flex-col border-r bg-white transition-all duration-300 dark:bg-gray-900 dark:border-gray-800
-          ${isCollapsed ? collapsedWidth : expandedWidth}
+          fixed left-0 top-0 z-40 flex h-full flex-col border-r bg-white shadow-lg transition-all duration-300
+          dark:bg-gray-900 dark:border-gray-700
+          ${
+            isMobile
+              ? `${isCollapsed ? "-translate-x-full" : "translate-x-0"} w-64`
+              : `${isCollapsed ? "w-16" : "w-64"}`
+          }
         `}
       >
         {/* Logo */}
         <div
-          className={`flex h-16 items-center border-b px-4 ${isCollapsed ? "justify-center" : "justify-between"} dark:border-gray-800`}
+          className={`flex h-16 items-center border-b px-4 dark:border-gray-700 ${
+            !isMobile && isCollapsed ? "justify-center" : "justify-between"
+          }`}
         >
-          {!isCollapsed ? (
+          {(!isMobile && !isCollapsed) || (!isMobile && isCollapsed) ? (
             <Link href="/dashboard" className="flex items-center gap-2">
               <span className="text-2xl">📈</span>
-              <span className="font-bold dark:text-white">Trading Journal</span>
+              {!isCollapsed && (
+                <span className="font-bold text-gray-900 dark:text-white">
+                  Trading Journal
+                </span>
+              )}
             </Link>
           ) : (
             <Link href="/dashboard" className="text-2xl">
@@ -102,17 +112,20 @@ export function Sidebar() {
             </Link>
           )}
 
-          {/* Toggle button inside sidebar */}
-          <button
-            onClick={toggleSidebar}
-            className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-            title={isCollapsed ? "Expand" : "Collapse"}
-          >
-            {isCollapsed ? "→" : "←"}
-          </button>
+          {/* Desktop toggle button */}
+          {!isMobile && (
+            <button
+              onClick={toggleSidebar}
+              className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+              title={isCollapsed ? "Expand" : "Collapse"}
+            >
+              {isCollapsed ? "→" : "←"}
+            </button>
+          )}
         </div>
 
         {/* Navigation */}
+
         <nav className="flex-1 space-y-1 p-2">
           {visibleNavItems.map((item) => {
             const isActive =
@@ -121,29 +134,40 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`
-                  flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors
-                  ${isCollapsed ? "justify-center" : ""}
-                  ${
-                    isActive
-                      ? "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400"
-                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                onClick={() => {
+                  if (isMobile) {
+                    setIsCollapsed(true);
                   }
-                `}
-                title={isCollapsed ? item.name : ""}
+                }}
+                className={`
+          flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200
+          ${!isMobile && isCollapsed ? "justify-center" : ""}
+          ${
+            isActive
+              ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+              : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800/40"
+          }
+        `}
+                title={!isMobile && isCollapsed ? item.name : ""}
               >
                 <span className="text-lg">{item.icon}</span>
-                {!isCollapsed && <span>{item.name}</span>}
+                {/* Mobile Expanded эсвэл Desktop Expanded үед текст харагдана */}
+                {!isCollapsed && (
+                  <span className="text-gray-700 dark:text-gray-200">
+                    {item.name}
+                  </span>
+                )}
               </Link>
             );
           })}
         </nav>
-
         {/* User section */}
         <div
-          className={`border-t p-4 ${isCollapsed ? "text-center" : ""} dark:border-gray-800`}
+          className={`border-t p-4 dark:border-gray-700 ${
+            !isMobile && isCollapsed ? "text-center" : ""
+          }`}
         >
-          {!isCollapsed ? (
+          {!isMobile && !isCollapsed ? (
             <LogoutButton />
           ) : (
             <button
@@ -162,10 +186,10 @@ export function Sidebar() {
       </aside>
 
       {/* Mobile overlay */}
-      {!isCollapsed && isMobile && (
+      {isMobile && !isCollapsed && (
         <div
           className="fixed inset-0 z-30 bg-black/50 lg:hidden"
-          onClick={toggleSidebar}
+          onClick={() => setIsCollapsed(true)}
         />
       )}
     </>

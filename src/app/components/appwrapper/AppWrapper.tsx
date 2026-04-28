@@ -1,13 +1,25 @@
+// components/AppWrapper.tsx
 "use client";
 
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/app/components/layout/Sidebar";
 import { Header } from "@/app/components/layout/Header";
 import { useSidebar } from "@/app/context/SidebarContext";
+import { useEffect, useState } from "react";
 
 export function AppWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { isCollapsed } = useSidebar();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // Auth pages - No sidebar/header
   const isAuthPage =
@@ -21,8 +33,8 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Sidebar width: 256px (w-64), collapsed: 64px (w-16)
-  const sidebarWidth = isCollapsed ? 64 : 256;
+  // Mobile дээр sidebar хаалттай үед margin 0 байх ёстой
+  const sidebarWidth = !isMobile && !isCollapsed ? 256 : 0;
 
   return (
     <div className="relative min-h-screen bg-gray-50 dark:bg-gray-950">

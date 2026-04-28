@@ -138,15 +138,16 @@ export default function DashboardPage() {
   // 🎯 RENDER
   // =========================
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-1">
       <h1 className="text-2xl font-bold dark:text-white">Dashboard</h1>
 
       {/* =========================
       🏦 ACCOUNT SELECTOR
   ========================= */}
-      <div className="mb-4">
+      <div className="mb-4 space-y-3">
+        {/* Account Selector - Mobile Friendly */}
         <select
-          className="rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+          className="w-full sm:w-auto rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white text-sm"
           value={selectedAccountId || ""}
           onChange={(e) => setSelectedAccountId(e.target.value || null)}
         >
@@ -165,9 +166,14 @@ export default function DashboardPage() {
         </select>
 
         {/* Trade count info */}
-        <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          Showing {trades.length} trades
-          {selectedAccountId && ` from ${selectedAccount?.name}`}
+        <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+          📊 Showing {trades.length} trade{trades.length !== 1 ? "s" : ""}
+          {selectedAccountId && (
+            <span className="font-medium text-blue-600 dark:text-blue-400">
+              {" "}
+              from {selectedAccount?.name}
+            </span>
+          )}
         </div>
       </div>
 

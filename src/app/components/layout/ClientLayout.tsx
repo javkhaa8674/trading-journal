@@ -1,29 +1,30 @@
 // app/ClientLayout.tsx
 "use client";
 
-import { ThemeProvider } from "@/app/providers/ThemeProvider";
+import { ThemeProvider } from "next-themes";
 import { SidebarProvider } from "@/app/context/SidebarContext";
 import { AppWrapper } from "@/app/components/appwrapper/AppWrapper";
 import { useEffect } from "react";
 
-// Filter Recharts warnings
-const filterRechartsWarnings = () => {
-  const originalWarn = console.warn;
-  console.warn = function (...args) {
-    if (args[0]?.includes?.("width(-1) and height(-1)")) {
-      return;
-    }
-    originalWarn.apply(console, args);
-  };
-};
-
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    filterRechartsWarnings();
+    // Filter Recharts warnings
+    const originalWarn = console.warn;
+    console.warn = function (...args) {
+      if (args[0]?.includes?.("width(-1) and height(-1)")) {
+        return;
+      }
+      originalWarn.apply(console, args);
+    };
   }, []);
 
   return (
-    <ThemeProvider>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
       <SidebarProvider>
         <AppWrapper>{children}</AppWrapper>
       </SidebarProvider>

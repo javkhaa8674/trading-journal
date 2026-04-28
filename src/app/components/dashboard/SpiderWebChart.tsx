@@ -368,14 +368,14 @@ export default function SpiderWebChart({
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div>
           <h3 className="text-lg font-semibold">
-            Performance Radar{" "}
+            Performance Radar{"/ "}Гүйцэтгэлийн радар
             <HelpTooltip
               title={metricsHelp.spiderChart.title}
               description={metricsHelp.spiderChart.description}
             />
           </h3>
           <p className="text-xs text-gray-500">
-            Multi-dimensional performance analysis
+            Олон хэмжээст гүйцэтгэлийн дүн шинжилгээ
           </p>
         </div>
 
@@ -490,12 +490,12 @@ export default function SpiderWebChart({
 
       <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg text-xs">
         <p className="font-medium text-blue-800 dark:text-blue-300">
-          📖 How to read this chart:
+          📖 Энэ графикийг хэрхэн унших вэ:
         </p>
         <p className="text-blue-700 dark:text-blue-400 mt-1">
           {scaleMode === "normalized"
-            ? "Values are normalized to 0-100% scale. Green (≥70%) = Excellent, Yellow (40-70%) = Average, Red (&lt;40%) = Needs improvement. The dotted line shows the 70% target."
-            : "Values are shown in absolute terms. Compare against the outer edge (max value) to see your performance."}
+            ? "Утгууд 0-100% масштабд хэвийн болсон. Ногоон (≥70%) = Маш сайн, Шар (40-70%) = Дундаж, Улаан (&lt;40%) = Сайжруулах шаардлагатай. Тасархай шугам нь 70% -ийн зорилтот түвшинг харуулж байна."
+            : "Утгууд нь үнэмлэхүй хэлбэрээр харагдаж байна. Гадны ирмэг (хамгийн их утга) -тай харьцуулж өөрийн гүйцэтгэлийг харна уу."}
         </p>
       </div>
     </div>

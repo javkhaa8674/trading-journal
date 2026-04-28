@@ -1,34 +1,38 @@
 /* app/globals.css */
 @import "tailwindcss";
 
+/* Dark mode variant - Tailwind v4 зөв синтакс */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Light mode (default) */
 :root {
-  --color-background: #ffffff;
-  --color-foreground: #171717;
+  --background: #ffffff;
+  --foreground: #171717;
 }
 
+/* Dark mode */
+.dark {
+  --background: #111827;
+  --foreground: #ffffff;
+}
+
+/* System preference дээр тулгуурласан dark mode */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: #0a0a0a;
-    --color-foreground: #ededed;
+  :root:not(.light) {
+    --background: #0a0a0a;
+    --foreground: #ededed;
   }
 }
 
-.dark {
-  --color-background: #111827;
-  --color-foreground: #ffffff;
-}
-
 body {
-  background: var(--color-background);
-  color: var(--color-foreground);
+  background: var(--background);
+  color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* app/globals.css дээр нэмэх */
-
-/* Editor Content Styles - Medium/Notion like */
+/* ===================================================== */
+/* TipTap Editor Styles */
+/* ===================================================== */
 .ProseMirror {
   outline: none;
 }
@@ -156,7 +160,9 @@ body {
   color: #2563eb;
 }
 
-/* Dark mode styles for trading plan */
+/* ===================================================== */
+/* Trading Plan Dark Mode Styles */
+/* ===================================================== */
 .dark .dark-mode-box {
   background-color: rgba(59, 130, 246, 0.15) !important;
   border-left-color: #3b82f6 !important;
@@ -202,4 +208,23 @@ body {
 .dark li[style*="color: #374151"],
 .dark p[style*="color: #374151"] {
   color: #d1d5db !important;
+}
+.dark .text-gray-700 {
+  color: #e5e7eb !important;
+}
+
+.dark .text-gray-600 {
+  color: #d1d5db !important;
+}
+
+.dark .text-gray-500 {
+  color: #9ca3af !important;
+}
+
+.dark .bg-white {
+  background-color: #111827 !important;
+}
+
+.dark .border-gray-200 {
+  border-color: #374151 !important;
 }

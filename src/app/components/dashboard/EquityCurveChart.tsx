@@ -19,6 +19,56 @@ type Props = {
   }[];
 };
 
+// ✅ Custom Tooltip
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white dark:bg-gray-800 border rounded-lg shadow-lg p-3">
+        <p className="text-sm text-gray-500 mb-2">
+          {new Date(label).toLocaleDateString()}
+        </p>
+
+        {/* Actual Equity - Green */}
+        {payload.find((p: any) => p.dataKey === "equity") && (
+          <div className="flex items-center justify-between gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-green-500" />
+              <span className="text-gray-600 dark:text-gray-400">
+                Actual Equity:
+              </span>
+            </div>
+            <span className="font-semibold text-green-600">
+              $
+              {payload
+                .find((p: any) => p.dataKey === "equity")
+                ?.value?.toLocaleString()}
+            </span>
+          </div>
+        )}
+
+        {/* Smooth Equity - Blue (if exists) */}
+        {payload.find((p: any) => p.dataKey === "smoothEquity") && (
+          <div className="flex items-center justify-between gap-4 text-sm mt-1">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-blue-500" />
+              <span className="text-gray-600 dark:text-gray-400">
+                Smooth Equity:
+              </span>
+            </div>
+            <span className="font-semibold text-blue-600">
+              $
+              {payload
+                .find((p: any) => p.dataKey === "smoothEquity")
+                ?.value?.toLocaleString()}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function EquityCurveChart({ data }: Props) {
   const sortedData = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -83,13 +133,8 @@ export default function EquityCurveChart({ data }: Props) {
                 style: { fontSize: 12, fill: "#6b7280" },
               }}
             />
-            <Tooltip
-              labelFormatter={(label) => new Date(label).toLocaleDateString()}
-              formatter={(value: any) => [
-                `$${Number(value).toLocaleString()}`,
-                "Equity",
-              ]}
-            />
+            {/* ✅ Custom Tooltip */}
+            <Tooltip content={<CustomTooltip />} />
             <Line
               type="monotone"
               dataKey="equity"
