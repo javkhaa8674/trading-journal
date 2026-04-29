@@ -18,6 +18,8 @@ import { LongShortAnalysis } from "@/app/components/dashboard/LongShortAnalysis"
 import { TradeDurationPnL } from "@/app/components/dashboard/TradeDurationPnl";
 import { InstrumentProfitAnalysis } from "@/app/components/dashboard/InstrumentProfitAnalysis";
 import { InstrumentVolumeAnalysis } from "@/app/components/dashboard/InstrumentVolumeAnalysis";
+import { StreakRiskTool } from "@/app/components/dashboard/RiskForcasting";
+import { MonteCarloEquityChart } from "@/app/components/dashboard/MonteCarloEquityChart";
 // =========================
 // 🆕 ADVANCED ANALYTICS
 // =========================
@@ -269,6 +271,11 @@ export default function DashboardPage() {
         <InstrumentProfitAnalysis data={profitAnalysisData} />
         <InstrumentVolumeAnalysis data={volumeAnalysisData} />
       </div>
+      {/* =========================
+      🆕 FUTURE SIMULATIONS
+  ========================= */}
+      <StreakRiskTool trades={filteredTrades} />
+      <MonteCarloEquityChart trades={filteredTrades} />
 
       {/* =========================
       📊 EXISTING COMPONENTS

@@ -29,181 +29,126 @@ type Props = {
   tradesLength: number;
   metrics: Metrics;
   startingBalance?: number;
+  riskPerTrade?: number; // 🔥 шинэ
 };
 
-// Unified chart data type
 type ChartDataPoint = {
   metric: string;
   value: number;
   unit: string;
-  // For normalized mode
   rawValue?: number;
   target?: number;
   isPercentage?: boolean;
-  // For absolute mode
   fullMark?: number;
   good?: number;
+};
+
+// 🔥 NON-LINEAR SCORING (REALISTIC)
+const scorePF = (v: number) => {
+  if (v <= 1) return 0;
+  if (v >= 3) return 100;
+  return ((v - 1) / 2) * 100;
+};
+
+const scoreRR = (v: number) => {
+  if (v <= 1) return 20;
+  if (v >= 3) return 100;
+  return ((v - 1) / 2) * 80 + 20;
+};
+
+const scoreSharpe = (v: number) => {
+  if (v <= 0) return 0;
+  if (v >= 3) return 100;
+  return (v / 3) * 100;
+};
+
+const scoreCalmar = (v: number) => {
+  if (v <= 0) return 0;
+  if (v >= 10) return 100;
+  return (v / 10) * 100;
+};
+
+const scoreExpectancy = (r: number) => {
+  if (r <= 0) return 0;
+  if (r >= 1) return 100;
+  return r * 100;
 };
 
 export default function SpiderWebChart({
   tradesLength,
   metrics,
   startingBalance = 10000,
+  riskPerTrade = 100,
 }: Props) {
   const [scaleMode, setScaleMode] = useState<"normalized" | "absolute">(
     "normalized",
   );
 
-  // Normalize metrics to 0-100 scale
   const normalizedMetrics: ChartDataPoint[] = useMemo(() => {
-    const ranges = {
-      winRate: { min: 0, max: 100, target: 50, isPercentage: true, good: 50 },
-      profitFactor: {
-        min: 0,
-        max: 3,
-        target: 1.5,
-        isPercentage: false,
-        good: 1.5,
-      },
-      riskReward: {
-        min: 0,
-        max: 3,
-        target: 1.5,
-        isPercentage: false,
-        good: 1.5,
-      },
-      sharpeRatio: { min: -1, max: 3, target: 1, isPercentage: false, good: 1 },
-      calmarRatio: { min: -2, max: 3, target: 1, isPercentage: false, good: 1 },
-      consistency: {
-        min: 0,
-        max: 100,
-        target: 70,
-        isPercentage: true,
-        good: 70,
-      },
-      avgWinLoss: {
-        min: 0,
-        max: 3,
-        target: 1.5,
-        isPercentage: false,
-        good: 1.5,
-      },
-      expectancy: {
-        min: -200,
-        max: 500,
-        target: 50,
-        isPercentage: false,
-        good: 50,
-      },
-    };
-
-    const normalize = (value: number, min: number, max: number) => {
-      if (value <= min) return 0;
-      if (value >= max) return 100;
-      return ((value - min) / (max - min)) * 100;
-    };
+    const expectancyR = metrics.expectancy / riskPerTrade;
 
     return [
       {
         metric: "Win Rate",
-        value: normalize(
-          metrics.winRate,
-          ranges.winRate.min,
-          ranges.winRate.max,
-        ),
+        value: Math.min(100, metrics.winRate),
         rawValue: metrics.winRate,
         unit: "%",
-        target: ranges.winRate.target,
+        target: 50,
         isPercentage: true,
       },
       {
         metric: "Profit Factor",
-        value: normalize(
-          metrics.profitFactor,
-          ranges.profitFactor.min,
-          ranges.profitFactor.max,
-        ),
+        value: scorePF(metrics.profitFactor),
         rawValue: metrics.profitFactor,
         unit: "x",
-        target: ranges.profitFactor.target,
-        isPercentage: false,
+        target: 70,
       },
       {
         metric: "Risk/Reward",
-        value: normalize(
-          metrics.riskReward,
-          ranges.riskReward.min,
-          ranges.riskReward.max,
-        ),
+        value: scoreRR(metrics.riskReward),
         rawValue: metrics.riskReward,
         unit: "x",
-        target: ranges.riskReward.target,
-        isPercentage: false,
+        target: 70,
       },
       {
         metric: "Sharpe Ratio",
-        value: normalize(
-          Math.max(0, metrics.sharpeRatio),
-          ranges.sharpeRatio.min,
-          ranges.sharpeRatio.max,
-        ),
+        value: scoreSharpe(metrics.sharpeRatio),
         rawValue: metrics.sharpeRatio,
         unit: "",
-        target: ranges.sharpeRatio.target,
-        isPercentage: false,
+        target: 60,
       },
       {
         metric: "Calmar Ratio",
-        value: normalize(
-          Math.max(0, metrics.calmarRatio),
-          ranges.calmarRatio.min,
-          ranges.calmarRatio.max,
-        ),
+        value: scoreCalmar(metrics.calmarRatio),
         rawValue: metrics.calmarRatio,
         unit: "",
-        target: ranges.calmarRatio.target,
-        isPercentage: false,
+        target: 60,
       },
       {
         metric: "Consistency",
-        value: normalize(
-          metrics.consistency,
-          ranges.consistency.min,
-          ranges.consistency.max,
-        ),
+        value: Math.min(100, metrics.consistency),
         rawValue: metrics.consistency,
         unit: "%",
-        target: ranges.consistency.target,
+        target: 70,
         isPercentage: true,
       },
       {
         metric: "Avg Win/Loss",
-        value: normalize(
-          metrics.avgWinLoss,
-          ranges.avgWinLoss.min,
-          ranges.avgWinLoss.max,
-        ),
+        value: scoreRR(metrics.avgWinLoss),
         rawValue: metrics.avgWinLoss,
         unit: "x",
-        target: ranges.avgWinLoss.target,
-        isPercentage: false,
+        target: 70,
       },
       {
         metric: "Expectancy",
-        value: normalize(
-          metrics.expectancy,
-          ranges.expectancy.min,
-          ranges.expectancy.max,
-        ),
-        rawValue: metrics.expectancy,
-        unit: "$",
-        target: ranges.expectancy.target,
-        isPercentage: false,
+        value: scoreExpectancy(expectancyR),
+        rawValue: expectancyR,
+        unit: "R",
+        target: 50,
       },
     ];
-  }, [metrics]);
+  }, [metrics, riskPerTrade]);
 
-  // Absolute values
   const absoluteMetrics: ChartDataPoint[] = useMemo(() => {
     return [
       {
@@ -215,31 +160,31 @@ export default function SpiderWebChart({
       },
       {
         metric: "Profit Factor",
-        value: Math.min(3, metrics.profitFactor),
-        fullMark: 3,
+        value: metrics.profitFactor,
+        fullMark: 5,
         unit: "x",
-        good: 1.5,
+        good: 2,
       },
       {
         metric: "Risk/Reward",
-        value: Math.min(3, metrics.riskReward),
-        fullMark: 3,
+        value: metrics.riskReward,
+        fullMark: 5,
         unit: "x",
-        good: 1.5,
+        good: 2,
       },
       {
         metric: "Sharpe Ratio",
-        value: Math.min(3, Math.max(0, metrics.sharpeRatio)),
-        fullMark: 3,
+        value: metrics.sharpeRatio,
+        fullMark: 5,
         unit: "",
-        good: 1,
+        good: 2,
       },
       {
         metric: "Calmar Ratio",
-        value: Math.min(3, Math.max(0, metrics.calmarRatio)),
-        fullMark: 3,
+        value: metrics.calmarRatio,
+        fullMark: 20,
         unit: "",
-        good: 1,
+        good: 5,
       },
       {
         metric: "Consistency",
@@ -250,103 +195,51 @@ export default function SpiderWebChart({
       },
       {
         metric: "Avg Win/Loss",
-        value: Math.min(3, metrics.avgWinLoss),
-        fullMark: 3,
+        value: metrics.avgWinLoss,
+        fullMark: 5,
         unit: "x",
-        good: 1.5,
+        good: 2,
       },
       {
         metric: "Expectancy",
-        value: Math.min(500, Math.max(-200, metrics.expectancy)),
-        fullMark: 500,
-        unit: "$",
-        good: 50,
+        value: metrics.expectancy / riskPerTrade,
+        fullMark: 2,
+        unit: "R",
+        good: 0.5,
       },
     ];
-  }, [metrics]);
+  }, [metrics, riskPerTrade]);
 
-  const chartData: ChartDataPoint[] =
+  const chartData =
     scaleMode === "normalized" ? normalizedMetrics : absoluteMetrics;
 
   const getColor = (value: number, target: number, max: number) => {
-    if (scaleMode === "normalized") {
-      if (value >= 70) return "#22c55e";
-      if (value >= 40) return "#eab308";
-      return "#ef4444";
-    } else {
-      const percentage = (value / max) * 100;
-      const goodPercentage = (target / max) * 100;
-      if (percentage >= goodPercentage) return "#22c55e";
-      if (percentage >= goodPercentage * 0.6) return "#eab308";
-      return "#ef4444";
-    }
+    const percentage = (value / max) * 100;
+    const goodPercentage = (target / max) * 100;
+
+    if (percentage >= goodPercentage) return "#22c55e";
+    if (percentage >= goodPercentage * 0.6) return "#eab308";
+    return "#ef4444";
   };
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload as ChartDataPoint;
-      if (scaleMode === "normalized") {
-        return (
-          <div className="bg-white dark:bg-gray-800 border rounded-lg shadow-lg p-3">
-            <p className="font-semibold">{data.metric}</p>
-            <p
-              className="text-2xl font-bold"
-              style={{ color: getColor(data.value, data.target || 0, 100) }}
-            >
-              {data.rawValue?.toFixed(1)}
-              {data.unit}
-            </p>
+
+      return (
+        <div className="bg-white dark:bg-gray-800 border rounded-lg shadow-lg p-3">
+          <p className="font-semibold">{data.metric}</p>
+          <p className="text-2xl font-bold">
+            {data.rawValue?.toFixed(2)}
+            {data.unit}
+          </p>
+          {"value" in data && (
             <p className="text-xs text-gray-500">
               Score: {data.value.toFixed(0)}%
-              {data.value >= 70
-                ? " 🎯 Excellent"
-                : data.value >= 40
-                  ? " 📊 Average"
-                  : " ⚠️ Needs Work"}
             </p>
-            <p className="text-xs text-gray-400 mt-1">
-              Target: &gt;{data.target}
-              {data.isPercentage ? "%" : data.unit === "$" ? "" : "x"}
-            </p>
-            <div className="mt-1 h-1 w-full bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${Math.min(100, data.value)}%`,
-                  backgroundColor: getColor(data.value, data.target || 0, 100),
-                }}
-              />
-            </div>
-          </div>
-        );
-      } else {
-        return (
-          <div className="bg-white dark:bg-gray-800 border rounded-lg shadow-lg p-3">
-            <p className="font-semibold">{data.metric}</p>
-            <p
-              className="text-2xl font-bold"
-              style={{
-                color: getColor(
-                  data.value,
-                  data.good || 0,
-                  data.fullMark || 100,
-                ),
-              }}
-            >
-              {data.value.toFixed(1)}
-              {data.unit}
-            </p>
-            <p className="text-xs text-gray-500">
-              Range: 0 - {data.fullMark}
-              {data.unit}
-            </p>
-            <p className="text-xs text-gray-400">
-              Good: &gt;{data.good}
-              {data.unit}
-            </p>
-          </div>
-        );
-      }
+          )}
+        </div>
+      );
     }
     return null;
   };
@@ -356,9 +249,6 @@ export default function SpiderWebChart({
       <div className="rounded-lg border bg-white p-6 text-center dark:bg-gray-900">
         <div className="text-4xl mb-2">🕸️</div>
         <p className="text-gray-500">No trading data available</p>
-        <p className="text-xs text-gray-400 mt-1">
-          Add trades to see your performance radar
-        </p>
       </div>
     );
   }
@@ -368,135 +258,65 @@ export default function SpiderWebChart({
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div>
           <h3 className="text-lg font-semibold">
-            Performance Radar{"/ "}Гүйцэтгэлийн радар
+            Performance Radar / Гүйцэтгэлийн радар
             <HelpTooltip
               title={metricsHelp.spiderChart.title}
               description={metricsHelp.spiderChart.description}
             />
           </h3>
-          <p className="text-xs text-gray-500">
-            Олон хэмжээст гүйцэтгэлийн дүн шинжилгээ
-          </p>
         </div>
 
         <div className="flex gap-1 text-xs bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
           <button
             onClick={() => setScaleMode("normalized")}
-            className={`px-3 py-1 rounded-md transition-all ${
+            className={`px-3 py-1 rounded-md ${
               scaleMode === "normalized"
                 ? "bg-blue-500 text-white"
                 : "text-gray-500 hover:bg-gray-200"
             }`}
           >
-            📊 Normalized (0-100%)
+            📊 Score
           </button>
           <button
             onClick={() => setScaleMode("absolute")}
-            className={`px-3 py-1 rounded-md transition-all ${
+            className={`px-3 py-1 rounded-md ${
               scaleMode === "absolute"
                 ? "bg-blue-500 text-white"
                 : "text-gray-500 hover:bg-gray-200"
             }`}
           >
-            📈 Absolute Values
+            📈 Raw
           </button>
         </div>
       </div>
 
-      <div
-        style={{ width: "100%", height: 450, minWidth: 300, minHeight: 350 }}
-      >
+      <div style={{ width: "100%", height: 450 }}>
         <ResponsiveContainer>
-          <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData}>
-            <PolarGrid stroke="#e5e7eb" />
-            <PolarAngleAxis
-              dataKey="metric"
-              tick={{ fontSize: 11, fill: "#6b7280" }}
-              tickLine={false}
-            />
+          <RadarChart data={chartData}>
+            <PolarGrid />
+            <PolarAngleAxis dataKey="metric" />
             <PolarRadiusAxis
-              angle={90}
               domain={[0, scaleMode === "normalized" ? 100 : "auto"]}
-              tick={{ fontSize: 10 }}
-              tickFormatter={(value) =>
-                scaleMode === "normalized" ? `${value}%` : value.toString()
-              }
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend />
             <Radar
-              name={
-                scaleMode === "normalized"
-                  ? "Normalized Score (0-100%)"
-                  : "Your Performance"
-              }
               dataKey="value"
               stroke="#3b82f6"
-              strokeWidth={2}
               fill="#3b82f6"
               fillOpacity={0.3}
             />
-            {scaleMode === "normalized" && (
-              <Radar
-                name="Target (70%+)"
-                dataKey="target"
-                stroke="#9ca3af"
-                strokeWidth={1}
-                fill="#9ca3af"
-                fillOpacity={0.05}
-                strokeDasharray="4 4"
-              />
-            )}
           </RadarChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-center text-xs border-t pt-3">
-        <div>
-          <span className="text-gray-500">Overall Score</span>
-          <div className="text-lg font-bold">
-            {(
-              normalizedMetrics.reduce((s, m) => s + m.value, 0) /
-              normalizedMetrics.length
-            ).toFixed(0)}
-            %
-          </div>
-        </div>
-        <div>
-          <span className="text-gray-500">Best Metric</span>
-          <div className="text-sm font-medium text-green-600">
-            {
-              normalizedMetrics.reduce((best, m) =>
-                m.value > best.value ? m : best,
-              ).metric
-            }
-          </div>
-        </div>
-        <div>
-          <span className="text-gray-500">Needs Work</span>
-          <div className="text-sm font-medium text-red-600">
-            {
-              normalizedMetrics.reduce((worst, m) =>
-                m.value < worst.value ? m : worst,
-              ).metric
-            }
-          </div>
-        </div>
-        <div>
-          <span className="text-gray-500">Total Trades</span>
-          <div className="text-lg font-bold">{tradesLength}</div>
-        </div>
-      </div>
-
-      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg text-xs">
-        <p className="font-medium text-blue-800 dark:text-blue-300">
-          📖 Энэ графикийг хэрхэн унших вэ:
-        </p>
-        <p className="text-blue-700 dark:text-blue-400 mt-1">
-          {scaleMode === "normalized"
-            ? "Утгууд 0-100% масштабд хэвийн болсон. Ногоон (≥70%) = Маш сайн, Шар (40-70%) = Дундаж, Улаан (&lt;40%) = Сайжруулах шаардлагатай. Тасархай шугам нь 70% -ийн зорилтот түвшинг харуулж байна."
-            : "Утгууд нь үнэмлэхүй хэлбэрээр харагдаж байна. Гадны ирмэг (хамгийн их утга) -тай харьцуулж өөрийн гүйцэтгэлийг харна уу."}
-        </p>
+      <div className="mt-4 text-center text-sm">
+        Overall Score:{" "}
+        {(
+          normalizedMetrics.reduce((s, m) => s + m.value, 0) /
+          normalizedMetrics.length
+        ).toFixed(0)}
+        %
       </div>
     </div>
   );
