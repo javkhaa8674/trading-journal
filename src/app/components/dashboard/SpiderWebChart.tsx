@@ -9,10 +9,7 @@ import {
   PolarRadiusAxis,
   ResponsiveContainer,
   Tooltip,
-  Legend,
 } from "recharts";
-import { HelpTooltip } from "./HelpTooltip";
-import { metricsHelp } from "@/lib/constants/metricsHelp";
 
 type Metrics = {
   winRate: number;
@@ -28,26 +25,35 @@ type Metrics = {
 type Props = {
   tradesLength: number;
   metrics: Metrics;
-  startingBalance?: number;
-  riskPerTrade?: number; // 🔥 шинэ
+  riskPerTrade?: number;
 };
 
-type ChartDataPoint = {
-  metric: string;
-  value: number;
-  unit: string;
-  rawValue?: number;
-  target?: number;
-  isPercentage?: boolean;
-  fullMark?: number;
-  good?: number;
+// -----------------------------
+// 🔥 WEIGHTS (PRO LEVEL)
+// -----------------------------
+const WEIGHTS = {
+  expectancy: 0.25,
+  profitFactor: 0.2,
+  sharpe: 0.15,
+  calmar: 0.15,
+  riskReward: 0.1,
+  consistency: 0.1,
+  winRate: 0.05,
 };
 
-// 🔥 NON-LINEAR SCORING (REALISTIC)
+// -----------------------------
+// 🔥 SCORING FUNCTIONS
+// -----------------------------
+const scoreExpectancy = (r: number) => {
+  if (r <= 0) return 0;
+  if (r >= 0.5) return 100;
+  return (r / 0.5) * 100;
+};
+
 const scorePF = (v: number) => {
   if (v <= 1) return 0;
-  if (v >= 3) return 100;
-  return ((v - 1) / 2) * 100;
+  if (v >= 2.5) return 100;
+  return ((v - 1) / 1.5) * 100;
 };
 
 const scoreRR = (v: number) => {
@@ -64,242 +70,107 @@ const scoreSharpe = (v: number) => {
 
 const scoreCalmar = (v: number) => {
   if (v <= 0) return 0;
-  if (v >= 10) return 100;
-  return (v / 10) * 100;
+  if (v >= 5) return 100;
+  return (v / 5) * 100;
 };
 
-const scoreExpectancy = (r: number) => {
-  if (r <= 0) return 0;
-  if (r >= 1) return 100;
-  return r * 100;
+const scoreConsistency = (v: number) => Math.min(100, v);
+
+// 🔥 RR-aware winrate
+const scoreWinRate = (wr: number, rr: number) => {
+  const breakeven = 1 / (1 + rr);
+  const edge = wr - breakeven;
+
+  if (edge <= 0) return 0;
+  if (edge >= 0.2) return 100;
+
+  return (edge / 0.2) * 100;
 };
 
+// -----------------------------
+// 🔥 COMPONENT
+// -----------------------------
 export default function SpiderWebChart({
   tradesLength,
   metrics,
-  startingBalance = 10000,
-  riskPerTrade = 100,
+  riskPerTrade = 1,
 }: Props) {
-  const [scaleMode, setScaleMode] = useState<"normalized" | "absolute">(
-    "normalized",
-  );
+  const [mode, setMode] = useState<"score" | "raw">("score");
 
-  const normalizedMetrics: ChartDataPoint[] = useMemo(() => {
+  const data = useMemo(() => {
     const expectancyR = metrics.expectancy / riskPerTrade;
 
-    return [
-      {
-        metric: "Win Rate",
-        value: Math.min(100, metrics.winRate),
-        rawValue: metrics.winRate,
-        unit: "%",
-        target: 50,
-        isPercentage: true,
-      },
-      {
-        metric: "Profit Factor",
-        value: scorePF(metrics.profitFactor),
-        rawValue: metrics.profitFactor,
-        unit: "x",
-        target: 70,
-      },
-      {
-        metric: "Risk/Reward",
-        value: scoreRR(metrics.riskReward),
-        rawValue: metrics.riskReward,
-        unit: "x",
-        target: 70,
-      },
-      {
-        metric: "Sharpe Ratio",
-        value: scoreSharpe(metrics.sharpeRatio),
-        rawValue: metrics.sharpeRatio,
-        unit: "",
-        target: 60,
-      },
-      {
-        metric: "Calmar Ratio",
-        value: scoreCalmar(metrics.calmarRatio),
-        rawValue: metrics.calmarRatio,
-        unit: "",
-        target: 60,
-      },
-      {
-        metric: "Consistency",
-        value: Math.min(100, metrics.consistency),
-        rawValue: metrics.consistency,
-        unit: "%",
-        target: 70,
-        isPercentage: true,
-      },
-      {
-        metric: "Avg Win/Loss",
-        value: scoreRR(metrics.avgWinLoss),
-        rawValue: metrics.avgWinLoss,
-        unit: "x",
-        target: 70,
-      },
-      {
-        metric: "Expectancy",
-        value: scoreExpectancy(expectancyR),
-        rawValue: expectancyR,
-        unit: "R",
-        target: 50,
-      },
+    const scores = {
+      expectancy: scoreExpectancy(expectancyR),
+      profitFactor: scorePF(metrics.profitFactor),
+      sharpe: scoreSharpe(metrics.sharpeRatio),
+      calmar: scoreCalmar(metrics.calmarRatio),
+      riskReward: scoreRR(metrics.riskReward),
+      consistency: scoreConsistency(metrics.consistency),
+      winRate: scoreWinRate(metrics.winRate / 100, metrics.riskReward),
+    };
+
+    const chartData = [
+      { metric: "Expectancy", value: scores.expectancy },
+      { metric: "Profit Factor", value: scores.profitFactor },
+      { metric: "Sharpe", value: scores.sharpe },
+      { metric: "Calmar", value: scores.calmar },
+      { metric: "RR", value: scores.riskReward },
+      { metric: "Consistency", value: scores.consistency },
+      { metric: "WinRate", value: scores.winRate },
     ];
+
+    const overall =
+      scores.expectancy * WEIGHTS.expectancy +
+      scores.profitFactor * WEIGHTS.profitFactor +
+      scores.sharpe * WEIGHTS.sharpe +
+      scores.calmar * WEIGHTS.calmar +
+      scores.riskReward * WEIGHTS.riskReward +
+      scores.consistency * WEIGHTS.consistency +
+      scores.winRate * WEIGHTS.winRate;
+
+    return { chartData, overall, expectancyR };
   }, [metrics, riskPerTrade]);
 
-  const absoluteMetrics: ChartDataPoint[] = useMemo(() => {
-    return [
-      {
-        metric: "Win Rate",
-        value: metrics.winRate,
-        fullMark: 100,
-        unit: "%",
-        good: 50,
-      },
-      {
-        metric: "Profit Factor",
-        value: metrics.profitFactor,
-        fullMark: 5,
-        unit: "x",
-        good: 2,
-      },
-      {
-        metric: "Risk/Reward",
-        value: metrics.riskReward,
-        fullMark: 5,
-        unit: "x",
-        good: 2,
-      },
-      {
-        metric: "Sharpe Ratio",
-        value: metrics.sharpeRatio,
-        fullMark: 5,
-        unit: "",
-        good: 2,
-      },
-      {
-        metric: "Calmar Ratio",
-        value: metrics.calmarRatio,
-        fullMark: 20,
-        unit: "",
-        good: 5,
-      },
-      {
-        metric: "Consistency",
-        value: metrics.consistency,
-        fullMark: 100,
-        unit: "%",
-        good: 70,
-      },
-      {
-        metric: "Avg Win/Loss",
-        value: metrics.avgWinLoss,
-        fullMark: 5,
-        unit: "x",
-        good: 2,
-      },
-      {
-        metric: "Expectancy",
-        value: metrics.expectancy / riskPerTrade,
-        fullMark: 2,
-        unit: "R",
-        good: 0.5,
-      },
-    ];
-  }, [metrics, riskPerTrade]);
+  // -----------------------------
+  // 🔥 AI COACH (AUTO DIAGNOSIS)
+  // -----------------------------
+  const diagnosis = useMemo(() => {
+    const msgs: string[] = [];
 
-  const chartData =
-    scaleMode === "normalized" ? normalizedMetrics : absoluteMetrics;
+    if (metrics.expectancy <= 0) msgs.push("❌ Стратеги алдагдалтай байна");
 
-  const getColor = (value: number, target: number, max: number) => {
-    const percentage = (value / max) * 100;
-    const goodPercentage = (target / max) * 100;
+    if (metrics.profitFactor < 1.5) msgs.push("⚠ Profit Factor сул байна");
 
-    if (percentage >= goodPercentage) return "#22c55e";
-    if (percentage >= goodPercentage * 0.6) return "#eab308";
-    return "#ef4444";
-  };
+    if (metrics.calmarRatio < 2) msgs.push("⚠ Drawdown өндөр байна");
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload as ChartDataPoint;
+    if (metrics.sharpeRatio < 1) msgs.push("⚠ Ашиг тогтворгүй байна");
 
-      return (
-        <div className="bg-white dark:bg-gray-800 border rounded-lg shadow-lg p-3">
-          <p className="font-semibold">{data.metric}</p>
-          <p className="text-2xl font-bold">
-            {data.rawValue?.toFixed(2)}
-            {data.unit}
-          </p>
-          {"value" in data && (
-            <p className="text-xs text-gray-500">
-              Score: {data.value.toFixed(0)}%
-            </p>
-          )}
-        </div>
-      );
-    }
-    return null;
-  };
+    if (metrics.riskReward > 3 && metrics.winRate < 40)
+      msgs.push("⚠ RR өндөр боловч winrate бага");
+
+    if (metrics.consistency < 60) msgs.push("⚠ Consistency сул байна");
+
+    if (!msgs.length) msgs.push("✅ Сайн balanced strategy байна");
+
+    return msgs;
+  }, [metrics]);
 
   if (!tradesLength) {
-    return (
-      <div className="rounded-lg border bg-white p-6 text-center dark:bg-gray-900">
-        <div className="text-4xl mb-2">🕸️</div>
-        <p className="text-gray-500">No trading data available</p>
-      </div>
-    );
+    return <div className="p-6 text-center">No data</div>;
   }
 
   return (
-    <div className="rounded-lg border bg-white p-4 mt-4 dark:bg-gray-900">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <div>
-          <h3 className="text-lg font-semibold">
-            Performance Radar / Гүйцэтгэлийн радар
-            <HelpTooltip
-              title={metricsHelp.spiderChart.title}
-              description={metricsHelp.spiderChart.description}
-            />
-          </h3>
-        </div>
+    <div className="p-4 border rounded-lg bg-white dark:bg-gray-900">
+      <h3 className="text-lg font-semibold mb-3">📊 Performance Radar (Pro)</h3>
 
-        <div className="flex gap-1 text-xs bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-          <button
-            onClick={() => setScaleMode("normalized")}
-            className={`px-3 py-1 rounded-md ${
-              scaleMode === "normalized"
-                ? "bg-blue-500 text-white"
-                : "text-gray-500 hover:bg-gray-200"
-            }`}
-          >
-            📊 Score
-          </button>
-          <button
-            onClick={() => setScaleMode("absolute")}
-            className={`px-3 py-1 rounded-md ${
-              scaleMode === "absolute"
-                ? "bg-blue-500 text-white"
-                : "text-gray-500 hover:bg-gray-200"
-            }`}
-          >
-            📈 Raw
-          </button>
-        </div>
-      </div>
-
-      <div style={{ width: "100%", height: 450 }}>
+      <div style={{ width: "100%", height: 400 }}>
         <ResponsiveContainer>
-          <RadarChart data={chartData}>
+          <RadarChart data={data.chartData}>
             <PolarGrid />
             <PolarAngleAxis dataKey="metric" />
-            <PolarRadiusAxis
-              domain={[0, scaleMode === "normalized" ? 100 : "auto"]}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
+            <PolarRadiusAxis domain={[0, 100]} />
+            <Tooltip />
             <Radar
               dataKey="value"
               stroke="#3b82f6"
@@ -310,13 +181,44 @@ export default function SpiderWebChart({
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-4 text-center text-sm">
-        Overall Score:{" "}
-        {(
-          normalizedMetrics.reduce((s, m) => s + m.value, 0) /
-          normalizedMetrics.length
-        ).toFixed(0)}
-        %
+      {/* OVERALL SCORE */}
+      <div className="text-center mt-3 text-lg font-bold">
+        Overall Score: {data.overall.toFixed(0)}%
+      </div>
+
+      {/* EXPLANATION */}
+      <div className="mt-4 text-xs p-3 bg-blue-50 dark:bg-blue-950 rounded">
+        <p className="font-semibold">📖 Үзүүлэлтүүдийн тайлбар</p>
+
+        <p className="mt-2">
+          <b>Expectancy:</b> Нэг trade-ийн дундаж ашиг (хамгийн чухал)
+        </p>
+        <p>
+          <b>Profit Factor:</b> Ашиг / Алдагдал
+        </p>
+        <p>
+          <b>Sharpe:</b> Ашиг vs хэлбэлзэл
+        </p>
+        <p>
+          <b>Calmar:</b> Ашиг vs drawdown
+        </p>
+        <p>
+          <b>RR:</b> Ашиг/алдагдлын харьцаа
+        </p>
+        <p>
+          <b>Consistency:</b> Тогтвортой байдал
+        </p>
+        <p>
+          <b>WinRate:</b> Ашигтай trade-ийн хувь
+        </p>
+      </div>
+
+      {/* AI COACH */}
+      <div className="mt-4 text-xs p-3 bg-yellow-50 dark:bg-yellow-950 rounded">
+        <p className="font-semibold">🧠 Strategy Analysis</p>
+        {diagnosis.map((m, i) => (
+          <p key={i}>{m}</p>
+        ))}
       </div>
     </div>
   );

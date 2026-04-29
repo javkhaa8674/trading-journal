@@ -113,8 +113,8 @@ export function MonteCarloEquityChart({
       return (
         <div className="bg-white dark:bg-gray-800 border rounded-lg shadow p-2 text-xs">
           <p className="font-semibold">Step {d.step}</p>
-          <p className="text-green-500">p50: ${d.p50.toFixed(0)}</p>
           <p className="text-yellow-500">p95: ${d.p95.toFixed(0)}</p>
+          <p className="text-green-500">p50: ${d.p50.toFixed(0)}</p>
           <p className="text-red-500">worst: ${d.worst.toFixed(0)}</p>
         </div>
       );
@@ -152,7 +152,7 @@ export function MonteCarloEquityChart({
               dataKey="step"
               tick={{ fontSize: 11 }}
               label={{
-                value: "Future Trades",
+                value: "Ирээдүйн арилжаанууд",
                 position: "insideBottom",
                 offset: -5,
               }}

@@ -118,7 +118,8 @@ export function StreakRiskTool({
   // PROBABILITY CALC
   // --------------------------
   const probabilityOfN = (n: number) => {
-    return Math.pow(lossProb, n);
+    if (winRate <= 0 || winRate >= 1) return 0;
+    return Math.pow(1 - winRate, n);
   };
 
   const CustomTooltip = ({ active, payload }: any) => {
@@ -126,8 +127,8 @@ export function StreakRiskTool({
       const d = payload[0].payload;
       return (
         <div className="bg-white dark:bg-gray-800 border rounded-lg p-2 text-sm">
-          <p>{d.streak} losses</p>
-          <p>{d.count} times</p>
+          <p>{d.streak} дараалласан алдагдлал</p>
+          <p>{d.count} удаа</p>
         </div>
       );
     }
@@ -135,7 +136,7 @@ export function StreakRiskTool({
   };
 
   if (!trades.length) {
-    return <div className="p-6 text-center">No data</div>;
+    return <div className="p-6 text-center">Өгөгдөл байхгүй.</div>;
   }
 
   return (
@@ -189,27 +190,32 @@ export function StreakRiskTool({
       </div>
 
       <div className="mt-3 p-3 bg-red-50 dark:bg-red-950 rounded text-xs">
-        <p className="font-medium text-red-700 dark:text-red-300">📖 Insight</p>
+        <p className="font-medium text-red-700 dark:text-red-300">📖 Тайлбар</p>
         <p className="text-red-600 dark:text-red-400">
           Энэ хэрэгсэл нь ирээдүйн хамгийн муу дараалсан хожигдолыг таамаглаж,
           эрсдлийн менежмент болон лотын хэмжээг зөв тохируулахад ашиглагдана.{" "}
           <br />
           <br />
-          <b>Expected (8.2):</b> Ихэнх тохиолдолд гарах дундаж losing streak
-          бөгөөд ойролцоогоор 8 дараалсан loss normal scenario-д тохиолдоно.{" "}
+          <b>Expected:</b> Бүх симуляцид гарсан max loss streak-ийн дундаж.
           <br />
-          <b>Worst (95%) (13):</b> 100 simulation-ын 95%-д нь 13-аас хэтрэхгүй
-          хамгийн муу түвшин буюу хүнд үеийн risk. <br />
-          <b>Extreme (99%) (17):</b> Маш ховор боловч боломжтой хамгийн муу
-          streak бөгөөд 100 удаад 1 орчим тохиолдож болно. <br />
+          <b>Worst (95%):</b> 100 симуляцид 95%-д үүнээс бага эсвэл тэнцүү max
+          streak гарна.
           <br />
-          <b>Loss Streak Probability:</b> <br />
-          3 losses = 22.01% (маш түгээмэл) <br />
-          5 losses = 8.02% (боломжит хүнд үе) <br />
-          7 losses = 2.92% (ховор боловч бодит risk scenario) <br />
+          <b>Extreme (99%):</b> симуляцийн 99%-д энэ утгаас доогуур max streak
+          гарна.
           <br />
-          Эдгээр үзүүлэлтүүд нь loss streak зайлшгүй тохиолддог гэдгийг харуулж,
-          position sizing болон risk management-ийг зөв хийхэд ашиглагдана.
+          <br />
+          <b>Дараалласан алдагдлын магадлал:</b>
+          <br />
+          3 loss = XX.XX% <br />
+          5 loss = XX.XX%
+          <br />
+          7 loss = XX.XX%
+          <br />
+          <br />
+          Эдгээр үзүүлэлтүүд нь дараалласан алдагдал зайлшгүй тохиолддог гэдгийг
+          харуулж, лотын хэмжээ болон эрсдэлийн менежментийг зөв хийхэд
+          ашиглагдана.
         </p>
       </div>
     </div>

@@ -255,7 +255,7 @@ export default function DashboardStats({ trades, balance }: Props) {
         <SpiderWebChart
           tradesLength={metrics.tradeCount}
           metrics={metrics.spiderMetrics}
-          startingBalance={balance}
+          riskPerTrade={1}
         />
       </div>
     </div>
