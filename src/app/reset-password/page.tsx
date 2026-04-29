@@ -63,18 +63,16 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md space-y-6 rounded-lg bg-white p-8 shadow-lg dark:bg-gray-900">
         <div className="text-center">
           <div className="text-4xl mb-2">🔐</div>
-          <h1 className="text-2xl font-bold">Set New Password</h1>
+          <h1 className="text-2xl font-bold">Шинэ нууц үг тохируулах</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Enter your new password below
+            Шинэ нууц үгийг доор оруулна уу.
           </p>
         </div>
 
         {!success ? (
           <form onSubmit={handleResetPassword} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">
-                New Password
-              </label>
+              <label className="block text-sm font-medium mb-1">Нууц үг</label>
               <input
                 type="password"
                 value={password}
@@ -88,7 +86,7 @@ export default function ResetPasswordPage() {
 
             <div>
               <label className="block text-sm font-medium mb-1">
-                Confirm New Password
+                Нууц үг давтан оруулах
               </label>
               <input
                 type="password"
@@ -111,19 +109,19 @@ export default function ResetPasswordPage() {
               disabled={loading}
               className="w-full rounded-lg bg-blue-500 py-2 text-white font-medium hover:bg-blue-600 disabled:opacity-50"
             >
-              {loading ? "Updating..." : "Update Password"}
+              {loading ? "Шинэчлэж байна..." : "Нууц үг шинэчлэх"}
             </button>
           </form>
         ) : (
           <div className="text-center space-y-4">
             <div className="rounded-lg bg-green-50 p-4 text-green-600">
-              <p className="font-medium">✓ Password Updated!</p>
+              <p className="font-medium">✓ Нууц үг шинэчлэгдсэн!</p>
               <p className="text-sm mt-1">
-                Your password has been successfully changed.
+                Таны нууц үг амжилттай өөрчлөгдсөн.
               </p>
             </div>
             <p className="text-sm text-gray-500">
-              Redirecting to login page...
+              Нэвтрэх хуудас руу дахин чиглүүлж байна...
             </p>
           </div>
         )}
@@ -133,7 +131,7 @@ export default function ResetPasswordPage() {
             onClick={() => router.push("/login")}
             className="text-blue-500 hover:underline"
           >
-            ← Back to Login
+            ← Нэвтрэх рүү буцах
           </button>
         </p>
       </div>

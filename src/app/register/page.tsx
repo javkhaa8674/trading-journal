@@ -29,8 +29,8 @@ export default function RegisterPage() {
     if (error) {
       // ✅ Hook-оос буцаасан алдааны мессежийг монгол хэлээр харуулах
       if (
-        error.message.includes("not authorized") ||
-        error.message.includes("Your email address is not authorized")
+        error.message.includes("Зөвшөөрөхгүй") ||
+        error.message.includes("Таны имэйл хаяг бүртгүүлэх эрхгүй байна.")
       ) {
         setError(
           "✉️ Таны имэйл хаяг бүртгүүлэх эрхгүй байна. Админ-аас зөвшөөрөл аваарай.",
@@ -55,15 +55,13 @@ export default function RegisterPage() {
       <div className="w-full max-w-md space-y-6 rounded-lg bg-white p-8 shadow-lg dark:bg-gray-900">
         <div className="text-center">
           <div className="text-4xl mb-2">📈</div>
-          <h1 className="text-2xl font-bold">Create Account</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Start tracking your trades
-          </p>
+          <h1 className="text-2xl font-bold">Бүртгэл үүсгэх</h1>
+          <p className="text-sm text-gray-500 mt-1">Арилжаагаа хянаж эхэл</p>
         </div>
 
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
+            <label className="block text-sm font-medium mb-1">И-мэйл</label>
             <input
               type="email"
               value={email}
@@ -75,7 +73,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
+            <label className="block text-sm font-medium mb-1">Нууц үг</label>
             <input
               type="password"
               value={password}
@@ -88,7 +86,7 @@ export default function RegisterPage() {
 
           <div>
             <label className="block text-sm font-medium mb-1">
-              Confirm Password
+              Нууц үг давтан оруулах
             </label>
             <input
               type="password"
@@ -111,14 +109,14 @@ export default function RegisterPage() {
             disabled={loading}
             className="w-full rounded-lg bg-blue-500 py-2 text-white font-medium hover:bg-blue-600 disabled:opacity-50"
           >
-            {loading ? "Creating account..." : "Register"}
+            {loading ? "Бүртгэл үүсгэж байна..." : "Бүртгүүлэх"}
           </button>
         </form>
 
         <p className="text-center text-sm text-gray-500">
-          Already have an account?{" "}
+          Та аль хэдийн бүртгэлтэй юу?{" "}
           <Link href="/login" className="text-blue-500 hover:underline">
-            Login
+            Нэвтрэх
           </Link>
         </p>
       </div>

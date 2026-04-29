@@ -70,10 +70,10 @@ export default function LoginPage() {
           <div className="text-center">
             <div className="text-4xl mb-2">🔐</div>
             <h1 className="text-2xl font-bold dark:text-white">
-              Reset Password
+              Нууц үг сэргээх
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Enter your email to receive reset link
+              Имэйл хаягаа оруулаад илгээх товчийг дарна уу.
             </p>
           </div>
 
@@ -81,7 +81,7 @@ export default function LoginPage() {
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium dark:text-gray-300 mb-1">
-                  Email
+                  И-мэйл
                 </label>
                 <input
                   type="email"
@@ -104,7 +104,7 @@ export default function LoginPage() {
                 disabled={resetLoading}
                 className="w-full rounded-lg bg-blue-500 py-2 text-white font-medium hover:bg-blue-600 disabled:opacity-50"
               >
-                {resetLoading ? "Sending..." : "Send Reset Link"}
+                {resetLoading ? "Илгээж байна..." : "Илгээх"}
               </button>
 
               <button
@@ -112,7 +112,7 @@ export default function LoginPage() {
                 onClick={backToLogin}
                 className="w-full text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
               >
-                ← Back to Login
+                ← Нэвтрэх рүү буцах
               </button>
             </form>
           ) : (
@@ -120,19 +120,19 @@ export default function LoginPage() {
               <div className="rounded-lg bg-green-50 p-4 text-green-600 dark:bg-green-950/50 dark:text-green-400">
                 <p className="font-medium">✓ Check your email</p>
                 <p className="text-sm mt-1">
-                  We&apos;ve sent a password reset link to{" "}
+                  Бид нууц үг шинэчлэх холбоосыг илгээсэн{" "}
                   <strong>{resetEmail}</strong>
                 </p>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Didn&apos;t receive the email? Check your spam folder or try
-                again.
+                Имэйл хүлээн аваагүй юу? Спам хавтасаа шалгах эсвэл дахин
+                оролдоно уу.
               </p>
               <button
                 onClick={backToLogin}
                 className="mt-2 text-blue-500 hover:underline"
               >
-                Back to Login
+                Нэвтрэх рүү буцах
               </button>
             </div>
           )}
@@ -148,17 +148,17 @@ export default function LoginPage() {
         <div className="text-center">
           <div className="text-4xl mb-2">📈</div>
           <h1 className="text-2xl font-bold dark:text-white">
-            Trading Journal
+            Арилжааны журнал
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Login to your account
+            Өөрийн бүртгэлд нэвтрэх
           </p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-sm font-medium dark:text-gray-300 mb-1">
-              Email
+              И-мэйл
             </label>
             <input
               type="email"
@@ -172,7 +172,7 @@ export default function LoginPage() {
 
           <div>
             <label className="block text-sm font-medium dark:text-gray-300 mb-1">
-              Password
+              Нууц үг
             </label>
             <input
               type="password"
@@ -190,7 +190,7 @@ export default function LoginPage() {
               onClick={() => setResetMode(true)}
               className="text-sm text-blue-500 hover:underline"
             >
-              Forgot password?
+              Нууц үг мартсан?
             </button>
           </div>
 
@@ -205,14 +205,14 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full rounded-lg bg-blue-500 py-2 text-white font-medium hover:bg-blue-600 disabled:opacity-50"
           >
-            {loading ? "Loading..." : "Login"}
+            {loading ? "Ачааллаж байна..." : "Нэвтрэх"}
           </button>
         </form>
 
         <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-          Don&apos;t have an account?{" "}
+          Бүртгэл байхгүй юу?{" "}
           <Link href="/register" className="text-blue-500 hover:underline">
-            Register
+            Бүртгүүлэх
           </Link>
         </p>
       </div>
