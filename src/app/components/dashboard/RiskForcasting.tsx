@@ -175,7 +175,7 @@ export function StreakRiskTool({
 
       {/* Probability table */}
       <div className="mt-4 text-xs border-t pt-3">
-        <p className="font-medium mb-2">Probability:</p>
+        <p className="font-medium mb-2">Магадлал:</p>
         <div className="grid grid-cols-3 gap-2 text-center">
           {[3, 5, 7].map((n) => (
             <div key={n}>
@@ -191,8 +191,25 @@ export function StreakRiskTool({
       <div className="mt-3 p-3 bg-red-50 dark:bg-red-950 rounded text-xs">
         <p className="font-medium text-red-700 dark:text-red-300">📖 Insight</p>
         <p className="text-red-600 dark:text-red-400">
-          Энэ tool нь ирээдүйн хамгийн муу losing streak-ийг таамаглаж, risk
-          management болон position sizing-ийг зөв тохируулахад ашиглагдана.
+          Энэ хэрэгсэл нь ирээдүйн хамгийн муу дараалсан хожигдолыг таамаглаж,
+          эрсдлийн менежмент болон лотын хэмжээг зөв тохируулахад ашиглагдана.{" "}
+          <br />
+          <br />
+          <b>Expected (8.2):</b> Ихэнх тохиолдолд гарах дундаж losing streak
+          бөгөөд ойролцоогоор 8 дараалсан loss normal scenario-д тохиолдоно.{" "}
+          <br />
+          <b>Worst (95%) (13):</b> 100 simulation-ын 95%-д нь 13-аас хэтрэхгүй
+          хамгийн муу түвшин буюу хүнд үеийн risk. <br />
+          <b>Extreme (99%) (17):</b> Маш ховор боловч боломжтой хамгийн муу
+          streak бөгөөд 100 удаад 1 орчим тохиолдож болно. <br />
+          <br />
+          <b>Loss Streak Probability:</b> <br />
+          3 losses = 22.01% (маш түгээмэл) <br />
+          5 losses = 8.02% (боломжит хүнд үе) <br />
+          7 losses = 2.92% (ховор боловч бодит risk scenario) <br />
+          <br />
+          Эдгээр үзүүлэлтүүд нь loss streak зайлшгүй тохиолддог гэдгийг харуулж,
+          position sizing болон risk management-ийг зөв хийхэд ашиглагдана.
         </p>
       </div>
     </div>

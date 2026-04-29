@@ -20,6 +20,7 @@ import { InstrumentProfitAnalysis } from "@/app/components/dashboard/InstrumentP
 import { InstrumentVolumeAnalysis } from "@/app/components/dashboard/InstrumentVolumeAnalysis";
 import { StreakRiskTool } from "@/app/components/dashboard/RiskForcasting";
 import { MonteCarloEquityChart } from "@/app/components/dashboard/MonteCarloEquityChart";
+import { RiskOfRuinCalculator } from "@/app/components/dashboard/RiskOfRuin";
 // =========================
 // 🆕 ADVANCED ANALYTICS
 // =========================
@@ -276,6 +277,11 @@ export default function DashboardPage() {
   ========================= */}
       <StreakRiskTool trades={filteredTrades} />
       <MonteCarloEquityChart trades={filteredTrades} />
+      <RiskOfRuinCalculator
+        trades={filteredTrades}
+        initialBalance={isValidBalance ? balance : 5000}
+        riskPerTrade={1} // 1% risk
+      />
 
       {/* =========================
       📊 EXISTING COMPONENTS

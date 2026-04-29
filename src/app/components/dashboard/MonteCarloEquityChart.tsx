@@ -36,7 +36,7 @@ export function MonteCarloEquityChart({
   trades,
   simulations = 300,
   futureTrades = 100,
-  initialBalance = 10000,
+  initialBalance = 5000,
 }: Props) {
   // -----------------------------
   // WIN RATE MODEL
@@ -138,7 +138,8 @@ export function MonteCarloEquityChart({
       <div className="mb-3">
         <h3 className="text-lg font-semibold">Monte Carlo Equity Forecast</h3>
         <p className="text-xs text-gray-500">
-          Future risk simulation based on current trading stats
+          Одоогийн арилжааны статистик дээр үндэслэсэн ирээдүйн эрсдэлийн
+          симуляци
         </p>
       </div>
 
@@ -173,7 +174,7 @@ export function MonteCarloEquityChart({
               stroke="#22c55e"
               strokeWidth={2}
               dot={false}
-              name="Median (p50)"
+              name="Дундаж хувилбар (p50)"
             />
 
             {/* optimistic / good case */}
@@ -183,7 +184,7 @@ export function MonteCarloEquityChart({
               stroke="#eab308"
               strokeWidth={2}
               dot={false}
-              name="Good Case (p95)"
+              name="Сайн хувилбар (p95)"
             />
 
             {/* worst case */}
@@ -193,7 +194,7 @@ export function MonteCarloEquityChart({
               stroke="#ef4444"
               strokeWidth={2}
               dot={false}
-              name="Worst Case"
+              name="Муу хувилбар"
             />
           </LineChart>
         </ResponsiveContainer>
@@ -210,18 +211,18 @@ export function MonteCarloEquityChart({
           <p className="font-bold">{rr.toFixed(2)}</p>
         </div>
         <div>
-          <p className="text-gray-500">Simulations</p>
+          <p className="text-gray-500">Симуляци</p>
           <p className="font-bold">{simulations}</p>
         </div>
       </div>
 
       <div className="mt-3 p-3 text-xs bg-blue-50 dark:bg-blue-950 rounded">
         <p className="font-medium text-blue-700 dark:text-blue-300">
-          📊 Insight
+          📊 Тайлбар
         </p>
         <p className="text-blue-600 dark:text-blue-400">
-          Энэ chart нь бодит trade-ээс үндэслэн ирээдүйн equity-ийн possible
-          range (best / median / worst)-ийг харуулдаг.
+          Энэ chart нь бодит арилжааны өгөгдөл дээр үндэслэн ирээдүйн equity-ийн
+          боломжит хэмжээг (Сайн / Дунд / Муу) хувилбараар харуулдаг.
         </p>
       </div>
     </div>
