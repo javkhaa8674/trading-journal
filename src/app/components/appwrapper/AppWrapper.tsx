@@ -34,7 +34,8 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
   }
 
   // Mobile дээр sidebar хаалттай үед margin 0 байх ёстой
-  const sidebarWidth = !isMobile && !isCollapsed ? 256 : 0;
+  const sidebarWidth =
+    !isMobile && !isCollapsed ? 256 : !isMobile && isCollapsed ? 64 : 0;
 
   return (
     <div className="relative min-h-screen bg-gray-50 dark:bg-gray-950">
