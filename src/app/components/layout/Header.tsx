@@ -67,12 +67,12 @@ export function Header() {
 
   const getPageTitle = () => {
     if (pathname === "/dashboard") return "Хяналтын самбар";
-    if (pathname === "/trades") return "Ажилжаанууд";
+    if (pathname === "/trades") return "Арилжаанууд";
     if (pathname === "/trades/new") return "Шинэ ажилжаа нэмэх";
     if (pathname?.startsWith("/trades/") && pathname !== "/trades/new")
-      return "Ажилжаа засварлах";
+      return "Арилжаа засварлах";
     if (pathname === "/accounts") return "Дансууд";
-    if (pathname === "/trading-plan") return "Ажилжааны төлөвлөгөө";
+    if (pathname === "/trading-plan") return "Арилжааны төлөвлөгөө";
     if (pathname === "/deposits") return "Хадгаламж";
     if (pathname === "/withdrawals") return "Татан авалт";
     if (pathname === "/psychology") return "Сэтгэл зүй";
