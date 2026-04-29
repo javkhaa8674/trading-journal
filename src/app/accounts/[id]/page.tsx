@@ -100,7 +100,7 @@ export default function EditAccountPage() {
     return (
       <div className="flex h-96 items-center justify-center">
         <div className="text-gray-500 dark:text-gray-400">
-          Loading account...
+          Ачааллаж байна...
         </div>
       </div>
     );
@@ -109,28 +109,28 @@ export default function EditAccountPage() {
   if (error || !formData) {
     return (
       <div className="rounded-lg bg-red-50 p-4 text-red-600 dark:bg-red-950/50 dark:text-red-400">
-        Error: {error || "Account not found"}
+        Алдаа: {error || "Account not found"}
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-bold dark:text-white">Edit Account</h1>
+      <h1 className="mb-6 text-2xl font-bold dark:text-white">Засварлах</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Account Name - Editable */}
         <div>
           <div className="flex items-center justify-between">
             <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-              Account Name
+              Дансны нэр
             </label>
             <button
               type="button"
               onClick={() => setRegenerateName(true)}
               className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
             >
-              🔄 Regenerate
+              🔄 Дахин үүсгэх
             </button>
           </div>
           <input
@@ -140,7 +140,7 @@ export default function EditAccountPage() {
             className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
           />
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Format: Broker + Mode + Balance + Timestamp
+            Формат: Брокер + Төрөл + Баланс + Огноо
           </p>
         </div>
 
@@ -148,7 +148,7 @@ export default function EditAccountPage() {
         {regenerateName && (
           <div className="rounded-lg bg-yellow-50 p-3 dark:bg-yellow-950/30 dark:border dark:border-yellow-800/50">
             <p className="text-sm text-yellow-800 dark:text-yellow-300">
-              Regenerate account name with current values?
+              Одоогийн утгууд дээр үндэслэн аккаунтын нэрийг дахин үүсгэх үү?
             </p>
             <div className="mt-2 flex gap-2">
               <button
@@ -156,14 +156,14 @@ export default function EditAccountPage() {
                 onClick={regenerateAccountName}
                 className="rounded bg-yellow-500 px-3 py-1 text-xs text-white hover:bg-yellow-600"
               >
-                Yes, Regenerate
+                Тийм, дахин үүсгэ
               </button>
               <button
                 type="button"
                 onClick={() => setRegenerateName(false)}
                 className="rounded border px-3 py-1 text-xs hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
               >
-                Cancel
+                Цуцлах
               </button>
             </div>
           </div>
@@ -172,7 +172,7 @@ export default function EditAccountPage() {
         {/* Broker */}
         <div>
           <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-            Broker *
+            Брокер *
           </label>
           <input
             type="text"
@@ -188,7 +188,7 @@ export default function EditAccountPage() {
         {/* Mode */}
         <div>
           <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-            Mode *
+            Төрөл *
           </label>
           <select
             value={formData.mode}
@@ -207,7 +207,7 @@ export default function EditAccountPage() {
         {/* Status */}
         <div>
           <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-            Status
+            Төлөв
           </label>
           <select
             value={formData.status}
@@ -225,7 +225,7 @@ export default function EditAccountPage() {
         {/* Balance */}
         <div>
           <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-            Balance ($) *
+            Баланс ($) *
           </label>
           <input
             type="number"
@@ -241,7 +241,7 @@ export default function EditAccountPage() {
 
         {error && (
           <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">
-            Error: {error}
+            Алдаа: {error}
           </div>
         )}
 
@@ -251,14 +251,14 @@ export default function EditAccountPage() {
             onClick={() => router.push("/accounts")}
             className="rounded-lg border px-4 py-2 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
           >
-            Cancel
+            Цуцлах
           </button>
           <button
             type="submit"
             disabled={saving}
             className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? "Хадгалж байна..." : "Хадгалах"}
           </button>
         </div>
       </form>

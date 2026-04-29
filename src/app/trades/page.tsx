@@ -121,7 +121,7 @@ export default function TradesPage() {
       <div className="flex h-96 items-center justify-center">
         <div className="text-center">
           <div className="mb-2 text-2xl">📊</div>
-          <div className="text-gray-500">Loading trades...</div>
+          <div className="text-gray-500">Ачааллаж байна...</div>
         </div>
       </div>
     );

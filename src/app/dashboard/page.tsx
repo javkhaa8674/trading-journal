@@ -129,7 +129,7 @@ export default function DashboardPage() {
         <div className="text-center">
           <div className="mb-4 text-2xl">📊</div>
           <div className="text-gray-500 dark:text-gray-400">
-            Loading dashboard data...
+            Ачааллаж байна...
           </div>
         </div>
       </div>

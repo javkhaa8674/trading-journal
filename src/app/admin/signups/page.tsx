@@ -114,7 +114,7 @@ export default function AdminSignupsPage() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="text-gray-500">Уншиж байна...</div>
+        <div className="text-gray-500">Ачааллаж байна...</div>
       </div>
     );
   }
@@ -124,13 +124,13 @@ export default function AdminSignupsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold">👑 Admin Panel</h1>
+          <h1 className="text-xl md:text-2xl font-bold">👑 Админ панель</h1>
           <p className="text-xs md:text-sm text-gray-500">
             Хэрэглэгчийн бүртгэлийг зөвшөөрөх
           </p>
         </div>
         <div className="text-xs md:text-sm bg-green-100 text-green-700 px-2 md:px-3 py-1 rounded-full w-fit">
-          Admin эрхтэй
+          Админ эрхтэй
         </div>
       </div>
 

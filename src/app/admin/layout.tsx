@@ -43,7 +43,7 @@ export default function AdminLayout({
       <div className="flex h-96 items-center justify-center">
         <div className="text-center">
           <div className="text-2xl mb-2">🔐</div>
-          <div className="text-gray-500">Checking permissions...</div>
+          <div className="text-gray-500">Зөвшөөрлийг шалгаж байна...</div>
         </div>
       </div>
     );

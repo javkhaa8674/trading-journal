@@ -250,7 +250,7 @@ export default function DepositsPage() {
         <div className="text-center">
           <div className="mb-2 text-2xl">🏦</div>
           <div className="text-gray-500 dark:text-gray-400">
-            Ачааллаж байна / Loading...
+            Ачааллаж байна...
           </div>
         </div>
       </div>
