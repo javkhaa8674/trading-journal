@@ -161,28 +161,6 @@ export function Sidebar() {
             );
           })}
         </nav>
-        {/* User section */}
-        <div
-          className={`border-t p-4 dark:border-gray-700 ${
-            !isMobile && isCollapsed ? "text-center" : ""
-          }`}
-        >
-          {!isMobile && !isCollapsed ? (
-            <LogoutButton />
-          ) : (
-            <button
-              onClick={async () => {
-                const { supabase } = await import("@/lib/supabaseClient");
-                await supabase.auth.signOut();
-                window.location.href = "/login";
-              }}
-              className="flex w-full items-center justify-center text-red-500 hover:text-red-600"
-              title="Гарах"
-            >
-              ➜]
-            </button>
-          )}
-        </div>
       </aside>
 
       {/* Mobile overlay */}
@@ -193,28 +171,5 @@ export function Sidebar() {
         />
       )}
     </>
-  );
-}
-
-// Logout Button Component
-function LogoutButton() {
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleLogout = async () => {
-    setIsLoading(true);
-    const { supabase } = await import("@/lib/supabaseClient");
-    await supabase.auth.signOut();
-    window.location.href = "/login";
-  };
-
-  return (
-    <button
-      onClick={handleLogout}
-      disabled={isLoading}
-      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-md font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-50"
-    >
-      <span>➜]</span>
-      <span>{isLoading ? "Гарч байна..." : "Гарах"}</span>
-    </button>
   );
 }
