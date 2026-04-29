@@ -32,9 +32,6 @@ export async function middleware(request: NextRequest) {
         data: { user }
     } = await supabase.auth.getUser()
 
-    console.log("=== MIDDLEWARE DEBUG ===")
-    console.log("PATH:", request.nextUrl.pathname)
-    console.log("USER:", user)
 
     // 🔒 ADMIN GUARD
     if (request.nextUrl.pathname.startsWith('/admin')) {
@@ -50,8 +47,6 @@ export async function middleware(request: NextRequest) {
             .select('role')
             .eq('user_id', user.id)
             .single()
-
-        console.log("ROLE:", userRole)
 
         if (error || !userRole || userRole.role !== 'admin') {
             return NextResponse.redirect(

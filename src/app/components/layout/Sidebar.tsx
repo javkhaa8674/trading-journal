@@ -102,7 +102,7 @@ export function Sidebar() {
               <span className="text-2xl">📈</span>
               {!isCollapsed && (
                 <span className="font-bold text-gray-900 dark:text-white">
-                  Ажилжааны тэмдэглэл
+                  Ажилжааны журнал
                 </span>
               )}
             </Link>

@@ -1,20 +1,23 @@
 // components/layout/Header.tsx
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useSidebar } from "@/app/context/SidebarContext";
 import { ThemeToggle } from "@/app/components/ui/ThemeToggle";
+import Image from "next/image";
 
 export function Header() {
   const pathname = usePathname();
   const [userEmail, setUserEmail] = useState<string>("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { toggleSidebar } = useSidebar();
   const [isMobile, setIsMobile] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const checkMobile = () => {
@@ -30,7 +33,23 @@ export function Header() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (user) setUserEmail(user.email || "");
+      if (user) {
+        setUserEmail(user.email || "");
+
+        // Load avatar
+        const { data: avatarData } = await supabase.storage
+          .from("avatars")
+          .getPublicUrl(`${user.id}/avatar.jpg`);
+
+        // Check if avatar exists
+        const { data: fileExists } = await supabase.storage
+          .from("avatars")
+          .list(`${user.id}/`);
+
+        if (fileExists && fileExists.length > 0) {
+          setAvatarUrl(avatarData.publicUrl);
+        }
+      }
     };
     getUser();
   }, []);
@@ -58,6 +77,8 @@ export function Header() {
     if (pathname === "/withdrawals") return "Татан авалт";
     if (pathname === "/psychology") return "Сэтгэл зүй";
     if (pathname?.startsWith("/admin")) return "Админ панель";
+    if (pathname === "/profile") return "Профайл";
+    if (pathname === "/settings") return "Тохиргоо";
     return "Арилжааны тэмдэглэл";
   };
 
@@ -117,7 +138,19 @@ export function Header() {
             aria-label="User menu"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm transition-all hover:scale-105">
-              {getUserInitial()}
+              {avatarUrl ? (
+                <Image
+                  src={avatarUrl}
+                  alt="Profile"
+                  fill
+                  className="rounded-full object-cover shadow-sm transition-all hover:scale-105"
+                  unoptimized // Supabase storage URL-д хэрэгтэй
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-sm font-medium text-white shadow-sm transition-all hover:scale-105">
+                  {getUserInitial()}
+                </div>
+              )}
             </div>
             <svg
               className={`hidden h-4 w-4 text-gray-500 transition-transform duration-200 sm:block dark:text-gray-400 ${
@@ -155,7 +188,7 @@ export function Header() {
                   onClick={() => {
                     setShowUserMenu(false);
                     // Add profile navigation if needed
-                    // router.push("/profile");
+                    router.push("/profile");
                   }}
                   className="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
@@ -179,7 +212,7 @@ export function Header() {
                   onClick={() => {
                     setShowUserMenu(false);
                     // Add settings navigation if needed
-                    // router.push("/settings");
+                    router.push("/settings");
                   }}
                   className="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
