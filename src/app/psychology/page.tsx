@@ -297,9 +297,7 @@ export default function PsychologyPage() {
       setError(error.message);
     } else {
       setSuccess(
-        editingEntry
-          ? "Entry updated successfully! / Амжилттай шинэчлэгдлээ!"
-          : "Entry saved successfully! / Амжилттай хадгалагдлаа!",
+        editingEntry ? "Амжилттай шинэчлэгдлээ!" : "Амжилттай хадгалагдлаа!",
       );
 
       // Refresh entries
@@ -381,10 +379,9 @@ export default function PsychologyPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold dark:text-white">
-            🧠 Trading Psychology / Арилжааны сэтгэлзүй
+            🧠 Арилжааны сэтгэлзүй
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Track your emotions, mistakes, and mental state during trading /
             Арилжаа хийж байхдаа сэтгэл санаа, алдаа, сэтгэл зүйн байдлаа хянаж
             тэмдэглэх
           </p>
@@ -397,7 +394,7 @@ export default function PsychologyPage() {
           className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 transition-colors"
         >
           <span className="text-lg">+</span>
-          <span>Add Entry / Нэмэх</span>
+          <span>Нэмэх</span>
         </button>
       </div>
 
@@ -418,7 +415,7 @@ export default function PsychologyPage() {
         <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">📊</span>
-            <span className="text-sm">Total Entries / Нийт бүртгэл</span>
+            <span className="text-sm">Нийт бүртгэл</span>
           </div>
           <div className="mt-2 text-2xl font-bold dark:text-white">
             {entries.length}
@@ -427,9 +424,7 @@ export default function PsychologyPage() {
         <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">😊</span>
-            <span className="text-sm">
-              Avg. Mood Score / Дундаж сэтгэл санаа
-            </span>
+            <span className="text-sm">Дундаж сэтгэл санаа</span>
           </div>
           <div className="mt-2 text-2xl font-bold dark:text-white">
             {avgMood()}/5
@@ -438,9 +433,7 @@ export default function PsychologyPage() {
         <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">⚠️</span>
-            <span className="text-sm">
-              Most Common Mistake / Түгээмэл алдаа
-            </span>
+            <span className="text-sm">Түгээмэл алдаа</span>
           </div>
           <div className="mt-2 text-sm font-medium dark:text-white">
             {entries.length > 0 ? "FOMO" : "—"}
@@ -449,9 +442,7 @@ export default function PsychologyPage() {
         <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">📈</span>
-            <span className="text-sm">
-              Mood vs Performance / Сэтгэл санаа vs Гүйцэтгэл
-            </span>
+            <span className="text-sm">Сэтгэл санаа vs Гүйцэтгэл</span>
           </div>
           <div className="mt-2 text-sm dark:text-white">
             {entries.length > 0 ? "😌 Calm = +2% better" : "—"}
@@ -469,7 +460,7 @@ export default function PsychologyPage() {
               : "border bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
           }`}
         >
-          Last 7 Days / Сүүлийн 7 хоног
+          Сүүлийн 7 хоног
         </button>
         <button
           onClick={() => setDateRange("month")}
@@ -479,7 +470,7 @@ export default function PsychologyPage() {
               : "border bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
           }`}
         >
-          Last 30 Days / Сүүлийн 30 хоног
+          Сүүлийн 30 хоног
         </button>
         <button
           onClick={() => setDateRange("all")}
@@ -489,7 +480,7 @@ export default function PsychologyPage() {
               : "border bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
           }`}
         >
-          All Time / Бүх хугацаа
+          Бүх хугацаа
         </button>
       </div>
 
@@ -497,16 +488,14 @@ export default function PsychologyPage() {
       {showForm && (
         <div className="rounded-lg border bg-white p-6 dark:bg-gray-900 dark:border-gray-800">
           <h2 className="mb-4 text-lg font-semibold dark:text-white">
-            {editingEntry
-              ? "Edit Entry / Засварлах"
-              : "Daily Psychology Entry / Өдрийн тэмдэглэл"}
+            {editingEntry ? "Засварлах" : "Өдрийн тэмдэглэл"}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* ... form fields (өмнөхтэй ижил) ... */}
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium dark:text-gray-300">
-                  Date / Огноо *
+                  Огноо *
                 </label>
                 <input
                   type="date"
@@ -520,7 +509,7 @@ export default function PsychologyPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium dark:text-gray-300">
-                  Mood / Сэтгэл санаа *
+                  Сэтгэл санаа *
                 </label>
                 <div className="mt-1 grid grid-cols-3 gap-2">
                   {(
@@ -555,7 +544,7 @@ export default function PsychologyPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium dark:text-gray-300">
-                  Confidence Level / Итгэлийн түвшин (1-10) *
+                  Итгэлийн түвшин (1-10) *
                 </label>
                 <input
                   type="range"
@@ -576,7 +565,7 @@ export default function PsychologyPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium dark:text-gray-300">
-                  Trades Count / Арилжааны тоо
+                  Арилжааны тоо
                 </label>
                 <input
                   type="number"
@@ -592,7 +581,7 @@ export default function PsychologyPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium dark:text-gray-300">
-                  Winning Trades / Ашигтай арилжаа
+                  Ашигтай арилжаа
                 </label>
                 <input
                   type="number"
@@ -608,7 +597,7 @@ export default function PsychologyPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium dark:text-gray-300">
-                  Losing Trades / Алдагдалтай арилжаа
+                  Алдагдалтай арилжаа
                 </label>
                 <input
                   type="number"
@@ -624,7 +613,7 @@ export default function PsychologyPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium dark:text-gray-300">
-                  Profit/Loss ($) / Ашиг/Алдагдал ($)
+                  Ашиг/Алдагдал ($)
                 </label>
                 <input
                   type="number"
@@ -642,7 +631,7 @@ export default function PsychologyPage() {
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium dark:text-gray-300">
-                  Mistakes Made / Гаргасан алдаанууд
+                  Гаргасан алдаанууд
                 </label>
                 <div className="mt-1 grid grid-cols-2 gap-2">
                   {commonMistakes.map((mistake) => (
@@ -669,9 +658,8 @@ export default function PsychologyPage() {
                         }}
                         className="rounded dark:bg-gray-800"
                       />
-                      <span>{mistake.nameMn}</span>
                       <span className="text-xs text-gray-400">
-                        ({mistake.name})
+                        {mistake.nameMn}
                       </span>
                     </label>
                   ))}
@@ -679,7 +667,7 @@ export default function PsychologyPage() {
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium dark:text-gray-300">
-                  Lesson Learned / Сургамж
+                  Сургамж
                 </label>
                 <textarea
                   value={formData.lesson_learned}
@@ -688,12 +676,12 @@ export default function PsychologyPage() {
                   }
                   className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                   rows={2}
-                  placeholder="What did you learn today? / Өнөөдөр юу сурсан бэ?"
+                  placeholder="Өнөөдөр юу сурсан бэ?"
                 />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium dark:text-gray-300">
-                  Notes / Тэмдэглэл
+                  Тэмдэглэл
                 </label>
                 <textarea
                   value={formData.notes}
@@ -702,7 +690,7 @@ export default function PsychologyPage() {
                   }
                   className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                   rows={3}
-                  placeholder="Additional thoughts, emotions, observations... / Нэмэлт бодол, сэтгэл хөдлөл, ажиглалт..."
+                  placeholder="Нэмэлт бодол, сэтгэл хөдлөл, ажиглалт..."
                 />
               </div>
             </div>
@@ -716,15 +704,15 @@ export default function PsychologyPage() {
                 {submitting
                   ? "Saving..."
                   : editingEntry
-                    ? "Update Entry / Шинэчлэх"
-                    : "Save Entry / Хадгалах"}
+                    ? "Шинэчлэх"
+                    : "Хадгалах"}
               </button>
               <button
                 type="button"
                 onClick={cancelEdit}
                 className="rounded-lg border px-4 py-2 bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
               >
-                Cancel / Цуцлах
+                Цуцлах
               </button>
             </div>
           </form>
@@ -734,17 +722,16 @@ export default function PsychologyPage() {
       {/* Psychology Entries List with Edit & Delete buttons */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold dark:text-white">
-          📓 Psychology Journal / Сэтгэл зүйн тэмдэглэл
+          📓 Сэтгэл зүйн тэмдэглэл
         </h2>
         {filteredEntries.length === 0 ? (
           <div className="rounded-lg border-2 border-dashed p-8 text-center dark:border-gray-700">
             <div className="mb-2 text-4xl">📔</div>
             <p className="text-gray-500 dark:text-gray-400">
-              No psychology entries yet / Одоогоор бүртгэлгүй байна
+              Одоогоор бүртгэлгүй байна
             </p>
             <p className="text-sm text-gray-400 dark:text-gray-500">
-              Start tracking your trading psychology / Арилжааны сэтгэл зүйгээ
-              хянаж эхлэх
+              Арилжааны сэтгэл зүйгээ хянаж эхлэх
             </p>
           </div>
         ) : (
@@ -767,8 +754,8 @@ export default function PsychologyPage() {
                       {new Date(entry.date).toLocaleDateString()}
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      Confidence/ Өөртөө итгэх итгэл: {entry.confidence_level}
-                      /10 | Win Rate/ Ялалтын хувь:{" "}
+                      Өөртөө итгэх итгэл: {entry.confidence_level}
+                      /10 | Win Rate:{" "}
                       {entry.trades_count > 0
                         ? (
                             (entry.winning_trades / entry.trades_count) *
@@ -806,13 +793,13 @@ export default function PsychologyPage() {
                           onClick={() => handleDelete(entry.id)}
                           className="rounded px-2 py-1 text-xs bg-red-500 text-white hover:bg-red-600"
                         >
-                          Confirm
+                          Устгах
                         </button>
                         <button
                           onClick={() => setDeleteConfirm(null)}
                           className="rounded px-2 py-1 text-xs border hover:bg-gray-50"
                         >
-                          Cancel
+                          Цуцлах
                         </button>
                       </div>
                     ) : (
@@ -831,7 +818,7 @@ export default function PsychologyPage() {
               {entry.mistakes.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1">
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Mistakes / Алдаанууд:
+                    Алдаанууд:
                   </span>
                   {entry.mistakes.map((mistakeId) => {
                     const mistake = commonMistakes.find(
@@ -842,7 +829,7 @@ export default function PsychologyPage() {
                         key={mistakeId}
                         className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600 dark:bg-red-950/50 dark:text-red-400"
                       >
-                        {mistake.nameMn} ({mistake.name})
+                        {mistake.nameMn}
                       </span>
                     ) : null;
                   })}
@@ -851,7 +838,7 @@ export default function PsychologyPage() {
 
               {entry.lesson_learned && (
                 <div className="mt-2 text-sm dark:text-gray-300">
-                  <span className="font-medium">📖 Lesson / Сургамж:</span>{" "}
+                  <span className="font-medium">📖 Сургамж:</span>{" "}
                   {entry.lesson_learned}
                 </div>
               )}
@@ -871,57 +858,49 @@ export default function PsychologyPage() {
         <div className="flex items-center gap-2">
           <span className="text-lg">💡</span>
           <h3 className="font-semibold dark:text-white">
-            Trading Psychology Tips / Арилжааны сэтгэл зүйн зөвлөгөө
+            Арилжааны сэтгэл зүйн зөвлөгөө
           </h3>
         </div>
         <ul className="mt-2 list-inside list-disc space-y-1 text-sm dark:text-gray-300">
           <li>
-            Keep a trading journal - write down every trade and your emotions /
             Арилжааны өдрийн тэмдэглэл хөтөл - Бүх арилжаа болон сэтгэл хөдлөлөө
             тэмдэглэж хэвш
           </li>
           <li>
-            Review your mistakes weekly and identify patterns / Алдаануудаа
-            долоо хоног бүр хяна - Загвар, хэв маягийг нь тодорхойлж сур
+            Алдаануудаа долоо хоног бүр хяна - Загвар, хэв маягийг нь тодорхойлж
+            сур
           </li>
           <li>
-            Take breaks after losses - don&apos;t revenge trade / Алдагдлын
-            дараа завсарлага ав - Өшөө хонзойх арилжаа (revenge trade) хийхээс
-            зайлсхий
+            Алдагдлын дараа завсарлага ав - Өшөө хонзойх арилжаа (revenge trade)
+            хийхээс зайлсхий
           </li>
           <li>
-            Meditation and exercise help maintain emotional balance / Бясалгал,
-            дасгал хөдөлгөөн хий - Сэтгэл санааны тэнцвэрийг хадгалахад тусална
+            Бясалгал, дасгал хөдөлгөөн хий - Сэтгэл санааны тэнцвэрийг
+            хадгалахад тусална
           </li>
           <li>
-            Stick to your risk management rules no matter what / Эрсдэлийн
-            удирдлагын дүрмээ баримтал - Ямар ч тохиолдолд дүрмээсээ хазайхгүй
-            бай
+            Эрсдэлийн удирдлагын дүрмээ баримтал - Ямар ч тохиолдолд дүрмээсээ
+            хазайхгүй бай
           </li>
           <li>
-            Celebrate small wins and learn from losses / Жижиг амжилтуудаа
-            тэмдэглэ, алдаанаасаа суралц - Ялалтаа баярлаж, ялагдалаасаа сургамж
-            ав
+            Жижиг амжилтуудаа тэмдэглэ, алдаанаасаа суралц - Ялалтаа баярлаж,
+            ялагдалаасаа сургамж ав
           </li>
           <li>
-            Don&apos;t trade when you&apos;re not confident - waiting is better
-            than losing / Зах зээлд итгэлтэй биш үед арилжаанд оролцохгүй бай -
-            Хүлээх нь алдахаас дээр
+            Зах зээлд итгэлтэй биш үед арилжаанд оролцохгүй бай - Хүлээх нь
+            алдахаас дээр
           </li>
           <li>
-            Follow your trading plan strictly - follow rules, not intuition /
             Арилжааны төлөвлөгөөгөө хатуу баримтал - Зөн совиндоо биш, дүрэмдээ
             дага
           </li>
           <li>
-            Trade with smaller lots during high stress - reduce risk and
-            emotional load / Стресс ихтэй үед жижиг лотоор арилжаал - Эрсдэлээ
-            бууруулж, сэтгэл санааны ачааллыг хөнгөвчил
+            Стресс ихтэй үед жижиг лотоор арилжаал - Эрсдэлээ бууруулж, сэтгэл
+            санааны ачааллыг хөнгөвчил
           </li>
           <li>
-            Analyze your successes and failures - understanding why is most
-            important / Амжилт, бүтэлгүйтлээ дүн шинжилгээ хий - Аль нь яагаад
-            болсныг ойлгох нь хамгийн чухал
+            Амжилт, бүтэлгүйтлээ дүн шинжилгээ хий - Аль нь яагаад болсныг
+            ойлгох нь хамгийн чухал
           </li>
         </ul>
       </div>
@@ -939,14 +918,10 @@ export default function PsychologyPage() {
 
             <div className="relative">
               <p className="text-center text-xl font-bold leading-relaxed text-gray-800 dark:text-white md:text-2xl">
-                <span className="block">If you can control your emotions,</span>
-                <span className="block text-sm text-gray-500 dark:text-gray-400 mb-2">
-                  Хэрэв та сэтгэл хөдлөлөө удирдаж чадвал
+                <span className="block">
+                  Хэрэв та сэтгэл хөдлөлөө удирдаж чадвал,
                 </span>
                 <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-                  you can control the market
-                </span>
-                <span className="block text-sm text-gray-500 dark:text-gray-400 mt-1">
                   зах зээлийг удирдаж чадна
                 </span>
               </p>
@@ -955,7 +930,7 @@ export default function PsychologyPage() {
             <div className="mt-6 flex items-center gap-2 rounded-full bg-amber-500/10 px-4 py-2 backdrop-blur-sm">
               <span className="text-lg">⭐</span>
               <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                Golden Rule / Алтан дүрэм
+                Алтан дүрэм
               </span>
               <span className="text-lg">⭐</span>
             </div>

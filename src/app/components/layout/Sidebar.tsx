@@ -15,14 +15,14 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { name: "Dashboard", href: "/dashboard", icon: "📊" },
-  { name: "Trades", href: "/trades", icon: "💰" },
-  { name: "Accounts", href: "/accounts", icon: "🏦" },
-  { name: "Trading Plan", href: "/trading-plan", icon: "🗺️" },
-  { name: "Deposits", href: "/deposits", icon: "📥" },
-  { name: "Withdrawals", href: "/withrawals", icon: "💸" },
-  { name: "Psychology", href: "/psychology", icon: "🧠" },
-  { name: "Admin Panel", href: "/admin/signups", icon: "👑", adminOnly: true },
+  { name: "Хяналтын самбар", href: "/dashboard", icon: "📊" },
+  { name: "Арилжаанууд", href: "/trades", icon: "💰" },
+  { name: "Дансууд", href: "/accounts", icon: "🏦" },
+  { name: "Арилжааны төлөвлөгөө", href: "/trading-plan", icon: "🗺️" },
+  { name: "Хадгаламж", href: "/deposits", icon: "📥" },
+  { name: "Татан авалт", href: "/withrawals", icon: "💸" },
+  { name: "Сэтгэл зүй", href: "/psychology", icon: "🧠" },
+  { name: "Админ панель", href: "/admin/signups", icon: "👑", adminOnly: true },
 ];
 
 export function Sidebar() {
@@ -102,7 +102,7 @@ export function Sidebar() {
               <span className="text-2xl">📈</span>
               {!isCollapsed && (
                 <span className="font-bold text-gray-900 dark:text-white">
-                  Trading Journal
+                  Ажилжааны тэмдэглэл
                 </span>
               )}
             </Link>
@@ -177,7 +177,7 @@ export function Sidebar() {
                 window.location.href = "/login";
               }}
               className="flex w-full items-center justify-center text-red-500 hover:text-red-600"
-              title="Logout"
+              title="Гарах"
             >
               ➜]
             </button>
@@ -214,7 +214,7 @@ function LogoutButton() {
       className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-md font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-50"
     >
       <span>➜]</span>
-      <span>{isLoading ? "Logging out..." : "Logout"}</span>
+      <span>{isLoading ? "Гарч байна..." : "Гарах"}</span>
     </button>
   );
 }

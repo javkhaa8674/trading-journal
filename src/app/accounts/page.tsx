@@ -100,7 +100,7 @@ export default function AccountsPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Данс/ Accounts</h1>
+          <h1 className="text-2xl font-bold">Дансууд</h1>
           <p className="text-sm text-gray-500">Арилжааны данснуудыг удирдах</p>
         </div>
 
@@ -109,7 +109,7 @@ export default function AccountsPage() {
           className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-white transition-colors hover:bg-blue-600"
         >
           <span className="text-lg">+</span>
-          <span>Create Account</span>
+          <span>Данс үүсгэх</span>
         </button>
       </div>
 
@@ -117,15 +117,15 @@ export default function AccountsPage() {
       {accounts.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 text-center">
           <div className="mb-2 text-5xl">🏦</div>
-          <h3 className="text-lg font-semibold">No accounts yet</h3>
+          <h3 className="text-lg font-semibold">Одоогоор данс байхгүй.</h3>
           <p className="mb-4 text-gray-500">
-            Create your first trading account to start tracking trades
+            Анхны арилжааны дансаа үүсгэнэ үү?
           </p>
           <button
             onClick={() => router.push("/accounts/new")}
             className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
           >
-            + Create Account
+            + Данс үүсгэх
           </button>
         </div>
       ) : (
@@ -142,13 +142,13 @@ export default function AccountsPage() {
                     onClick={() => deleteAccount(account.id)}
                     className="rounded bg-red-500 px-2 py-1 text-xs text-white hover:bg-red-600"
                   >
-                    Confirm
+                    Устгах
                   </button>
                   <button
                     onClick={() => setDeleteConfirm(null)}
                     className="rounded bg-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-400"
                   >
-                    Cancel
+                    Цуцлах
                   </button>
                 </div>
               ) : (
@@ -217,7 +217,7 @@ export default function AccountsPage() {
               {/* Balance */}
               <div className="mt-3 border-t pt-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Balance</span>
+                  <span className="text-sm text-gray-500">Баланс</span>
                   <span className="text-xl font-bold text-green-600">
                     {formatBalance(account.balance)}
                   </span>
@@ -226,7 +226,7 @@ export default function AccountsPage() {
 
               {/* Created Date */}
               <div className="mt-2 text-xs text-gray-400">
-                Created: {new Date(account.created_at).toLocaleDateString()}
+                Үүсгэсэн: {new Date(account.created_at).toLocaleDateString()}
               </div>
             </div>
           ))}
@@ -238,7 +238,7 @@ export default function AccountsPage() {
         <div className="rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white">
           <div className="flex flex-wrap items-center justify-between">
             <div>
-              <p className="text-sm opacity-90">Total Balance (All Accounts)</p>
+              <p className="text-sm opacity-90">Нийт баланс (Бүх данс)</p>
               <p className="text-2xl font-bold">
                 {formatBalance(
                   accounts.reduce((sum, acc) => sum + acc.balance, 0),
@@ -246,19 +246,25 @@ export default function AccountsPage() {
               </p>
             </div>
             <div>
-              <p className="text-sm opacity-90">Total Accounts</p>
+              <p className="text-sm opacity-90">Бүх данс</p>
               <p className="text-2xl font-bold text-center">
                 {accounts.length}
               </p>
             </div>
             <div>
-              <p className="text-sm opacity-90">Active Accounts</p>
+              <p className="text-sm opacity-90">Идэвхтэй данс</p>
               <p className="text-2xl font-bold text-center">
                 {accounts.filter((acc) => acc.status === "active").length}
               </p>
             </div>
             <div>
-              <p className="text-sm opacity-90">Closed Accounts</p>
+              <p className="text-sm opacity-90">Архивласан данс</p>
+              <p className="text-2xl font-bold text-center ">
+                {accounts.filter((acc) => acc.status === "achieved").length}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm opacity-90">Хаагдсан данс</p>
               <p className="text-2xl font-bold text-center ">
                 {accounts.filter((acc) => acc.status === "closed").length}
               </p>

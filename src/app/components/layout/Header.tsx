@@ -33,18 +33,18 @@ export function Header() {
   }, []);
 
   const getPageTitle = () => {
-    if (pathname === "/dashboard") return "Dashboard";
-    if (pathname === "/trades") return "All Trades";
-    if (pathname === "/trades/new") return "Add New Trade";
+    if (pathname === "/dashboard") return "Хяналтын самбар";
+    if (pathname === "/trades") return "Ажилжаанууд";
+    if (pathname === "/trades/new") return "Шинэ ажилжаа нэмэх";
     if (pathname?.startsWith("/trades/") && pathname !== "/trades/new")
-      return "Edit Trade";
-    if (pathname === "/accounts") return "Accounts";
-    if (pathname === "/trading-plan") return "Trading Plan";
-    if (pathname === "/deposits") return "Deposits";
-    if (pathname === "/withdrawals") return "Withdrawals";
-    if (pathname === "/psychology") return "Psychology";
-    if (pathname?.startsWith("/admin")) return "Admin Panel";
-    return "Trading Journal";
+      return "Ажилжаа засварлах";
+    if (pathname === "/accounts") return "Дансууд";
+    if (pathname === "/trading-plan") return "Ажилжааны төлөвлөгөө";
+    if (pathname === "/deposits") return "Хадгаламж";
+    if (pathname === "/withdrawals") return "Татан авалт";
+    if (pathname === "/psychology") return "Сэтгэл зүй";
+    if (pathname?.startsWith("/admin")) return "Админ панель";
+    return "Арилжааны тэмдэглэл";
   };
 
   return (

@@ -264,12 +264,9 @@ export default function DepositsPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold dark:text-white">
-            💰 Хадгаламж / Deposits
-          </h1>
+          <h1 className="text-2xl font-bold dark:text-white">💰 Хадгаламж</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Дансны хадгаламж, санхүүжилтээ удирдах / Manage your account
-            deposits and funding
+            Дансны хадгаламж, санхүүжилтээ удирдах
           </p>
         </div>
         <button
@@ -277,7 +274,7 @@ export default function DepositsPage() {
           className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
         >
           <span className="text-lg">+</span>
-          <span>Шинэ хадгаламж / New Deposit</span>
+          <span>Шинэ хадгаламж</span>
         </button>
       </div>
 
@@ -286,7 +283,7 @@ export default function DepositsPage() {
         <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">💰</span>
-            <span className="text-sm">Нийт хадгаламж / Total Deposits</span>
+            <span className="text-sm">Нийт хадгаламж</span>
           </div>
           <div className="mt-2 text-2xl font-bold text-green-600 dark:text-green-400">
             ${totalDeposits.toLocaleString()}
@@ -295,7 +292,7 @@ export default function DepositsPage() {
         <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">📊</span>
-            <span className="text-sm">Нийт гүйлгээ / Total Transactions</span>
+            <span className="text-sm">Нийт гүйлгээ</span>
           </div>
           <div className="mt-2 text-2xl font-bold dark:text-white">
             {deposits.length}
@@ -304,7 +301,7 @@ export default function DepositsPage() {
         <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <span className="text-lg">🏦</span>
-            <span className="text-sm">Идэвхтэй данс / Active Accounts</span>
+            <span className="text-sm">Идэвхтэй дансууд</span>
           </div>
           <div className="mt-2 text-2xl font-bold dark:text-white">
             {filteredAccounts.length}
@@ -316,12 +313,12 @@ export default function DepositsPage() {
       {showForm && (
         <div className="rounded-lg border bg-white p-6 dark:bg-gray-900 dark:border-gray-800">
           <h2 className="mb-4 text-lg font-semibold dark:text-white">
-            📝 Шинэ хадгаламж / New Deposit
+            📝 Шинэ хадгаламж
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium dark:text-gray-300">
-                🏦 Данс сонгох / Select Account *
+                🏦 Данс сонгох *
               </label>
               <select
                 value={formData.account_id}
@@ -331,7 +328,7 @@ export default function DepositsPage() {
                 className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                 required
               >
-                <option value="">📋 Данс сонгох / Select an account</option>
+                <option value="">📋 Данс сонгох</option>
                 {filteredAccounts.map((acc) => (
                   <option
                     key={acc.id}
@@ -349,7 +346,7 @@ export default function DepositsPage() {
 
             <div>
               <label className="block text-sm font-medium dark:text-gray-300">
-                💰 Дүн / Amount *
+                💰 Дүн *
               </label>
               <div className="relative mt-1">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
@@ -375,7 +372,7 @@ export default function DepositsPage() {
 
             <div>
               <label className="block text-sm font-medium dark:text-gray-300">
-                💳 Төлбөрийн арга / Payment Method *
+                💳 Төлбөрийн хэрэгсэл *
               </label>
               <div className="mt-1 grid grid-cols-2 gap-2 md:grid-cols-5">
                 {depositMethods.map((method) => (
@@ -395,7 +392,6 @@ export default function DepositsPage() {
                     <div className="mt-1 text-xs font-medium">
                       {method.nameMn}
                     </div>
-                    <div className="text-xs text-gray-400">{method.name}</div>
                   </button>
                 ))}
               </div>
@@ -403,7 +399,7 @@ export default function DepositsPage() {
 
             <div>
               <label className="block text-sm font-medium dark:text-gray-300">
-                🔢 Гүйлгээний ID / Transaction ID (Нэмэлт / Optional)
+                🔢 Гүйлгээний ID (Нэмэлт)
               </label>
               <input
                 type="text"
@@ -418,7 +414,7 @@ export default function DepositsPage() {
 
             <div>
               <label className="block text-sm font-medium dark:text-gray-300">
-                📝 Тайлбар / Description (Нэмэлт / Optional)
+                📝 Тайлбар (Нэмэлт)
               </label>
               <textarea
                 value={formData.description}
@@ -427,7 +423,7 @@ export default function DepositsPage() {
                 }
                 className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                 rows={2}
-                placeholder="Нэмэлт мэдээлэл / Additional notes..."
+                placeholder="Нэмэлт мэдээлэл..."
               />
             </div>
 
@@ -449,16 +445,14 @@ export default function DepositsPage() {
                 disabled={submitting}
                 className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
               >
-                {submitting
-                  ? "Боловсруулж байна / Processing..."
-                  : "✅ Хадгалах / Deposit"}
+                {submitting ? "Боловсруулж байна..." : "✅ Хадгалах / Deposit"}
               </button>
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
                 className="rounded-lg border px-4 py-2 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
               >
-                ❌ Цуцлах / Cancel
+                ❌ Цуцлах
               </button>
             </div>
           </form>
@@ -469,7 +463,7 @@ export default function DepositsPage() {
       <div className="rounded-lg border bg-white dark:bg-gray-900 dark:border-gray-800">
         <div className="border-b p-4 dark:border-gray-800">
           <h2 className="text-lg font-semibold dark:text-white">
-            📋 Хадгаламжийн түүх / Deposit History
+            📋 Хадгаламжийн түүх
           </h2>
         </div>
         <div className="overflow-x-auto">
@@ -477,19 +471,19 @@ export default function DepositsPage() {
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
-                  📅 Огноо / Date
+                  📅 Огноо
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
-                  🏦 Данс / Account
+                  🏦 Данс
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
-                  💳 Арга / Method
+                  💳 Төлбөрийн хэрэгсэл
                 </th>
                 <th className="px-4 py-3 text-right text-sm font-medium dark:text-gray-300">
-                  💰 Дүн / Amount
+                  💰 Дүн
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
-                  🔢 Гүйлгээний ID / Transaction ID
+                  🔢 Гүйлгээний ID
                 </th>
               </tr>
             </thead>
@@ -500,10 +494,9 @@ export default function DepositsPage() {
                     colSpan={5}
                     className="py-8 text-center text-gray-500 dark:text-gray-400"
                   >
-                    📭 Хадгаламж байхгүй байна / No deposits yet.
+                    📭 Хадгаламж байхгүй.
                     <br />
-                    ✏️ "Шинэ хадгаламж" товч дарж нэмэх / Click "New Deposit" to
-                    add one.
+                    ✏️ &quot;Шинэ хадгаламж&quot; товч дарж нэмэх.
                   </td>
                 </tr>
               ) : (

@@ -372,7 +372,7 @@ export default function TradingPlanPage() {
         <div className="text-center">
           <div className="mb-2 text-2xl">📋</div>
           <div className="text-gray-500 dark:text-gray-400">
-            Loading trading plan...
+            Ачааллаж байна...
           </div>
         </div>
       </div>
@@ -386,11 +386,11 @@ export default function TradingPlanPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold dark:text-white">
-              📋 Trading Plan
+              📋 Арилжааны төлөвлөгөө
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              My personal trading strategy, risk management rules, and key
-              processes
+              Миний хувийн арилжааны стратеги, эрсдэлийн удирдлагын дүрэм,
+              түлхүүрүүд үйл явцууд
             </p>
           </div>
           <div className="flex gap-2">
@@ -402,20 +402,20 @@ export default function TradingPlanPage() {
               }
               className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
             >
-              Expand All
+              Бүгдийг задлах
             </button>
             <button
               onClick={() => setExpandedSections(new Set())}
               className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
             >
-              Collapse All
+              Бүгдийг хураах
             </button>
             {!isEditing ? (
               <button
                 onClick={() => setIsEditing(true)}
                 className="rounded-lg bg-blue-500 px-4 py-1 text-sm text-white hover:bg-blue-600"
               >
-                ✏️ Edit Plan
+                ✏️ Завсарлах
               </button>
             ) : (
               <>
@@ -433,7 +433,7 @@ export default function TradingPlanPage() {
                   }}
                   className="rounded-lg border px-4 py-1 text-sm hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
-                  Cancel
+                  Цуцлах
                 </button>
               </>
             )}
@@ -496,10 +496,12 @@ export default function TradingPlanPage() {
           <div className="flex items-center gap-3">
             <div className="text-3xl">🎯</div>
             <div>
-              <h3 className="font-semibold">Trading Plan Summary</h3>
+              <h3 className="font-semibold">
+                Арилжааны төлөвлөгөөний хураангуй
+              </h3>
               <p className="text-sm opacity-90">
-                Strategy: ICT / Smart Money Concepts | Risk: 1-2% per trade |
-                R:R: Minimum 1:3
+                Стратеги: ICT / Smart Money Concepts | Эрсдэл: 1-2% арилжаа бүрт
+                | Ашиг/Алдагдал: Хамгийн багадаа 1:3
               </p>
             </div>
           </div>
@@ -511,7 +513,7 @@ export default function TradingPlanPage() {
             onClick={() => window.print()}
             className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
           >
-            🖨️ Print / Save as PDF
+            🖨️ Хэвлэх / PDF-р хадгалах
           </button>
         </div>
       </div>

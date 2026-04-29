@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
 import { Trade } from "@/types/trade";
 
+import { DateRangeFilter } from "@/app/components/dashboard/DateRangeFilter";
 import DashboardStats from "@/app/components/dashboard/DashboardStats";
 import EquityCurveChart from "@/app/components/dashboard/EquityCurveChart";
 import EquityDrawdownChart from "@/app/components/dashboard/EquityDrawdownChart";
@@ -36,10 +37,15 @@ import { getStatusColor, getStatusIcon } from "@/lib/utils/statusUtils";
 
 export default function DashboardPage() {
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     null,
   );
+  const [dateRange, setDateRange] = useState<{
+    from: string;
+    to: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   // =========================
@@ -79,6 +85,30 @@ export default function DashboardPage() {
     setLoading(false);
   };
 
+  // =========================
+  // 🔄 APPLY DATE FILTER (client-side)
+  // =========================
+  useEffect(() => {
+    if (!trades.length) {
+      setFilteredTrades([]);
+      return;
+    }
+
+    let result = [...trades];
+
+    // Apply date range filter
+    if (dateRange) {
+      result = result.filter((trade) => {
+        const tradeDate = new Date(trade.close_time || trade.open_time);
+        const fromDate = new Date(dateRange.from);
+        const toDate = new Date(dateRange.to);
+        toDate.setHours(23, 59, 59, 999);
+        return tradeDate >= fromDate && tradeDate <= toDate;
+      });
+    }
+
+    setFilteredTrades(result);
+  }, [trades, dateRange]);
   // =========================
   // 🔄 INIT LOAD
   // =========================
@@ -125,21 +155,21 @@ export default function DashboardPage() {
   // =========================
   // 🆕 ADVANCED ANALYTICS DATA
   // =========================
-  const tradingDayData = getTradingDayPerformance(trades);
-  const mostTradedData = getMostTradedInstruments(trades);
-  const dailySummary = getDailySummary(trades);
-  const keyMetrics = getKeyMetrics(trades);
-  const longShortData = getLongShortAnalysis(trades);
-  const durationData = getPnLByDuration(trades);
-  const profitAnalysisData = getInstrumentProfitAnalysis(trades);
-  const volumeAnalysisData = getInstrumentVolumeAnalysis(trades);
+  const tradingDayData = getTradingDayPerformance(filteredTrades);
+  const mostTradedData = getMostTradedInstruments(filteredTrades);
+  const dailySummary = getDailySummary(filteredTrades);
+  const keyMetrics = getKeyMetrics(filteredTrades);
+  const longShortData = getLongShortAnalysis(filteredTrades);
+  const durationData = getPnLByDuration(filteredTrades);
+  const profitAnalysisData = getInstrumentProfitAnalysis(filteredTrades);
+  const volumeAnalysisData = getInstrumentVolumeAnalysis(filteredTrades);
 
   // =========================
   // 🎯 RENDER
   // =========================
   return (
     <div className="space-y-6 p-1">
-      <h1 className="text-2xl font-bold dark:text-white">Dashboard</h1>
+      <h1 className="text-2xl font-bold dark:text-white">Хяналтын самбар</h1>
 
       {/* =========================
       🏦 ACCOUNT SELECTOR
@@ -151,7 +181,7 @@ export default function DashboardPage() {
           value={selectedAccountId || ""}
           onChange={(e) => setSelectedAccountId(e.target.value || null)}
         >
-          <option value="">All Accounts</option>
+          <option value="">Бүх данс</option>
           {accounts.map((acc) => (
             <option
               key={acc.id}
@@ -164,14 +194,22 @@ export default function DashboardPage() {
             </option>
           ))}
         </select>
-
+        {/* Date Range Filter */}
+        <DateRangeFilter onRangeChange={setDateRange} trades={trades} />
         {/* Trade count info */}
         <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-          📊 Showing {trades.length} trade{trades.length !== 1 ? "s" : ""}
+          📊 Нийт {trades.length} {trades.length !== 1 ? "арилжаа" : "арилжаа"}
           {selectedAccountId && (
             <span className="font-medium text-blue-600 dark:text-blue-400">
               {" "}
-              from {selectedAccount?.name}
+              {selectedAccount?.name} -ээс
+            </span>
+          )}
+          {dateRange && (
+            <span className="font-medium text-green-600 dark:text-green-400">
+              {" "}
+              {new Date(dateRange.from).toLocaleDateString()} -{" "}
+              {new Date(dateRange.to).toLocaleDateString()} хооронд
             </span>
           )}
         </div>
@@ -181,13 +219,13 @@ export default function DashboardPage() {
       📊 EXISTING DASHBOARD COMPONENTS
   ========================= */}
       <DashboardStats
-        trades={trades}
+        trades={filteredTrades}
         balance={isValidBalance ? balance : 5000}
       />
       <EquityCurveChart data={chartData} />
 
       <EquityDrawdownChart
-        trades={trades}
+        trades={filteredTrades}
         balance={isValidBalance ? balance : 5000}
       />
 
@@ -235,7 +273,7 @@ export default function DashboardPage() {
       {/* =========================
       📊 EXISTING COMPONENTS
   ========================= */}
-      <RiskPanel data={trades} />
+      <RiskPanel data={filteredTrades} />
 
       {/* =========================
       🚨 EMPTY STATE

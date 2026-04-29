@@ -1,4 +1,5 @@
 export type Trade = {
+  account_id: string;
   id: string;
   symbol: string;
   type: "buy" | "sell";

@@ -74,7 +74,7 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
     // Symbol column
     cols.push({
       accessorKey: "symbol",
-      header: "Symbol",
+      header: "Хослол",
       cell: (info) => (
         <span className="font-medium">{info.getValue() as string}</span>
       ),
@@ -83,7 +83,7 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
     // Type column
     cols.push({
       accessorKey: "type",
-      header: "Type",
+      header: "Төрөл",
       cell: (info) => {
         const type = info.getValue() as string;
         return (
@@ -103,42 +103,42 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
     // Entry Price
     cols.push({
       accessorKey: "entry_price",
-      header: "Entry",
-      cell: (info) => `$${(info.getValue() as number).toFixed(2)}`,
+      header: "Нээлтийн ханш",
+      cell: (info) => `${(info.getValue() as number).toFixed(4)}`,
     });
 
     // Exit Price
     cols.push({
       accessorKey: "exit_price",
-      header: "Exit",
-      cell: (info) => `$${(info.getValue() as number).toFixed(2)}`,
+      header: "Хаалтын ханш",
+      cell: (info) => `${(info.getValue() as number).toFixed(4)}`,
     });
 
     // Lot Size
     cols.push({
       accessorKey: "lot_size",
-      header: "Lot",
+      header: "Лот хэмжээ",
       cell: (info) => (info.getValue() as number).toFixed(2),
     });
 
     // Open Date
     cols.push({
       accessorKey: "open_time",
-      header: "Open Date",
+      header: "Нээлтийн огноо",
       cell: (info) => new Date(info.getValue() as string).toLocaleString(),
     });
 
     // Close Date
     cols.push({
       accessorKey: "close_time",
-      header: "Close Date",
+      header: "Хаалтын огноо",
       cell: (info) => new Date(info.getValue() as string).toLocaleString(),
     });
 
     // Profit
     cols.push({
       accessorKey: "profit",
-      header: "Profit",
+      header: "Ашиг",
       cell: (info) => {
         const profit = info.getValue() as number;
         return (
@@ -160,13 +160,13 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
     // Actions column - Edit only (Delete removed)
     cols.push({
       id: "actions",
-      header: "Action",
+      header: "Үйлдэл",
       cell: (info) => (
         <button
           onClick={() => onEdit(info.row.original.id)}
           className="rounded bg-blue-500 px-3 py-1 text-xs text-white hover:bg-blue-600"
         >
-          Edit
+          Засах
         </button>
       ),
     });
@@ -229,13 +229,15 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 text-center">
         <div className="mb-2 text-4xl">📭</div>
-        <h3 className="text-lg font-semibold">No trades yet</h3>
-        <p className="mb-4 text-gray-500">Start by adding your first trade</p>
+        <h3 className="text-lg font-semibold">Арилжаа олдсонгүй</h3>
+        <p className="mb-4 text-gray-500">
+          Эхлээд хамгийн эхний арилжааг нэмнэ үү
+        </p>
         <button
           onClick={() => router.push("/trades/new")}
           className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
         >
-          + Add Trade
+          + Нэмэх
         </button>
       </div>
     );
@@ -251,7 +253,7 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
               type="text"
               value={globalFilter ?? ""}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder="Search by symbol..."
+              placeholder="Хайх..."
               className="w-64 rounded-lg border px-4 py-2 pl-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -259,7 +261,7 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
             </span>
           </div>
           <span className="text-sm text-gray-500">
-            {trades.length} total trades
+            {trades.length} Нийт арилжаа
           </span>
         </div>
 
@@ -276,13 +278,13 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
                     : "bg-gray-300 cursor-not-allowed"
                 }`}
               >
-                🗑️ Delete Trade({selectedCount})
+                🗑️ Устгах({selectedCount})
               </button>
               <button
                 onClick={cancelSelectMode}
                 className="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50"
               >
-                Cancel
+                Цуцлах
               </button>
             </>
           ) : (
@@ -292,13 +294,13 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
                 onClick={() => router.push("/trades/new")}
                 className="rounded-lg bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600"
               >
-                + Add Trade
+                + Нэмэх
               </button>
               <button
                 onClick={enterSelectMode}
                 className="rounded-lg border px-4 py-2 text-sm text-red-500 hover:bg-red-50"
               >
-                🗑️ Delete Trade
+                🗑️ Устгах
               </button>
             </>
           )}
@@ -309,13 +311,13 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
       {isSelectMode && selectedCount > 0 && (
         <div className="flex items-center justify-between rounded-lg bg-blue-50 p-3 dark:bg-blue-950">
           <span className="text-sm text-blue-800 dark:text-blue-300">
-            ✓ {selectedCount} trade(s) selected
+            {selectedCount} сонгогдсон арилжаа
           </span>
           <button
             onClick={() => setRowSelection({})}
             className="text-sm text-blue-600 hover:text-blue-800"
           >
-            Clear selection
+            Сонголтыг арилгах
           </button>
         </div>
       )}
@@ -342,8 +344,8 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
                         header.getContext(),
                       )}
                       {{
-                        asc: " ↑",
-                        desc: " ↓",
+                        өсөх: " ↑",
+                        буурах: " ↓",
                       }[header.column.getIsSorted() as string] ?? null}
                     </div>
                   </th>
@@ -379,7 +381,7 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <span>
-            Page {table.getState().pagination.pageIndex + 1} of{" "}
+            Хуудас {table.getState().pagination.pageIndex + 1} /{" "}
             {table.getPageCount()}
           </span>
           <select
@@ -389,7 +391,7 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
           >
             {[5, 10, 20, 30, 50].map((size) => (
               <option key={size} value={size}>
-                Show {size}
+                Харуулах {size}
               </option>
             ))}
           </select>
@@ -401,7 +403,7 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
             disabled={!table.getCanPreviousPage()}
             className="rounded border px-3 py-1 text-sm disabled:opacity-50"
           >
-            ← Previous
+            ← Өмнөх
           </button>
           {Array.from({ length: Math.min(5, table.getPageCount()) }, (_, i) => {
             const pageNum = i + 1;
@@ -424,7 +426,7 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
             disabled={!table.getCanNextPage()}
             className="rounded border px-3 py-1 text-sm disabled:opacity-50"
           >
-            Next →
+            Дараах →
           </button>
         </div>
       </div>
