@@ -149,7 +149,7 @@ export default function DashboardPage() {
   // 📊 DASHBOARD DATA (Existing)
   // =========================
   const { chartData } = buildDashboardData(
-    trades,
+    filteredTrades,
     isValidBalance ? balance : 5000,
   );
   // =========================
@@ -282,12 +282,12 @@ export default function DashboardPage() {
         <div className="mt-12 rounded-lg border-2 border-dashed p-12 text-center dark:border-gray-700">
           <div className="mb-2 text-4xl">📭</div>
           <h3 className="text-lg font-semibold dark:text-white">
-            No trades found
+            Арилжаа олдсонгүй.
           </h3>
           <p className="text-gray-500 dark:text-gray-400">
             {selectedAccountId
-              ? "This account has no trades yet"
-              : "Start adding trades to see your analytics"}
+              ? "Энэ дансанд бүртгэлтэй арилжаа олдсонгүй."
+              : "Анализ харахын тулд арилжаа нэмж эхлээрэй"}
           </p>
         </div>
       )}
