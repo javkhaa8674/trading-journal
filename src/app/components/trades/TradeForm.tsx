@@ -323,7 +323,7 @@ export default function TradeForm() {
       <div className="max-w-4xl mx-auto p-6">
         <div className="border rounded-xl shadow space-y-4 bg-white dark:bg-gray-800 dark:border-gray-700 transition-colors duration-200 p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Шинэ арилжаа нэмэх / Add New Trade
+            Шинэ арилжаа нэмэх
           </h2>
 
           {/* ACCOUNT */}
@@ -332,7 +332,7 @@ export default function TradeForm() {
             onChange={(e) => setAccountId(e.target.value)}
             className="w-full p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
           >
-            <option value="">Данс сонгох / Select Account</option>
+            <option value="">Данс сонгох</option>
             {filtedAccounts.map((acc) => (
               <option key={acc.id} value={acc.id}>
                 {acc.name}
@@ -343,7 +343,7 @@ export default function TradeForm() {
           {/* SYMBOL + TYPE */}
           <div className="grid grid-cols-2 gap-2">
             <input
-              placeholder="Symbol (EURUSD)"
+              placeholder="Хослол (EURUSD)"
               value={symbol}
               onChange={(e) => setSymbol(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
@@ -354,8 +354,8 @@ export default function TradeForm() {
               onChange={(e) => setType(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
-              <option value="buy">Buy / Худалдаж авах</option>
-              <option value="sell">Sell / Зарах</option>
+              <option value="buy">Худалдаж авах</option>
+              <option value="sell">Зарах</option>
             </select>
           </div>
 
@@ -363,14 +363,14 @@ export default function TradeForm() {
           <div className="grid grid-cols-2 gap-2">
             <input
               type="number"
-              placeholder="Entry Price / Нээлтийн үнэ"
+              placeholder="Нээлтийн ханш"
               value={entry}
               onChange={(e) => setEntry(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
             />
             <input
               type="number"
-              placeholder="Exit Price / Хаалтын үнэ"
+              placeholder="Хаалтын ханш"
               value={exit}
               onChange={(e) => setExit(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
@@ -394,14 +394,14 @@ export default function TradeForm() {
             />
             <input
               type="number"
-              placeholder="Lot / Лот"
+              placeholder="Лот хэмжээ"
               value={lot}
               onChange={(e) => setLot(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
             />
             <input
               type="number"
-              placeholder="Profit / Ашиг"
+              placeholder="Ашиг"
               value={profit}
               onChange={(e) => setProfit(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
@@ -412,7 +412,7 @@ export default function TradeForm() {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                Нээлтийн цаг / Open Time
+                Нээлтийн огноо
               </label>
               <input
                 type="datetime-local"
@@ -423,7 +423,7 @@ export default function TradeForm() {
             </div>
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                Хаалтын цаг / Close Time
+                Хаалтын огноо
               </label>
               <input
                 type="datetime-local"
@@ -439,14 +439,14 @@ export default function TradeForm() {
             onClick={handleSubmit}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded transition-colors"
           >
-            💾 Арилжааг хадгалах / Save Single Trade
+            💾 Арилжааг хадгалах
           </button>
 
           <hr className="my-4 dark:border-gray-700" />
 
           {/* BULK INPUT SECTION */}
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Олон арилжаа нэмэх / Bulk Upload Trades
+            Олон арилжаа нэмэх
           </h3>
 
           <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded text-sm">
@@ -477,7 +477,7 @@ export default function TradeForm() {
               onClick={handlePreview}
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded transition-colors"
             >
-              🔍 Шалгах / Preview Trades
+              🔍 Шалгах
             </button>
 
             {showPreview && (
@@ -485,7 +485,7 @@ export default function TradeForm() {
                 onClick={handleClearPreview}
                 className="px-4 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 p-2 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
               >
-                ✖️ Цэвэрлэх / Clear
+                ✖️ Цэвэрлэх
               </button>
             )}
           </div>
@@ -593,9 +593,7 @@ export default function TradeForm() {
                             <td
                               className={`p-2 ${trade.type === "buy" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
                             >
-                              {trade.type === "buy"
-                                ? "Худалдаж авах"
-                                : "Худалдах"}
+                              {trade.type === "buy" ? "Худалдаж авах" : "Зарах"}
                             </td>
                             <td className="p-2 text-right text-gray-900 dark:text-white">
                               {trade.entry_price}

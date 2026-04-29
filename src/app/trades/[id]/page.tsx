@@ -83,7 +83,8 @@ export default function EditTradePage() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="text-gray-500 dark:text-gray-400">Loading trade...</div>
+        <div className="mb-2 text-2xl">📊</div>
+        <div className="text-gray-500">Ачааллаж байна...</div>
       </div>
     );
   }
@@ -91,20 +92,20 @@ export default function EditTradePage() {
   if (error) {
     return (
       <div className="rounded-lg bg-red-50 p-4 text-red-600 dark:bg-red-950/50 dark:text-red-400">
-        Error: {error}
+        Алдаа: {error}
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-bold dark:text-white">Edit Trade</h1>
+      <h1 className="mb-6 text-2xl font-bold dark:text-white">Засварлах</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium dark:text-gray-300">
-              Symbol
+              Хослол
             </label>
             <input
               type="text"
@@ -119,7 +120,7 @@ export default function EditTradePage() {
 
           <div>
             <label className="block text-sm font-medium dark:text-gray-300">
-              Type
+              Төрөл
             </label>
             <select
               value={formData.type || "buy"}
@@ -138,7 +139,7 @@ export default function EditTradePage() {
 
           <div>
             <label className="block text-sm font-medium dark:text-gray-300">
-              Entry Price
+              Нээлтийн ханш
             </label>
             <input
               type="number"
@@ -157,7 +158,7 @@ export default function EditTradePage() {
 
           <div>
             <label className="block text-sm font-medium dark:text-gray-300">
-              Exit Price
+              Хаалтын ханш
             </label>
             <input
               type="number"
@@ -176,7 +177,7 @@ export default function EditTradePage() {
 
           <div>
             <label className="block text-sm font-medium dark:text-gray-300">
-              Lot Size
+              Лот хэмжээ
             </label>
             <input
               type="number"
@@ -195,7 +196,7 @@ export default function EditTradePage() {
 
           <div>
             <label className="block text-sm font-medium dark:text-gray-300">
-              Profit
+              Ашиг
             </label>
             <input
               type="number"
@@ -211,7 +212,7 @@ export default function EditTradePage() {
 
           <div>
             <label className="block text-sm font-medium dark:text-gray-300">
-              Stop Loss
+              SL
             </label>
             <input
               type="number"
@@ -229,7 +230,7 @@ export default function EditTradePage() {
 
           <div>
             <label className="block text-sm font-medium dark:text-gray-300">
-              Take Profit
+              TP
             </label>
             <input
               type="number"
@@ -247,7 +248,7 @@ export default function EditTradePage() {
 
           <div>
             <label className="block text-sm font-medium dark:text-gray-300">
-              Open Time
+              Нээлтийн огноо
             </label>
             <input
               type="datetime-local"
@@ -265,7 +266,7 @@ export default function EditTradePage() {
 
           <div>
             <label className="block text-sm font-medium dark:text-gray-300">
-              Close Time
+              Хаалтын огноо
             </label>
             <input
               type="datetime-local"
@@ -284,7 +285,7 @@ export default function EditTradePage() {
 
         {error && (
           <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">
-            Error: {error}
+            Алдаа: {error}
           </div>
         )}
 
@@ -294,14 +295,14 @@ export default function EditTradePage() {
             onClick={() => router.push("/trades")}
             className="rounded-lg border px-4 py-2 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
           >
-            Cancel
+            Цуцлах
           </button>
           <button
             type="submit"
             disabled={saving}
             className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? "Хадгалж байна..." : "Хадгалах"}
           </button>
         </div>
       </form>
