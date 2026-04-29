@@ -16,7 +16,7 @@ type Props = {
 
 const rand = () => Math.random();
 
-export default function RiskOfRuinCalculator({
+export function RiskOfRuinCalculator({
   trades,
   initialBalance,
   riskPerTrade,
