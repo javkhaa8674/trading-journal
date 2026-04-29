@@ -137,14 +137,14 @@ export function Header() {
             className="flex items-center gap-3 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
             aria-label="User menu"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm transition-all hover:scale-105">
+            <div className="relative h-8 w-8">
               {avatarUrl ? (
                 <Image
                   src={avatarUrl}
                   alt="Profile"
                   fill
                   className="rounded-full object-cover shadow-sm transition-all hover:scale-105"
-                  unoptimized // Supabase storage URL-д хэрэгтэй
+                  unoptimized
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-sm font-medium text-white shadow-sm transition-all hover:scale-105">
