@@ -19,6 +19,16 @@ export default function AdminSignupsPage() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
+  const loadRequests = async () => {
+    const { data } = await supabase
+      .from("allowed_signups")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    setRequests(data || []);
+    setLoading(false);
+  };
+
   // Check mobile
   useEffect(() => {
     const checkMobile = () => {
@@ -54,16 +64,6 @@ export default function AdminSignupsPage() {
 
     checkAndLoad();
   }, []);
-
-  const loadRequests = async () => {
-    const { data } = await supabase
-      .from("allowed_signups")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    setRequests(data || []);
-    setLoading(false);
-  };
 
   const addApprovedEmail = async () => {
     if (!newEmail) return;
