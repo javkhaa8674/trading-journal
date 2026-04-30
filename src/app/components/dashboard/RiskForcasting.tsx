@@ -191,7 +191,7 @@ export function StreakRiskTool({
 
       <div className="mt-3 p-3 bg-red-50 dark:bg-red-950 rounded text-xs">
         <p className="font-medium text-red-700 dark:text-red-300">📖 Тайлбар</p>
-        <p className="text-red-600 dark:text-red-400">
+        <p className="mt-3 text-gray-600 dark:text-gray-400">
           Энэ хэрэгсэл нь ирээдүйн хамгийн муу дараалсан хожигдолыг таамаглаж,
           эрсдлийн менежмент болон лотын хэмжээг зөв тохируулахад ашиглагдана.{" "}
           <br />

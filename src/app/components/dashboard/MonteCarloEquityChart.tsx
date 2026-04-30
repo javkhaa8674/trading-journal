@@ -148,15 +148,7 @@ export function MonteCarloEquityChart({
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" />
 
-            <XAxis
-              dataKey="step"
-              tick={{ fontSize: 11 }}
-              label={{
-                value: "Ирээдүйн арилжаанууд",
-                position: "insideBottom",
-                offset: -5,
-              }}
-            />
+            <XAxis dataKey="step" tick={{ fontSize: 11 }} />
 
             <YAxis
               tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
