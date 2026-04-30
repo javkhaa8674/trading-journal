@@ -245,7 +245,7 @@ export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
                   name="Duration"
                   label={{
                     value: "Duration (Hours)",
-                    position: "bottom",
+                    position: "insideLeft",
                     fontSize: 12,
                   }}
                   domain={[0, "dataMax"]}

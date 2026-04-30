@@ -35,117 +35,215 @@ const rand = () => Math.random();
 function StreakExplanation({
   winRate,
   lossProb,
+  forecast,
 }: {
   winRate: number;
   lossProb: number;
+  forecast?: { expected: number; p95: number; p99: number } | null;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   return (
-    <div className="mt-3 border rounded-lg bg-red-50 dark:bg-red-950 overflow-hidden">
-      {/* Header Button */}
+    <div className="mt-3 border rounded-lg bg-blue-50 dark:bg-blue-950 overflow-hidden">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-3 flex justify-between items-center hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
+        className="w-full px-4 py-3 flex justify-between items-center hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="text-lg">⚠️</span>
-          <span className="font-semibold text-sm">
-            Дараалсан алдагдал гэж юу вэ?
-          </span>
+          <span className="text-lg">📘</span>
+          <span className="font-semibold text-sm">Тайлбар</span>
         </div>
-        {isOpen ? (
-          <span className="text-xl dark:text-white">▶</span>
-        ) : (
-          <span className="text-xl dark:text-white">▼</span>
-        )}
+        {isOpen ? <span>▲</span> : <span>▼</span>}
       </button>
 
-      {/* Content - Expanded */}
       {isOpen && (
-        <div className="px-4 pb-4 space-y-3 text-sm border-t border-red-200 dark:border-red-800">
-          {/* Simple explanation */}
-          <div className="pt-3">
-            <p className="font-medium text-red-800 dark:text-red-200">
-              🎲 Таны стратеги хэдэн удаа дараалан алдаж болох вэ?
+        <div className="px-4 pb-4 space-y-4 text-sm border-t border-blue-200 dark:border-blue-800">
+          {/* ⭐ 1. ДЭЭРХ ГУРВАН ҮЗҮҮЛЭЛТИЙН ТАЙЛБАР - ХАМГИЙН ЧУХАЛ */}
+          {forecast && (
+            <div className="bg-indigo-50 dark:bg-indigo-950 p-3 rounded-lg border-2 border-indigo-300">
+              <p className="font-bold text-indigo-800 dark:text-indigo-200 text-base mb-2">
+                🎯 Дээрх &quot;{forecast.expected.toFixed(1)}&quot;, &quot;
+                {forecast.p95}&quot;, &quot;
+                {forecast.p99}&quot; гэсэн тоонууд юу гэсэн үг вэ?
+              </p>
+
+              <div className="space-y-3 mt-2">
+                {/* Дундаж */}
+                <div className="bg-white dark:bg-gray-800 p-2 rounded">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">📊</span>
+                    <span className="font-bold text-lg">
+                      {forecast.expected.toFixed(1)} удаа
+                    </span>
+                    <span className="text-gray-500">ДУНДАЖ</span>
+                  </div>
+                  <p className="text-sm mt-1">
+                    <span className="font-semibold">Энгийнээр:</span> Таны
+                    дараагийн 100 арилжаанд хамгийн урт дараалсан алдагдлын{" "}
+                    <span className="font-bold">дундаж утга</span>.
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    📌 Жишээ: Хэрэв та 100 арилжааг 1000 удаа давтан хийвэл,
+                    тухай бүрийн хамгийн урт дараалсан алдагдлын дундаж{" "}
+                    {forecast.expected.toFixed(1)} болно.
+                  </p>
+                  <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded mt-2">
+                    <p className="text-xs font-mono">
+                      → {forecast.expected.toFixed(1)} удаа дараалан алдахад,
+                      {forecast.expected && forecast.expected * 2}% алдагдал (2%
+                      risk үед)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Хамгийн муу (95%) */}
+                <div className="bg-white dark:bg-gray-800 p-2 rounded">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">⚠️</span>
+                    <span className="font-bold text-lg text-yellow-600">
+                      {forecast.p95} удаа
+                    </span>
+                    <span className="text-gray-500">ХАМГИЙН МУУ (95%)</span>
+                  </div>
+                  <p className="text-sm mt-1">
+                    <span className="font-semibold">Энгийнээр:</span> 100
+                    арилжаа хийхэд,
+                    <span className="font-bold">
+                      {" "}
+                      100-аас 95 удаа (95%)
+                    </span>{" "}
+                    энэ тооноос
+                    <span className="font-bold text-yellow-600">
+                      {" "}
+                      хэтрэхгүй
+                    </span>
+                    .
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    📌 Өөрөөр хэлбэл: Зөвхөн{" "}
+                    <span className="font-bold">5% тохиолдолд л</span>{" "}
+                    {forecast.p95} удаагаас илүү дараалан алдах болно.
+                  </p>
+                  <div className="bg-yellow-50 dark:bg-yellow-950 p-2 rounded mt-2">
+                    <p className="text-xs">
+                      ⚠️ {forecast.p95} удаа дараалан алдахад ={" "}
+                      {forecast.p95 && forecast.p95 * 2}%-ийн алдагдал (2% risk)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Хэт муу (99%) */}
+                <div className="bg-white dark:bg-gray-800 p-2 rounded">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🔥</span>
+                    <span className="font-bold text-lg text-red-600">
+                      {forecast.p99} удаа
+                    </span>
+                    <span className="text-gray-500">ХЭТ МУУ (99%)</span>
+                  </div>
+                  <p className="text-sm mt-1">
+                    <span className="font-semibold">Энгийнээр:</span> 100
+                    арилжаа хийхэд,
+                    <span className="font-bold">
+                      {" "}
+                      100-аас 99 удаа (99%)
+                    </span>{" "}
+                    энэ тооноос
+                    <span className="font-bold text-red-600"> хэтрэхгүй</span>.
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    📌 Зөвхөн <span className="font-bold">1% тохиолдолд л</span>{" "}
+                    {forecast.p99} удаагаас илүү дараалан алдана. Энэ бол маш
+                    ховор тохиолдол!
+                  </p>
+                  <div className="bg-red-50 dark:bg-red-950 p-2 rounded mt-2">
+                    <p className="text-xs">
+                      🔥 Хэрэв та энэ хэмжээний алдагдлыг тэсвэрлэж чадвал, 99%
+                      тохиолдолд данс чинь хамгаалагдана.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 2. ЭНГИЙН ТОДОРХОЙЛОЛТ */}
+          <div className="pt-2">
+            <p className="font-bold text-blue-800 dark:text-blue-200">
+              🎯 Дараалсан алдагдал гэж юу вэ?
             </p>
-            <p className="text-red-700 dark:text-red-300 text-xs mt-1">
-              Жишээ нь: 3 удаа дараалан алдвал{" "}
-              {(Math.pow(lossProb, 3) * 100).toFixed(2)}% магадлалтай
+            <p className="text-blue-700 dark:text-blue-300 mt-1">
+              Хэдэн арилжаа{" "}
+              <span className="font-bold text-red-600">дараалан</span> алдаж
+              байгааг хэлнэ.
             </p>
+            <div className="mt-2 bg-white dark:bg-gray-800 p-2 rounded">
+              <p className="font-mono text-xs">
+                📉 Алдагдал → 📉 Алдагдал → 📉 Алдагдал → ✅ Ашиг
+              </p>
+              <p className="text-xs mt-1">
+                👆 Энэ тохиолдолд{" "}
+                <span className="font-bold text-red-600">
+                  3 удаа дараалан алдсан
+                </span>
+              </p>
+            </div>
           </div>
 
-          {/* 3 key concepts - easy to understand */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
-            <div className="bg-white dark:bg-gray-800 p-2 rounded">
-              <span className="font-bold text-red-600">📊 Дээрх график</span>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
-                Та арилжаануудад хэдэн удаа, хэдэн дараалсан алдагдал гарах
-                магадлалыг харуулж байна.
-              </p>
-              <p className="text-gray-500 mt-1 text-xs">
-                Хэрэв 3 удаа дараалан алдах нь олон удаа тохиолдвол том алдагдал
-                хүлээх болно.
-              </p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 p-2 rounded">
-              <span className="font-bold text-red-600">
-                🔮 Ирээдүйн таамаглал
-              </span>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
-                Дараагийн арилжаанд хамгийн ихдээ хэдэн удаа дараалан алдах вэ?
-              </p>
-              <p className="text-gray-500 mt-1 text-xs">
-                • Хүлээгдэж буй: Дунджаар ийм удаа алдана
-                <br />• Хамгийн муу: 95% тохиолдолд энэ хэмжээнээс хэтрэхгүй
-              </p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 p-2 rounded">
-              <span className="font-bold text-red-600">💰 Практик утга</span>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
-                Энэ нь таны лотын хэмжээг тохируулахад хэрэглэгдэнэ
-              </p>
-              <p className="text-gray-500 mt-1 text-xs">
-                Хэрэв 5 удаа дараалан алдах боломжтой бол таны stop-loss хэмжээг
-                5-аар үржүүлэх хэрэгтэй
-              </p>
+          {/* 3. ТАНЫ ТООЦОО - ЖИШЭЭ */}
+          <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
+            <p className="font-semibold mb-2">💡 Танд хэрхэн ойлгох вэ:</p>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between border-b pb-1">
+                <span>Таны хожих магадлал:</span>
+                <span className="font-bold text-green-600">
+                  {(winRate * 100).toFixed(1)}%
+                </span>
+              </div>
+              <div className="flex justify-between border-b pb-1">
+                <span>Таны алдах магадлал:</span>
+                <span className="font-bold text-red-600">
+                  {(lossProb * 100).toFixed(1)}%
+                </span>
+              </div>
+              <div className="bg-yellow-50 dark:bg-yellow-950 p-2 rounded mt-2">
+                <p className="text-center">
+                  ⚡ {forecast?.p95 || "?"} удаа дараалан алдахад бэлэн байх
+                  хэрэгтэй!
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* Real example */}
-          <div className="bg-yellow-50 dark:bg-yellow-950 p-2 rounded text-xs">
-            <p className="font-semibold text-yellow-800 dark:text-yellow-200">
-              📖 Энгийн жишээ:
-            </p>
-            <div className="mt-1 text-yellow-700 dark:text-yellow-300 space-y-1">
-              <p>Таны win rate = {(winRate * 100).toFixed(0)}%</p>
-              <p>
-                → Дунджаар 100 арилжаанд {Math.round(100 * lossProb)} удаа
-                алдана
+          {/* 4. PROP FIRM ЗӨВЛӨМЖ */}
+          {forecast && (
+            <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg">
+              <p className="font-semibold text-green-800 mb-1">
+                🏢 Prop Firm зөвлөмж:
               </p>
-              <p>→ Гэхдээ тэдгээр алдагдал нь дараалан ирж болно!</p>
-              <p className="font-medium mt-1">
-                ✅ Тиймээс дандаа хамгийн муу тохиолдолд бэлэн байх хэрэгтэй
+              <p className="text-xs">
+                Таны хамгийн муу тохиолдол {forecast.p95} удаа дараалан алдах
+                боломжтой. Prop firm-ийн drawdown хязгаар 10% бол →{" "}
+                <span className="font-bold">нэг арилжаанд 0.7%</span> эрсдэл
+                авах
               </p>
+              <div className="mt-2 bg-white dark:bg-gray-800 p-2 rounded text-xs">
+                <p>
+                  📊 Тооцоо: {forecast.p95} удаа × 0.7% ={" "}
+                  {(forecast.p95 * 0.7).toFixed(1)}% алдагдал (хязгаарт багтана)
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Quick tips */}
-          <div className="bg-green-50 dark:bg-green-950 p-2 rounded text-xs">
-            <p className="font-semibold text-green-800 dark:text-green-200">
-              💡 Зөвлөгөө:
+          {/* 5. ДҮГНЭЛТ */}
+          <div className="bg-gray-200 dark:bg-gray-700 p-2 rounded text-center text-xs">
+            <p className="font-bold">✅ Үндсэн дүгнэлт:</p>
+            <p>
+              Таны стратеги {forecast?.expected.toFixed(1) || "?"} удаа дараалан
+              алдана. Хамгийн муу тохиолдолд {forecast?.p95 || "?"} удаа. Үүнд
+              бэлэн байгаарай!
             </p>
-            <div className="mt-1 text-green-700 dark:text-green-300">
-              <p>
-                • Дараалсан алдагдлын тоо × Risk per trade = Хамгийн их алдагдал
-              </p>
-              <p>• Жишээ: 5 удаа алдагдал × 2% risk = 10% account loss</p>
-              <p>
-                • Prop firm-д 10-20% drawdown хязгаартай тул тохируулах хэрэгтэй
-              </p>
-            </div>
           </div>
         </div>
       )}
@@ -345,7 +443,11 @@ export function StreakRiskTool({
       </div>
 
       {/* REPLACE OLD EXPLANATION WITH NEW EXPANDABLE ONE */}
-      <StreakExplanation winRate={winRate} lossProb={lossProb} />
+      <StreakExplanation
+        winRate={winRate}
+        lossProb={lossProb}
+        forecast={forecast}
+      />
     </div>
   );
 }
