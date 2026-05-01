@@ -324,34 +324,42 @@ function average(arr: number[]) {
  */
 
 export function calculateMaxDrawdownWithDuration(equity: number[]) {
-    let peak = -Infinity;
+    if (!equity.length) {
+        return { maxDrawdown: 0, duration: 0 };
+    }
+
+    let peak = equity[0];
+
     let maxDrawdown = 0;
 
-    let peakIndex = 0;
-    let troughIndex = 0;
+    let peakIndexAtMaxDD = 0;
+    let troughIndexAtMaxDD = 0;
+
+    let tempPeakIndex = 0;
 
     for (let i = 0; i < equity.length; i++) {
+
         if (equity[i] > peak) {
             peak = equity[i];
-            peakIndex = i;
+            tempPeakIndex = i;
         }
 
         const drawdown = peak - equity[i];
 
         if (drawdown > maxDrawdown) {
             maxDrawdown = drawdown;
-            troughIndex = i;
+            peakIndexAtMaxDD = tempPeakIndex;
+            troughIndexAtMaxDD = i;
         }
     }
 
-    const duration = troughIndex - peakIndex;
+    const duration = troughIndexAtMaxDD - peakIndexAtMaxDD;
 
-    const percent =
-        peak === 0 ? 0 : (maxDrawdown / peak) * 100;
+    const percent = peak === 0 ? 0 : (maxDrawdown / peak) * 100;
 
     return {
         maxDrawdown: Number(percent.toFixed(2)),
-        duration,
+        duration: Math.max(0, duration),
     };
 }
 
@@ -360,41 +368,35 @@ export function calculateAvgDrawdown(equity: number[]) {
 
     let peak = equity[0];
 
-    let currentDrawdown = 0;
-    let inDrawdown = false;
+    const drawdowns: number[] = [];
 
-    const drawdownEvents: number[] = [];
+    let currentDD = 0;
 
     for (let i = 0; i < equity.length; i++) {
+
         const value = equity[i];
 
         if (value > peak) {
-            // recovery
-            if (inDrawdown) {
-                drawdownEvents.push(currentDrawdown);
-                currentDrawdown = 0;
-                inDrawdown = false;
+            if (currentDD > 0) {
+                drawdowns.push(currentDD);
             }
             peak = value;
+            currentDD = 0;
         } else {
-            const dd = ((peak - value) / peak) * 100;
-
-            inDrawdown = true;
-            currentDrawdown = Math.max(currentDrawdown, dd);
+            if (peak > 0) {
+                const dd = ((peak - value) / peak) * 100;
+                currentDD = Math.max(currentDD, dd);
+            }
         }
     }
 
-    // last event
-    if (inDrawdown) {
-        drawdownEvents.push(currentDrawdown);
+    if (currentDD > 0) {
+        drawdowns.push(currentDD);
     }
 
-    if (!drawdownEvents.length) return 0;
-
-    return (
-        drawdownEvents.reduce((a, b) => a + b, 0) /
-        drawdownEvents.length
-    );
+    return drawdowns.length
+        ? drawdowns.reduce((a, b) => a + b, 0) / drawdowns.length
+        : 0;
 }
 
 /**
