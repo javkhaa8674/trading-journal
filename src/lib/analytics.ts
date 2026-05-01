@@ -118,22 +118,37 @@ export function calculateAvgPositionSize(trades: Trade[]) {
 export function calculateAvgHoldingTime(trades: Trade[]): number {
     if (!trades || trades.length === 0) return 0;
 
-    // Filter trades that have both open_time and close_time
-    const valid = trades.filter(t => t.open_time && t.close_time);
+    let totalMinutes = 0;
+    let validCount = 0;
 
-    if (valid.length === 0) return 0;
+    for (const trade of trades) {
+        if (!trade.open_time || !trade.close_time) continue;
 
-    const totalMinutes = valid.reduce((sum, t) => {
-        // ✅ Safe date conversion with fallback
-        const openTime = t.open_time ? new Date(t.open_time).getTime() : 0;
-        const closeTime = t.close_time ? new Date(t.close_time).getTime() : 0;
+        const openTime = new Date(trade.open_time).getTime();
+        const closeTime = new Date(trade.close_time).getTime();
 
-        if (openTime === 0 || closeTime === 0) return sum;
+        // Check for invalid dates
+        if (isNaN(openTime) || isNaN(closeTime)) {
+            console.warn('Invalid date found:', trade.id, trade.open_time, trade.close_time);
+            continue;
+        }
 
-        return sum + (closeTime - openTime) / 1000 / 60;
-    }, 0);
+        // Ensure close time is after open time
+        if (closeTime < openTime) {
+            console.warn('Close time before open time:', trade.id);
+            continue;
+        }
 
-    return totalMinutes / valid.length;
+        totalMinutes += (closeTime - openTime) / (1000 * 60);
+        validCount++;
+    }
+
+    const averageMinutes = validCount === 0 ? 0 : totalMinutes / validCount;
+
+    // Optional: Convert to hours for better readability
+    // console.log(`Average holding time: ${averageMinutes.toFixed(2)} minutes (${(averageMinutes/60).toFixed(2)} hours)`);
+
+    return averageMinutes;
 }
 
 /**
@@ -143,9 +158,38 @@ export function calculateAvgHoldingTime(trades: Trade[]): number {
  */
 
 
+// =========================
+// 💰 REAL R (Execution Performance)
+// =========================
+
+export function calculateTradeRealR(
+    trade: Trade,
+    balance: number
+): number | null {
+
+    if (trade.profit == null || !isFinite(trade.profit)) {
+        return null;
+    }
+
+    const riskPerTrade = balance * 0.01; // 1% fixed risk
+
+    if (riskPerTrade <= 0) return null;
+
+    return trade.profit / riskPerTrade;
+}
+
+
+// =========================
+// 📊 PLANNED RRR (Setup Quality)
+// =========================
+
 function calculateTradeRRR(trade: Trade): number | null {
-    if (!trade.stop_loss || !trade.take_profit || trade.stop_loss === 0 || trade.take_profit === 0) {
-        return null; // RRR тооцоолох боломжгүй
+
+    if (
+        trade.stop_loss == null ||
+        trade.take_profit == null
+    ) {
+        return null;
     }
 
     const entry = trade.entry_price;
@@ -156,62 +200,121 @@ function calculateTradeRRR(trade: Trade): number | null {
     let reward: number;
 
     if (trade.type === 'buy') {
-        risk = entry - sl;      // Buy-д SL нь entry-ээс доогуур
-        reward = tp - entry;    // TP нь entry-ээс дээш
-    } else { // sell
-        risk = sl - entry;      // Sell-д SL нь entry-ээс дээш
-        reward = entry - tp;    // TP нь entry-ээс доош
+        risk = entry - sl;
+        reward = tp - entry;
+    } else {
+        risk = sl - entry;
+        reward = entry - tp;
     }
 
-    if (risk <= 0) return null;
+    if (risk <= 0 || reward <= 0) return null;
 
-    return reward / risk; // RRR = Reward / Risk
+    return reward / risk;
 }
 
+
+// =========================
+// 📈 MAIN METRICS FUNCTION
+// =========================
+
 export function calculateRRR(trades: Trade[]) {
+
     if (!trades.length) {
         return {
             overall: 0,
             win: 0,
             loss: 0,
+            realOverall: 0,
         };
     }
 
-    // Бодит ашиг/алдагдалаар ерөнхий RRR тооцох
-    const winsByProfit = trades.filter(t => (t.profit || 0) > 0);
-    const lossesByProfit = trades.filter(t => (t.profit || 0) < 0);
+    // 🔥 Sort by time (IMPORTANT for equity curve correctness)
+    const sortedTrades = [...trades].sort(
+        (a, b) =>
+            new Date(a.open_time).getTime() -
+            new Date(b.open_time).getTime()
+    );
 
-    const totalWinAmount = winsByProfit.reduce((sum, t) => sum + (t.profit || 0), 0);
-    const totalLossAmount = Math.abs(lossesByProfit.reduce((sum, t) => sum + (t.profit || 0), 0));
 
-    const avgWinByProfit = winsByProfit.length ? totalWinAmount / winsByProfit.length : 0;
-    const avgLossByProfit = lossesByProfit.length ? totalLossAmount / lossesByProfit.length : 0;
+    // =========================
+    // PLANNED RRR
+    // =========================
 
-    const overall = avgLossByProfit === 0 ? avgWinByProfit : avgWinByProfit / avgLossByProfit;
+    const allRRRs: number[] = [];
 
-    // === Ашигтай арилжаануудын дундаж RRR (planned RRR-ээр) ===
-    const wins = trades.filter(t => (t.profit || 0) > 0);
-    const winRRRs: number[] = [];
-    wins.forEach(trade => {
+    for (const trade of sortedTrades) {
         const rrr = calculateTradeRRR(trade);
-        if (rrr !== null) winRRRs.push(rrr);
-    });
-    const win = winRRRs.length ? winRRRs.reduce((a, b) => a + b, 0) / winRRRs.length : 0;
+        if (rrr !== null && isFinite(rrr)) {
+            allRRRs.push(rrr);
+        }
+    }
 
-    // === Алдагдалтай арилжаануудын дундаж RRR (planned RRR-ээр) ===
-    const losses = trades.filter(t => (t.profit || 0) < 0);
-    const lossRRRs: number[] = [];
-    losses.forEach(trade => {
-        const rrr = calculateTradeRRR(trade);
-        if (rrr !== null) lossRRRs.push(rrr);
-    });
-    const loss = lossRRRs.length ? lossRRRs.reduce((a, b) => a + b, 0) / lossRRRs.length : 0;
+    const overall = average(allRRRs);
+
+
+    // =========================
+    // WIN / LOSS (PLANNED)
+    // =========================
+
+    const wins = sortedTrades.filter(t => (t.profit ?? 0) > 0);
+    const losses = sortedTrades.filter(t => (t.profit ?? 0) < 0);
+
+    const winRRRs = wins
+        .map(calculateTradeRRR)
+        .filter((v): v is number => v !== null && isFinite(v));
+
+    const lossRRRs = losses
+        .map(calculateTradeRRR)
+        .filter((v): v is number => v !== null && isFinite(v));
+
+
+    const win = average(winRRRs);
+
+    // ⚠️ NOTE: planned RRR is not meaningful for losses,
+    // but we keep it for symmetry
+    const loss = average(lossRRRs);
+
+
+    // =========================
+    // REAL R (CORE EDGE METRIC)
+    // =========================
+
+    let balance = 5000; // initial balance
+    const realR: number[] = [];
+
+    for (const trade of sortedTrades) {
+
+        const risk = balance * 0.01;
+
+        if (risk <= 0) continue;
+
+        const r = (trade.profit ?? 0) / risk;
+
+        if (isFinite(r)) {
+            realR.push(r);
+        }
+
+        balance += trade.profit ?? 0;
+    }
+
 
     return {
-        overall,  // Бодит ашиг/алдагдалаар тооцсон ерөнхий RRR
-        win,      // Ашигтай арилжаануудын дундаж planned RRR
-        loss,     // Алдагдалтай арилжаануудын дундаж planned RRR
+        overall,
+        win,
+        loss,
+        realOverall: average(realR),
     };
+}
+
+
+// =========================
+// 🧠 helper
+// =========================
+
+function average(arr: number[]) {
+    return arr.length
+        ? arr.reduce((a, b) => a + b, 0) / arr.length
+        : 0;
 }
 
 /**

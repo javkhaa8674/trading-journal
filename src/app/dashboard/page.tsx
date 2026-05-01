@@ -84,7 +84,14 @@ export default function DashboardPage() {
       ? data.filter((t) => t.account_id === selectedAccountId)
       : data;
 
-    setTrades(filteredTrades);
+    // close_time-оор A-Z (өгсөх дараалал) эрэмбэлэх
+    const sortedTrades = [...filteredTrades].sort((a, b) => {
+      const timeA = a.close_time ? new Date(a.close_time).getTime() : 0;
+      const timeB = b.close_time ? new Date(b.close_time).getTime() : 0;
+      return timeA - timeB;
+    });
+
+    setTrades(sortedTrades);
     setLoading(false);
   };
 

@@ -258,21 +258,12 @@ export function StreakRiskTool({
   simulations = 500,
   futureTrades = 100,
 }: Props) {
-  // Histogram бодохоос өмнө trades-ийг эрэмбэлэх
-  const sortedTrades = useMemo(() => {
-    return [...trades].sort((a, b) => {
-      const timeA = a.close_time ? new Date(a.close_time).getTime() : 0;
-      const timeB = b.close_time ? new Date(b.close_time).getTime() : 0;
-      return timeA - timeB;
-    });
-  }, [trades]);
-
   // --------------------------
   // WIN RATE - sortedTrades ашиглах
   const winRate = useMemo(() => {
-    const wins = sortedTrades.filter((t) => t.profit > 0).length;
-    return sortedTrades.length ? wins / sortedTrades.length : 0;
-  }, [sortedTrades]);
+    const wins = trades.filter((t) => t.profit > 0).length;
+    return trades.length ? wins / trades.length : 0;
+  }, [trades]);
 
   const lossProb = 1 - winRate;
 
@@ -283,7 +274,7 @@ export function StreakRiskTool({
     let current = 0;
     const streaks: number[] = [];
 
-    sortedTrades.forEach((t) => {
+    trades.forEach((t) => {
       if (t.profit < 0) current++;
       else {
         if (current > 0) streaks.push(current);
@@ -301,7 +292,7 @@ export function StreakRiskTool({
     return Object.entries(map)
       .map(([k, v]) => ({ streak: +k, count: v }))
       .sort((a, b) => a.streak - b.streak);
-  }, [sortedTrades]);
+  }, [trades]);
 
   // --------------------------
   // 🔥 MONTE CARLO SIMULATION
@@ -362,7 +353,7 @@ export function StreakRiskTool({
     return null;
   };
 
-  if (!sortedTrades.length) {
+  if (!trades.length) {
     return <div className="p-6 text-center">Өгөгдөл байхгүй.</div>;
   }
   // Probability values for display

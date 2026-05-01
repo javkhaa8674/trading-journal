@@ -26,32 +26,6 @@ type Props = {
   balance: number;
 };
 
-function Card({
-  title,
-  value,
-  color = "text-black",
-  sub,
-}: {
-  title: string;
-  value: number | string;
-  color?: string;
-  sub?: string;
-}) {
-  return (
-    <div className="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-900 dark:border-gray-800">
-      <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
-      <h2
-        className={`text-2xl font-bold ${color} dark:${color.replace("text-", "dark:text-")}`}
-      >
-        {value}
-      </h2>
-      {sub && (
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{sub}</p>
-      )}
-    </div>
-  );
-}
-
 export default function DashboardStats({ trades, balance }: Props) {
   // Calculate all metrics once
   const metrics = useMemo(() => {

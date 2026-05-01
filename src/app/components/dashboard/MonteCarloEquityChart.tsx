@@ -11,10 +11,8 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-
-type Trade = {
-  profit: number;
-};
+import { calculateWinRate, calculateAvgWin } from "@/lib/analytics";
+import { Trade } from "@/types/trade";
 
 type Props = {
   trades: Trade[];
@@ -41,14 +39,9 @@ export function MonteCarloEquityChart({
   // -----------------------------
   // WIN RATE MODEL
   // -----------------------------
-  const winRate = useMemo(() => {
-    const wins = trades.filter((t) => t.profit > 0).length;
-    return trades.length ? wins / trades.length : 0.5;
-  }, [trades]);
+  const winRate = calculateWinRate(trades);
 
-  const avgWin =
-    trades.filter((t) => t.profit > 0).reduce((s, t) => s + t.profit, 0) /
-    Math.max(1, trades.filter((t) => t.profit > 0).length);
+  const avgWin = calculateAvgWin(trades);
 
   const avgLoss =
     Math.abs(
