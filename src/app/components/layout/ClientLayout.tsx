@@ -4,6 +4,8 @@
 import { ThemeProvider } from "next-themes";
 import { SidebarProvider } from "@/app/context/SidebarContext";
 import { AppWrapper } from "@/app/components/appwrapper/AppWrapper";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { useEffect } from "react";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -25,9 +27,11 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
       enableSystem
       disableTransitionOnChange
     >
-      <SidebarProvider>
-        <AppWrapper>{children}</AppWrapper>
-      </SidebarProvider>
+      <QueryClientProvider client={queryClient}>
+        <SidebarProvider>
+          <AppWrapper>{children}</AppWrapper>
+        </SidebarProvider>
+      </QueryClientProvider>
     </ThemeProvider>
   );
 }
