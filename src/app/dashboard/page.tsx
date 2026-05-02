@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
-import { Trade } from "@/types/trade";
 
 import { DateRangeFilter } from "@/app/components/dashboard/DateRangeFilter";
 import DashboardStats from "@/app/components/dashboard/DashboardStats";
@@ -21,9 +21,7 @@ import { InstrumentVolumeAnalysis } from "@/app/components/dashboard/InstrumentV
 import { StreakRiskTool } from "@/app/components/dashboard/RiskForcasting";
 import { MonteCarloEquityChart } from "@/app/components/dashboard/MonteCarloEquityChart";
 import { RiskOfRuinCalculator } from "@/app/components/dashboard/RiskOfRuin";
-// =========================
-// 🆕 ADVANCED ANALYTICS
-// =========================
+
 import { buildDashboardData } from "@/lib/dashboardAnalytics";
 import {
   getTradingDayPerformance,
@@ -39,9 +37,6 @@ import {
 import { getStatusColor, getStatusIcon } from "@/lib/utils/statusUtils";
 
 export default function DashboardPage() {
-  const [trades, setTrades] = useState<Trade[]>([]);
-  const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
-  const [accounts, setAccounts] = useState<any[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     null,
   );
@@ -49,91 +44,61 @@ export default function DashboardPage() {
     from: string;
     to: string;
   } | null>(null);
-  const [loading, setLoading] = useState(true);
 
   // =========================
-  // 📥 ACCOUNTS
+  // 📥 ACCOUNTS QUERY
   // =========================
-  const loadAccounts = async () => {
-    const user = await getCurrentUser();
-    if (!user) return;
+  const { data: accounts = [] } = useQuery({
+    queryKey: ["accounts"],
+    queryFn: async () => {
+      const user = await getCurrentUser();
+      if (!user) return [];
 
-    const { data } = await supabase
-      .from("accounts")
-      .select("*")
-      .eq("user_id", user.id);
+      const { data } = await supabase
+        .from("accounts")
+        .select("*")
+        .eq("user_id", user.id);
 
-    setAccounts(data || []);
-  };
-
-  // =========================
-  // 📥 TRADES
-  // =========================
-  const loadTrades = async () => {
-    const user = await getCurrentUser();
-    if (!user) return;
-
-    const { data } = await supabase
-      .from("trades")
-      .select("*")
-      .eq("user_id", user.id);
-
-    if (!data) return;
-
-    const filteredTrades = selectedAccountId
-      ? data.filter((t) => t.account_id === selectedAccountId)
-      : data;
-
-    // close_time-оор A-Z (өгсөх дараалал) эрэмбэлэх
-    const sortedTrades = [...filteredTrades].sort((a, b) => {
-      const timeA = a.close_time ? new Date(a.close_time).getTime() : 0;
-      const timeB = b.close_time ? new Date(b.close_time).getTime() : 0;
-      return timeA - timeB;
-    });
-
-    setTrades(sortedTrades);
-    setLoading(false);
-  };
+      return data || [];
+    },
+  });
 
   // =========================
-  // 🔄 APPLY DATE FILTER (client-side)
+  // 📥 TRADES QUERY
   // =========================
-  useEffect(() => {
-    if (!trades.length) {
-      setFilteredTrades([]);
-      return;
-    }
+  const { data: trades = [], isLoading } = useQuery({
+    queryKey: ["trades", selectedAccountId, dateRange],
+    queryFn: async () => {
+      const user = await getCurrentUser();
+      if (!user) return [];
 
-    let result = [...trades];
+      let query = supabase.from("trades").select("*").eq("user_id", user.id);
 
-    // Apply date range filter
-    if (dateRange) {
-      result = result.filter((trade) => {
-        const tradeDate = new Date(trade.close_time || trade.open_time);
-        const fromDate = new Date(dateRange.from);
-        const toDate = new Date(dateRange.to);
-        toDate.setHours(23, 59, 59, 999);
-        return tradeDate >= fromDate && tradeDate <= toDate;
-      });
-    }
+      if (selectedAccountId) {
+        query = query.eq("account_id", selectedAccountId);
+      }
 
-    setFilteredTrades(result);
-  }, [trades, dateRange]);
-  // =========================
-  // 🔄 INIT LOAD
-  // =========================
-  useEffect(() => {
-    loadAccounts();
-  }, []);
+      if (dateRange) {
+        query = query
+          .gte("close_time", dateRange.from)
+          .lte("close_time", dateRange.to);
+      }
 
-  useEffect(() => {
-    loadTrades();
-  }, [selectedAccountId]);
+      const { data, error } = await query;
+
+      if (error) {
+        console.error(error);
+        return [];
+      }
+
+      return data || [];
+    },
+  });
 
   // =========================
-  // ⚠️ LOADING SAFETY FIX
+  // ⚠️ LOADING
   // =========================
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex h-96 items-center justify-center p-6">
         <div className="text-center">
@@ -147,7 +112,7 @@ export default function DashboardPage() {
   }
 
   // =========================
-  // 📊 ACCOUNT FIX (IMPORTANT)
+  // 📊 ACCOUNT
   // =========================
   const selectedAccount =
     accounts.find((a) => a.id === selectedAccountId) ?? accounts[0];
@@ -156,36 +121,31 @@ export default function DashboardPage() {
   const isValidBalance = typeof balance === "number" && balance > 0;
 
   // =========================
-  // 📊 DASHBOARD DATA (Existing)
+  // 📊 ANALYTICS
   // =========================
   const { chartData } = buildDashboardData(
-    filteredTrades,
+    trades,
     isValidBalance ? balance : 5000,
   );
-  // =========================
-  // 🆕 ADVANCED ANALYTICS DATA
-  // =========================
-  const tradingDayData = getTradingDayPerformance(filteredTrades);
-  const mostTradedData = getMostTradedInstruments(filteredTrades);
-  const dailySummary = getDailySummary(filteredTrades);
-  const keyMetrics = getKeyMetrics(filteredTrades);
-  const longShortData = getLongShortAnalysis(filteredTrades);
-  const durationData = getPnLByDuration(filteredTrades);
-  const profitAnalysisData = getInstrumentProfitAnalysis(filteredTrades);
-  const volumeAnalysisData = getInstrumentVolumeAnalysis(filteredTrades);
+
+  const tradingDayData = getTradingDayPerformance(trades);
+  const mostTradedData = getMostTradedInstruments(trades);
+  const dailySummary = getDailySummary(trades);
+  const keyMetrics = getKeyMetrics(trades);
+  const longShortData = getLongShortAnalysis(trades);
+  const durationData = getPnLByDuration(trades);
+  const profitAnalysisData = getInstrumentProfitAnalysis(trades);
+  const volumeAnalysisData = getInstrumentVolumeAnalysis(trades);
 
   // =========================
-  // 🎯 RENDER
+  // 🎯 UI
   // =========================
   return (
     <div className="space-y-6 p-1">
       <h1 className="text-2xl font-bold dark:text-white">Хяналтын самбар</h1>
 
-      {/* =========================
-      🏦 ACCOUNT SELECTOR
-  ========================= */}
+      {/* Account + Filters */}
       <div className="mb-4 space-y-3">
-        {/* Account Selector - Mobile Friendly */}
         <select
           className="w-full sm:w-auto rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white text-sm"
           value={selectedAccountId || ""}
@@ -199,116 +159,61 @@ export default function DashboardPage() {
               className={getStatusColor(acc.status)}
             >
               {getStatusIcon(acc.status)} {acc.name}
-              {acc.status !== "active" && ` (${acc.status})`}
-              {acc.status === "active" && ` - $${acc.balance.toLocaleString()}`}
             </option>
           ))}
         </select>
-        {/* Date Range Filter */}
+
         <DateRangeFilter onRangeChange={setDateRange} trades={trades} />
-        {/* Trade count info */}
-        <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-          📊 Нийт {trades.length} {trades.length !== 1 ? "арилжаа" : "арилжаа"}
-          {selectedAccountId && (
-            <span className="font-medium text-blue-600 dark:text-blue-400">
-              {" "}
-              {selectedAccount?.name} -ээс
-            </span>
-          )}
-          {dateRange && (
-            <span className="font-medium text-green-600 dark:text-green-400">
-              {" "}
-              {new Date(dateRange.from).toLocaleDateString()} -{" "}
-              {new Date(dateRange.to).toLocaleDateString()} хооронд
-            </span>
-          )}
+
+        <div className="text-xs text-gray-500 dark:text-gray-400">
+          📊 Нийт {trades.length} арилжаа
         </div>
       </div>
 
-      {/* =========================
-      📊 EXISTING DASHBOARD COMPONENTS
-  ========================= */}
+      {/* Dashboard */}
       <DashboardStats
-        trades={filteredTrades}
+        trades={trades}
         balance={isValidBalance ? balance : 5000}
       />
       <EquityCurveChart data={chartData} />
-
       <EquityDrawdownChart
-        trades={filteredTrades}
+        trades={trades}
         balance={isValidBalance ? balance : 5000}
       />
 
-      {/* =========================
-      🆕 NEW METRICS CARDS
-  ========================= */}
-      <KeyMetricsCards
-        numberOfDays={keyMetrics.numberOfDays}
-        totalLotsUsed={keyMetrics.totalLotsUsed}
-        biggestWin={keyMetrics.biggestWin}
-        biggestLoss={keyMetrics.biggestLoss}
-      />
+      <KeyMetricsCards {...keyMetrics} />
 
-      {/* =========================
-      🆕 TRADING DAY PERFORMANCE
-  ========================= */}
       <TradingDayPerformance data={tradingDayData} />
 
-      {/* =========================
-      🆕 TWO COLUMN LAYOUT
-  ========================= */}
       <div className="grid gap-6 lg:grid-cols-2">
         <MostTradedInstruments data={mostTradedData} />
         <LongShortAnalysis data={longShortData} />
       </div>
 
-      {/* =========================
-      🆕 DAILY SUMMARY CALENDAR
-  ========================= */}
       <DailySummaryCalendar data={dailySummary} />
-
-      {/* =========================
-      🆕 TRADE DURATION ANALYSIS
-  ========================= */}
       <TradeDurationPnL data={durationData} />
 
-      {/* =========================
-      🆕 INSTRUMENT ANALYSIS
-  ========================= */}
       <div className="grid gap-6 lg:grid-cols-2">
         <InstrumentProfitAnalysis data={profitAnalysisData} />
         <InstrumentVolumeAnalysis data={volumeAnalysisData} />
       </div>
-      {/* =========================
-      🆕 FUTURE SIMULATIONS
-  ========================= */}
-      <StreakRiskTool trades={filteredTrades} />
-      <MonteCarloEquityChart trades={filteredTrades} />
+
+      <StreakRiskTool trades={trades} />
+      <MonteCarloEquityChart trades={trades} />
       <RiskOfRuinCalculator
-        trades={filteredTrades}
+        trades={trades}
         initialBalance={isValidBalance ? balance : 5000}
-        riskPerTrade={1} // 1% risk
+        riskPerTrade={1}
       />
 
-      {/* =========================
-      📊 EXISTING COMPONENTS
-  ========================= */}
-      <RiskPanel data={filteredTrades} />
+      <RiskPanel data={trades} />
 
-      {/* =========================
-      🚨 EMPTY STATE
-  ========================= */}
       {trades.length === 0 && (
         <div className="mt-12 rounded-lg border-2 border-dashed p-12 text-center dark:border-gray-700">
           <div className="mb-2 text-4xl">📭</div>
           <h3 className="text-lg font-semibold dark:text-white">
             Арилжаа олдсонгүй.
           </h3>
-          <p className="text-gray-500 dark:text-gray-400">
-            {selectedAccountId
-              ? "Энэ дансанд бүртгэлтэй арилжаа олдсонгүй."
-              : "Анализ харахын тулд арилжаа нэмж эхлээрэй"}
-          </p>
         </div>
       )}
     </div>
