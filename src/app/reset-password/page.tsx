@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import Image from "next/image";
+import logo from "@/assets/logo.png";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -62,7 +64,9 @@ export default function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <div className="w-full max-w-md space-y-6 rounded-lg bg-white p-8 shadow-lg dark:bg-gray-900">
         <div className="text-center">
-          <div className="text-4xl mb-2">🔐</div>
+          <div className="mb-3 flex justify-center">
+            <Image src={logo} alt="Logo" width={60} height={60} priority />
+          </div>
           <h1 className="text-2xl font-bold">Шинэ нууц үг тохируулах</h1>
           <p className="text-sm text-gray-500 mt-1">
             Шинэ нууц үгийг доор оруулна уу.

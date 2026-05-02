@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
+import logo from "@/assets/logo.png";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -68,7 +70,9 @@ export default function LoginPage() {
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
         <div className="w-full max-w-md space-y-6 rounded-lg bg-white p-8 shadow-lg dark:bg-gray-900">
           <div className="text-center">
-            <div className="text-4xl mb-2">🔐</div>
+            <div className="mb-3 flex justify-center">
+              <Image src={logo} alt="Logo" width={60} height={60} priority />
+            </div>
             <h1 className="text-2xl font-bold dark:text-white">
               Нууц үг сэргээх
             </h1>
@@ -146,7 +150,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <div className="w-full max-w-md space-y-6 rounded-lg bg-white p-8 shadow-lg dark:bg-gray-900">
         <div className="text-center">
-          <div className="text-4xl mb-2">📈</div>
+          <div className="mb-3 flex justify-center">
+            <Image src={logo} alt="Logo" width={60} height={60} priority />
+          </div>
           <h1 className="text-2xl font-bold dark:text-white">
             Арилжааны журнал
           </h1>

@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useSidebar } from "@/app/context/SidebarContext";
 import { getCurrentUser } from "@/lib/getCurrentUser";
 import { supabase } from "@/lib/supabaseClient";
+import logo from "@/assets/logo.png";
 
 interface NavItem {
   name: string;
@@ -99,7 +101,9 @@ export function Sidebar() {
         >
           {(!isMobile && !isCollapsed) || (!isMobile && isCollapsed) ? (
             <Link href="/dashboard" className="flex items-center gap-2">
-              <span className="text-2xl">📈</span>
+              <div className="mb-3 flex justify-center">
+                <Image src={logo} alt="Logo" width={60} height={60} priority />
+              </div>
               {!isCollapsed && (
                 <span className="font-bold text-gray-900 dark:text-white">
                   Ажилжааны журнал
@@ -108,7 +112,9 @@ export function Sidebar() {
             </Link>
           ) : (
             <Link href="/dashboard" className="text-2xl">
-              📈
+              <div className="mb-3 flex justify-center">
+                <Image src={logo} alt="Logo" width={60} height={60} priority />
+              </div>
             </Link>
           )}
 
