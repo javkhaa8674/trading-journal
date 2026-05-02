@@ -102,7 +102,7 @@ export function Sidebar() {
           {(!isMobile && !isCollapsed) || (!isMobile && isCollapsed) ? (
             <Link href="/dashboard" className="flex items-center gap-2">
               <div className="mb-3 flex justify-center">
-                <Image src={logo} alt="Logo" width={60} height={60} priority />
+                <Image src={logo} alt="Logo" width={30} height={30} priority />
               </div>
               {!isCollapsed && (
                 <span className="font-bold text-gray-900 dark:text-white">
@@ -113,7 +113,7 @@ export function Sidebar() {
           ) : (
             <Link href="/dashboard" className="text-2xl">
               <div className="mb-3 flex justify-center">
-                <Image src={logo} alt="Logo" width={60} height={60} priority />
+                <Image src={logo} alt="Logo" width={30} height={30} priority />
               </div>
             </Link>
           )}
