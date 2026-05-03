@@ -11,7 +11,6 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { calculateWinRate, calculateAvgWin } from "@/lib/analytics";
 import { Trade } from "@/types/trade";
 
 type Props = {
@@ -28,8 +27,6 @@ type CurvePoint = {
   worst: number;
 };
 
-const rand = () => Math.random();
-
 export function MonteCarloEquityChart({
   trades,
   simulations = 300,
@@ -37,22 +34,25 @@ export function MonteCarloEquityChart({
   initialBalance = 5000,
 }: Props) {
   // -----------------------------
-  // WIN RATE MODEL
+  // PREP DATA (REAL DISTRIBUTION)
   // -----------------------------
-  const winRate = calculateWinRate(trades);
+  const profits = useMemo(() => {
+    return trades
+      .map((t) => t.profit)
+      .filter((p) => Number.isFinite(p));
+  }, [trades]);
 
-  const avgWin = calculateAvgWin(trades);
-
-  const avgLoss =
-    Math.abs(
-      trades.filter((t) => t.profit < 0).reduce((s, t) => s + t.profit, 0),
-    ) / Math.max(1, trades.filter((t) => t.profit < 0).length);
-
-  // fallback ratio
-  const rr = avgWin / (avgLoss || 1);
+  // хамгаалалт
+  if (!profits.length) {
+    return (
+      <div className="p-6 border rounded-lg text-center text-gray-500 dark:bg-gray-900">
+        No valid trade data
+      </div>
+    );
+  }
 
   // -----------------------------
-  // MONTE CARLO SIMULATION
+  // MONTE CARLO (REAL SAMPLING)
   // -----------------------------
   const data: CurvePoint[] = useMemo(() => {
     const allPaths: number[][] = [];
@@ -62,14 +62,10 @@ export function MonteCarloEquityChart({
       const path: number[] = [];
 
       for (let t = 0; t < futureTrades; t++) {
-        const isWin = rand() < winRate;
+        const randomTrade =
+          profits[Math.floor(Math.random() * profits.length)];
 
-        if (isWin) {
-          balance += avgWin || 100;
-        } else {
-          balance -= avgLoss || 100;
-        }
-
+        balance += randomTrade;
         path.push(balance);
       }
 
@@ -79,7 +75,9 @@ export function MonteCarloEquityChart({
     const result: CurvePoint[] = [];
 
     for (let i = 0; i < futureTrades; i++) {
-      const values = allPaths.map((p) => p[i]).sort((a, b) => a - b);
+      const values = allPaths
+        .map((p) => p[i])
+        .sort((a, b) => a - b);
 
       const p50 = values[Math.floor(values.length * 0.5)];
       const p95 = values[Math.floor(values.length * 0.95)];
@@ -94,7 +92,26 @@ export function MonteCarloEquityChart({
     }
 
     return result;
-  }, [trades, simulations, futureTrades, initialBalance, winRate]);
+  }, [profits, simulations, futureTrades, initialBalance]);
+
+  // -----------------------------
+  // SIMPLE STATS (UI ONLY)
+  // -----------------------------
+  const totalTrades = profits.length;
+  const wins = profits.filter((p) => p > 0);
+  const losses = profits.filter((p) => p < 0);
+
+  const winRate = wins.length / totalTrades;
+
+  const avgWin =
+    wins.reduce((a, b) => a + b, 0) / Math.max(1, wins.length);
+
+  const avgLoss =
+    Math.abs(
+      losses.reduce((a, b) => a + b, 0),
+    ) / Math.max(1, losses.length);
+
+  const rr = avgWin / (avgLoss || 1);
 
   // -----------------------------
   // TOOLTIP
@@ -115,24 +132,17 @@ export function MonteCarloEquityChart({
     return null;
   };
 
-  if (!trades.length) {
-    return (
-      <div className="p-6 border rounded-lg text-center text-gray-500 dark:bg-gray-900">
-        No data for simulation
-      </div>
-    );
-  }
-
   // -----------------------------
   // RENDER
   // -----------------------------
   return (
     <div className="p-4 border rounded-lg bg-white dark:bg-gray-900">
       <div className="mb-3">
-        <h3 className="text-lg font-semibold">Monte Carlo Equity Forecast</h3>
+        <h3 className="text-lg font-semibold">
+          Monte Carlo Equity Forecast
+        </h3>
         <p className="text-xs text-gray-500">
-          Одоогийн арилжааны статистик дээр үндэслэсэн ирээдүйн эрсдэлийн
-          симуляци
+          Бодит trade distribution дээр үндэслэсэн симуляци
         </p>
       </div>
 
@@ -152,34 +162,31 @@ export function MonteCarloEquityChart({
 
             <Legend />
 
-            {/* median */}
             <Line
               type="monotone"
               dataKey="p50"
               stroke="#22c55e"
               strokeWidth={2}
               dot={false}
-              name="Дундаж хувилбар (p50)"
+              name="Дундаж (p50)"
             />
 
-            {/* optimistic / good case */}
             <Line
               type="monotone"
               dataKey="p95"
               stroke="#eab308"
               strokeWidth={2}
               dot={false}
-              name="Сайн хувилбар (p95)"
+              name="Сайн (p95)"
             />
 
-            {/* worst case */}
             <Line
               type="monotone"
               dataKey="worst"
               stroke="#ef4444"
               strokeWidth={2}
               dot={false}
-              name="Муу хувилбар"
+              name="Муу"
             />
           </LineChart>
         </ResponsiveContainer>
@@ -196,8 +203,8 @@ export function MonteCarloEquityChart({
           <p className="font-bold">{rr.toFixed(2)}</p>
         </div>
         <div>
-          <p className="text-gray-500">Симуляци</p>
-          <p className="font-bold">{simulations}</p>
+          <p className="text-gray-500">Trades</p>
+          <p className="font-bold">{totalTrades}</p>
         </div>
       </div>
 
@@ -206,8 +213,8 @@ export function MonteCarloEquityChart({
           📊 Тайлбар
         </p>
         <p className="text-blue-600 dark:text-blue-400">
-          Энэ chart нь бодит арилжааны өгөгдөл дээр үндэслэн ирээдүйн equity-ийн
-          боломжит хэмжээг (Сайн / Дунд / Муу) хувилбараар харуулдаг.
+          Энэ нь historical trade-уудыг random байдлаар давтан ашиглаж
+          ирээдүйн equity-ийн боломжит хувилбаруудыг харуулж байна.
         </p>
       </div>
     </div>
