@@ -32,6 +32,131 @@ type Bucket = {
   totalTrades: number;
 };
 
+function DurationScatterTooltip({ active, payload }: any) {
+  if (!active || !payload || !payload.length) return null;
+
+  const data = payload[0]?.payload;
+
+  const profit = data?.profit ?? 0;
+  const duration = data?.duration ?? 0;
+  const symbol = data?.symbol ?? "";
+
+  const isWin = profit > 0;
+
+  const insight =
+    duration < 1
+      ? "⚡ Scalping zone"
+      : duration < 24
+        ? "📊 Intraday trade"
+        : "📈 Swing trade";
+
+  const quality =
+    isWin && duration < 4
+      ? "🔥 High efficiency trade"
+      : !isWin && duration > 24
+        ? "⚠ Long losing exposure"
+        : "📌 Normal trade";
+
+  return (
+    <div
+      className="
+      bg-white dark:bg-gray-800
+      border border-gray-200 dark:border-gray-700
+      shadow-lg rounded-lg p-3 text-xs
+      min-w-[200px]
+    "
+    >
+      {/* Symbol */}
+      <div className="font-semibold text-gray-800 dark:text-gray-100 mb-2">
+        {symbol}
+      </div>
+
+      {/* Duration */}
+      <div className="flex justify-between text-blue-500">
+        <span>Duration:</span>
+        <span>{duration.toFixed(1)}h</span>
+      </div>
+
+      {/* Profit */}
+      <div
+        className={`flex justify-between mt-1 ${isWin ? "text-green-500" : "text-red-500"}`}
+      >
+        <span>Profit:</span>
+        <span>${profit.toFixed(2)}</span>
+      </div>
+
+      {/* Insight */}
+      <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-gray-500 space-y-1">
+        <div>{insight}</div>
+        <div>{quality}</div>
+      </div>
+    </div>
+  );
+}
+function DurationBarTooltip({ active, payload, label }: any) {
+  if (!active || !payload || !payload.length) return null;
+
+  const winCount =
+    payload.find((p: any) => p.dataKey === "winCount")?.value || 0;
+  const lossCount =
+    payload.find((p: any) => p.dataKey === "lossCount")?.value || 0;
+  const avgProfit =
+    payload.find((p: any) => p.dataKey === "avgProfit")?.value || 0;
+  const totalTrades = winCount + lossCount;
+
+  const winRate = totalTrades > 0 ? (winCount / totalTrades) * 100 : 0;
+
+  const performance =
+    winRate > 60
+      ? "🔥 Strong duration zone"
+      : winRate > 45
+        ? "📊 Balanced zone"
+        : "⚠ Weak zone";
+
+  const risk =
+    avgProfit > 0 ? "✅ Profitable structure" : "⚠ Negative expectancy";
+
+  return (
+    <div
+      className="
+      bg-white dark:bg-gray-800
+      border border-gray-200 dark:border-gray-700
+      shadow-lg rounded-lg p-3 text-xs
+      min-w-[210px]
+    "
+    >
+      {/* Range */}
+      <div className="font-semibold text-gray-800 dark:text-gray-100 mb-2">
+        {label}
+      </div>
+
+      {/* Trades */}
+      <div className="flex justify-between text-blue-500">
+        <span>Trades:</span>
+        <span>{totalTrades}</span>
+      </div>
+
+      {/* Win Rate */}
+      <div className="flex justify-between text-green-500 mt-1">
+        <span>Win Rate:</span>
+        <span>{winRate.toFixed(1)}%</span>
+      </div>
+
+      {/* Avg Profit */}
+      <div className="flex justify-between text-purple-500 mt-1">
+        <span>Avg PnL:</span>
+        <span>${Number(avgProfit).toFixed(2)}</span>
+      </div>
+
+      {/* Insight */}
+      <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-gray-500 space-y-1">
+        <div>{performance}</div>
+        <div>{risk}</div>
+      </div>
+    </div>
+  );
+}
+
 export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
   // Split data into wins and losses for different colors
   const winData = data
@@ -267,27 +392,7 @@ export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
                   range={[50, 400]}
                   name="Trade Size"
                 />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #ccc",
-                    borderRadius: "8px",
-                  }}
-                  formatter={(value: any, name: any, props: any) => {
-                    if (name === "Duration")
-                      return [`${Number(value).toFixed(1)} hours`, "Duration"];
-                    if (name === "Profit")
-                      return [`$${Number(value).toFixed(2)}`, "Profit"];
-                    if (name === "Symbol") return [value, "Symbol"];
-                    return [value, name];
-                  }}
-                  labelFormatter={(label, payload) => {
-                    if (payload && payload[0] && payload[0].payload) {
-                      return `Symbol: ${payload[0].payload.symbol}`;
-                    }
-                    return "";
-                  }}
-                />
+                <Tooltip content={<DurationScatterTooltip />} />
                 <Legend />
                 <Scatter
                   name="Winning Trades"
@@ -347,24 +452,7 @@ export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
                     fontSize: 12,
                   }}
                 />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #ccc",
-                    borderRadius: "8px",
-                  }}
-                  formatter={(value: any, name: any) => {
-                    if (name === "Winning Trades")
-                      return [value, "Winning Trades"];
-                    if (name === "Losing Trades")
-                      return [value, "Losing Trades"];
-                    if (name === "Avg Profit")
-                      return [`$${Number(value).toFixed(2)}`, "Avg Profit"];
-                    if (name === "Win Rate")
-                      return [`${Number(value).toFixed(1)}%`, "Win Rate"];
-                    return [value, name];
-                  }}
-                />
+                <Tooltip content={<DurationBarTooltip />} />
                 <Legend />
                 <Bar
                   yAxisId="left"
@@ -401,52 +489,82 @@ export function TradeDurationPnL({ data }: TradeDurationPnLProps) {
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="border-b">
-                <th className="px-3 py-2 text-left">Duration</th>
-                <th className="px-3 py-2 text-right">Trades</th>
-                <th className="px-3 py-2 text-right">Wins</th>
-                <th className="px-3 py-2 text-right">Losses</th>
-                <th className="px-3 py-2 text-right">Win Rate</th>
-                <th className="px-3 py-2 text-right">Total PnL</th>
-                <th className="px-3 py-2 text-right">Avg PnL</th>
+              <tr className="border-b bg-gray-50 dark:bg-gray-800/40">
+                <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
+                  Duration
+                </th>
+                <th className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">
+                  Trades
+                </th>
+                <th className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">
+                  Wins
+                </th>
+                <th className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">
+                  Losses
+                </th>
+                <th className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">
+                  Win Rate
+                </th>
+                <th className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">
+                  Total PnL
+                </th>
+                <th className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">
+                  Avg PnL
+                </th>
               </tr>
             </thead>
+
             <tbody>
               {barData.map((bucket) => (
-                <tr key={bucket.range} className="border-b hover:bg-gray-50">
-                  <td className="px-3 py-2 font-medium">{bucket.range}</td>
-                  <td className="px-3 py-2 text-right">{bucket.tradeCount}</td>
-                  <td className="px-3 py-2 text-right text-green-600">
+                <tr
+                  key={bucket.range}
+                  className="border-b hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-colors"
+                >
+                  <td className="px-3 py-2 font-medium text-gray-800 dark:text-gray-100">
+                    {bucket.range}
+                  </td>
+
+                  <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-200">
+                    {bucket.tradeCount}
+                  </td>
+
+                  <td className="px-3 py-2 text-right text-green-600 dark:text-green-400">
                     {bucket.winCount}
                   </td>
-                  <td className="px-3 py-2 text-right text-red-600">
+
+                  <td className="px-3 py-2 text-right text-red-600 dark:text-red-400">
                     {bucket.lossCount}
                   </td>
+
                   <td className="px-3 py-2 text-right font-medium">
                     <span
                       className={
                         bucket.winRate >= 50
-                          ? "text-green-600"
+                          ? "text-green-600 dark:text-green-400"
                           : bucket.winRate > 0
-                            ? "text-yellow-600"
-                            : "text-red-600"
+                            ? "text-yellow-600 dark:text-yellow-400"
+                            : "text-red-600 dark:text-red-400"
                       }
                     >
                       {bucket.winRate.toFixed(1)}%
                     </span>
                   </td>
+
                   <td
                     className={`px-3 py-2 text-right font-medium ${
                       bucket.totalProfit >= 0
-                        ? "text-green-600"
-                        : "text-red-600"
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-red-600 dark:text-red-400"
                     }`}
                   >
                     ${bucket.totalProfit.toFixed(2)}
                   </td>
+
                   <td
                     className={`px-3 py-2 text-right ${
-                      bucket.avgProfit >= 0 ? "text-green-600" : "text-red-600"
+                      bucket.avgProfit >= 0
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-red-600 dark:text-red-400"
                     }`}
                   >
                     ${bucket.avgProfit.toFixed(2)}

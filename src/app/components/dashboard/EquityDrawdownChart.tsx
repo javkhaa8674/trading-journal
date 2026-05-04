@@ -21,6 +21,45 @@ type Props = {
   balance: number;
 };
 
+function EquityCustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload || !payload.length) return null;
+
+  const equity = payload.find((p: any) => p.dataKey === "equity")?.value;
+  const drawdown = payload.find((p: any) => p.dataKey === "drawdown")?.value;
+
+  return (
+    <div
+      className="
+      bg-white dark:bg-gray-800
+      border border-gray-200 dark:border-gray-700
+      shadow-lg rounded-lg p-3 text-xs
+      min-w-[160px]
+    "
+    >
+      {/* Date */}
+      <div className="text-gray-500 dark:text-gray-300 mb-2">
+        📅 {new Date(label).toLocaleString()}
+      </div>
+
+      {/* Equity */}
+      {equity !== undefined && (
+        <div className="flex justify-between text-green-500">
+          <span>Equity:</span>
+          <span>${Number(equity).toLocaleString()}</span>
+        </div>
+      )}
+
+      {/* Drawdown */}
+      {drawdown !== undefined && (
+        <div className="flex justify-between text-red-500 mt-1">
+          <span>Drawdown:</span>
+          <span>{Number(drawdown).toFixed(2)}%</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function EquityDrawdownChart({ trades, balance }: Props) {
   // Data бэлтгэх (мемоization)
   const data = useMemo(() => {
@@ -130,25 +169,7 @@ export default function EquityDrawdownChart({ trades, balance }: Props) {
                 style: { textAnchor: "middle", fontSize: 12, fill: "#ef4444" },
               }}
             />
-
-            <Tooltip
-              labelFormatter={(timestamp) =>
-                new Date(timestamp).toLocaleString()
-              }
-              formatter={(value: any, name: any) => {
-                if (name === "drawdown")
-                  return [`${value.toFixed(2)}%`, "Drawdown"];
-                if (name === "equity")
-                  return [`$${value.toLocaleString()}`, "Equity"];
-                return [value, name];
-              }}
-              contentStyle={{
-                backgroundColor: "white",
-                border: "1px solid #ccc",
-                borderRadius: "8px",
-              }}
-            />
-
+            <Tooltip content={<EquityCustomTooltip />} />
             <Legend
               verticalAlign="top"
               height={36}

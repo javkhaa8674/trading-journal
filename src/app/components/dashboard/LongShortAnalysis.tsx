@@ -23,6 +23,106 @@ interface LongShortAnalysisProps {
 
 const COLORS = ["#10b981", "#ef4444"];
 
+function LongShortPieTooltip({ active, payload }: any) {
+  if (!active || !payload || !payload.length) return null;
+
+  const data = payload[0]?.payload;
+  const type = data?.name;
+  const value = data?.value;
+  const winRate = data?.winRate;
+
+  const efficiency =
+    winRate >= 55
+      ? "🔥 Strong side"
+      : winRate >= 45
+        ? "📊 Balanced"
+        : "⚠ Weak performance";
+
+  return (
+    <div
+      className="
+      bg-white dark:bg-gray-800
+      border border-gray-200 dark:border-gray-700
+      shadow-lg rounded-lg p-3 text-xs
+      min-w-[180px]
+    "
+    >
+      {/* Type */}
+      <div className="font-semibold text-gray-800 dark:text-gray-100 mb-2">
+        {type}
+      </div>
+
+      {/* Trades */}
+      <div className="flex justify-between text-blue-500">
+        <span>Trades:</span>
+        <span>{value}</span>
+      </div>
+
+      {/* Win Rate */}
+      <div className="flex justify-between text-green-500 mt-1">
+        <span>Win Rate:</span>
+        <span>{Number(winRate).toFixed(1)}%</span>
+      </div>
+
+      {/* Insight */}
+      <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-gray-500">
+        {efficiency}
+      </div>
+    </div>
+  );
+}
+
+function LongShortBarTooltip({ active, payload, label }: any) {
+  if (!active || !payload || !payload.length) return null;
+
+  const profit = payload.find((p: any) => p.dataKey === "totalProfit")?.value;
+  const winRate = payload.find((p: any) => p.dataKey === "winRate")?.value;
+
+  const isProfit = Number(profit) >= 0;
+
+  const insight =
+    Number(winRate) > 55 && isProfit
+      ? "🔥 High-quality setup"
+      : Number(winRate) < 45
+        ? "⚠ Low efficiency"
+        : "📊 Neutral performance";
+
+  return (
+    <div
+      className="
+      bg-white dark:bg-gray-800
+      border border-gray-200 dark:border-gray-700
+      shadow-lg rounded-lg p-3 text-xs
+      min-w-[190px]
+    "
+    >
+      {/* Type */}
+      <div className="font-semibold text-gray-800 dark:text-gray-100 mb-2">
+        {label}
+      </div>
+
+      {/* Profit */}
+      <div
+        className={`flex justify-between ${isProfit ? "text-green-500" : "text-red-500"}`}
+      >
+        <span>Profit:</span>
+        <span>${Number(profit).toFixed(2)}</span>
+      </div>
+
+      {/* Win Rate */}
+      <div className="flex justify-between text-blue-500 mt-1">
+        <span>Win Rate:</span>
+        <span>{Number(winRate).toFixed(1)}%</span>
+      </div>
+
+      {/* Insight */}
+      <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-gray-500">
+        {insight}
+      </div>
+    </div>
+  );
+}
+
 export function LongShortAnalysis({ data }: LongShortAnalysisProps) {
   const pieData = data.map((item) => ({
     name: item.type,
@@ -84,7 +184,7 @@ export function LongShortAnalysis({ data }: LongShortAnalysisProps) {
                     />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip content={<LongShortPieTooltip />} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
@@ -120,20 +220,7 @@ export function LongShortAnalysis({ data }: LongShortAnalysisProps) {
                     fontSize: 12,
                   }}
                 />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #ccc",
-                    borderRadius: "8px",
-                  }}
-                  formatter={(value: any, name: any) => {
-                    if (name === "Total Profit")
-                      return [`$${Number(value).toFixed(2)}`, "Total Profit"];
-                    if (name === "Win Rate (%)")
-                      return [`${Number(value).toFixed(1)}%`, "Win Rate"];
-                    return [value, name];
-                  }}
-                />
+                <Tooltip content={<LongShortBarTooltip />} />
                 <Legend />
                 <Bar
                   yAxisId="left"

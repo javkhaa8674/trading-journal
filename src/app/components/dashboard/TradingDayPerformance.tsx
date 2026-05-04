@@ -20,6 +20,62 @@ interface TradingDayPerformanceProps {
   data: DailyPerformance[];
 }
 
+function TradingDayCustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload || !payload.length) return null;
+
+  const netProfit = payload.find((p: any) => p.dataKey === "netProfit")?.value;
+  const tradeCount = payload.find(
+    (p: any) => p.dataKey === "tradeCount",
+  )?.value;
+
+  const profit = Number(netProfit || 0);
+  const trades = Number(tradeCount || 0);
+
+  const isProfit = profit > 0;
+  const isActiveDay = trades > 0;
+
+  return (
+    <div
+      className="
+      bg-white dark:bg-gray-800
+      border border-gray-200 dark:border-gray-700
+      shadow-lg rounded-lg p-3 text-xs
+      min-w-[170px]
+    "
+    >
+      {/* Date */}
+      <div className="text-gray-500 dark:text-gray-300 mb-2">📅 {label}</div>
+
+      {/* Net Profit */}
+      <div
+        className={`flex justify-between ${isProfit ? "text-green-500" : "text-red-500"}`}
+      >
+        <span>Net Profit:</span>
+        <span>${profit.toFixed(2)}</span>
+      </div>
+
+      {/* Trade Count */}
+      <div className="flex justify-between text-blue-500 mt-1">
+        <span>Trades:</span>
+        <span>{trades}</span>
+      </div>
+
+      {/* Insight */}
+      <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-gray-500">
+        {!isActiveDay && <div>⚪ No trades</div>}
+
+        {isActiveDay && isProfit && (
+          <div className="text-green-500">🔥 Profitable day</div>
+        )}
+
+        {isActiveDay && !isProfit && (
+          <div className="text-red-500">⚠ Losing day</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function TradingDayPerformance({ data }: TradingDayPerformanceProps) {
   const chartData = data.map((day) => ({
     date: new Date(day.date).toLocaleDateString(),
@@ -78,19 +134,7 @@ export function TradingDayPerformance({ data }: TradingDayPerformanceProps) {
                 fontSize: 12,
               }}
             />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "white",
-                border: "1px solid #ccc",
-                borderRadius: "8px",
-              }}
-              formatter={(value: any, name: any) => {
-                if (name === "Net Profit")
-                  return [`$${Number(value).toFixed(2)}`, "Net Profit"];
-                if (name === "Trade Count") return [value, "Trade Count"];
-                return [value, name];
-              }}
-            />
+            <Tooltip content={<TradingDayCustomTooltip />} />
             <Legend />
             <Bar
               yAxisId="right"

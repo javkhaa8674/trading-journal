@@ -20,7 +20,7 @@ import {
 import SpiderWebChart from "@/app/components/dashboard/SpiderWebChart";
 import { MetricCard } from "@/app/components/dashboard/MetricCard";
 import { buildEquityCurve } from "@/lib/equity";
-
+import { StatsSummaryTooltip } from "@/app/components/dashboard/StatsSummaryTooltip";
 type Props = {
   trades: Trade[];
   balance: number;
@@ -141,8 +141,14 @@ export default function DashboardStats({ trades, balance }: Props) {
 
   return (
     <div>
+      <div className="flex justify-between items-center mb-3">
+        <h2 className="text-sm font-semibold">
+          Ерөнхий гүйцэтгэлийн хураангуй
+        </h2>
+        <StatsSummaryTooltip metrics={metrics.spiderMetrics} />
+      </div>
       {/* Metrics Cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <MetricCard
           title="Total Trades"
           value={metrics.tradeCount}

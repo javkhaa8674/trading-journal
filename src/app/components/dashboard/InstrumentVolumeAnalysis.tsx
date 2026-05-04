@@ -34,6 +34,64 @@ const COLORS = [
   "#14b8a6",
 ];
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload || !payload.length) return null;
+
+  const data = payload[0]?.payload;
+
+  return (
+    <div className="rounded-lg border bg-white dark:bg-gray-900 p-3 shadow-md text-xs min-w-[160px]">
+      {/* Symbol */}
+      <div className="mb-2 font-semibold text-gray-800 dark:text-gray-100">
+        {label}
+      </div>
+
+      {/* Volume */}
+      {data.value !== undefined && (
+        <div className="flex justify-between gap-4">
+          <span className="text-gray-500 dark:text-gray-400">Volume</span>
+          <span className="text-blue-600 dark:text-blue-400 font-medium">
+            {Number(data.value).toFixed(2)} lots
+          </span>
+        </div>
+      )}
+
+      {/* Trade Count */}
+      {data.tradeCount !== undefined && (
+        <div className="flex justify-between gap-4 mt-1">
+          <span className="text-gray-500 dark:text-gray-400">Trades</span>
+          <span className="text-gray-800 dark:text-gray-200 font-medium">
+            {data.tradeCount}
+          </span>
+        </div>
+      )}
+
+      {/* Profit per Lot */}
+      {data.profitPerLot !== undefined && (
+        <div className="flex justify-between gap-4 mt-1">
+          <span className="text-gray-500 dark:text-gray-400">Profit / Lot</span>
+          <span
+            className={`font-medium ${
+              data.profitPerLot >= 0
+                ? "text-green-600 dark:text-green-400"
+                : "text-red-600 dark:text-red-400"
+            }`}
+          >
+            ${data.profitPerLot.toFixed(2)}
+          </span>
+        </div>
+      )}
+
+      {/* Status */}
+      <div className="mt-2 text-[10px] text-gray-400">
+        {data.profitPerLot >= 0
+          ? "📈 Efficient instrument"
+          : "📉 Inefficient instrument"}
+      </div>
+    </div>
+  );
+};
+
 export function InstrumentVolumeAnalysis({
   data,
 }: InstrumentVolumeAnalysisProps) {
@@ -106,14 +164,7 @@ export function InstrumentVolumeAnalysis({
                     />
                   ))}
                 </Pie>
-                <Tooltip
-                  formatter={(value: any, name: any) => {
-                    if (name === "value")
-                      return [`${Number(value).toFixed(2)} lots`, "Volume"];
-                    if (name === "tradeCount") return [value, "Trade Count"];
-                    return [Number(value).toFixed(2), name];
-                  }}
-                />
+                <Tooltip content={<CustomTooltip />} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
@@ -138,17 +189,7 @@ export function InstrumentVolumeAnalysis({
                     fontSize: 12,
                   }}
                 />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #ccc",
-                    borderRadius: "8px",
-                  }}
-                  formatter={(value: any) => [
-                    `$${Number(value).toFixed(2)}`,
-                    "Profit per Lot",
-                  ]}
-                />
+                <Tooltip content={<CustomTooltip />} />
                 <Bar dataKey="profitPerLot" fill="#8b5cf6">
                   {barData.map((entry, index) => (
                     <Cell

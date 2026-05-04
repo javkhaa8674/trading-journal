@@ -19,6 +19,48 @@ interface InstrumentProfitAnalysisProps {
   data: InstrumentStats[];
 }
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload || !payload.length) return null;
+
+  const data = payload[0]?.payload;
+
+  return (
+    <div className="rounded-lg border bg-white dark:bg-gray-900 p-3 shadow-md text-xs">
+      {/* Symbol */}
+      <div className="mb-2 font-semibold text-gray-800 dark:text-gray-100">
+        {label}
+      </div>
+
+      {/* Profit */}
+      <div className="flex justify-between gap-4">
+        <span className="text-gray-500 dark:text-gray-400">Net Profit</span>
+        <span
+          className={
+            data.profit >= 0
+              ? "text-green-600 dark:text-green-400 font-medium"
+              : "text-red-600 dark:text-red-400 font-medium"
+          }
+        >
+          ${data.profit.toFixed(2)}
+        </span>
+      </div>
+
+      {/* Win Rate */}
+      <div className="flex justify-between gap-4 mt-1">
+        <span className="text-gray-500 dark:text-gray-400">Win Rate</span>
+        <span className="text-blue-600 dark:text-blue-400 font-medium">
+          {data.winRate.toFixed(1)}%
+        </span>
+      </div>
+
+      {/* Status */}
+      <div className="mt-2 text-[10px] text-gray-400">
+        {data.profit >= 0 ? "📈 Profitable instrument" : "📉 Losing instrument"}
+      </div>
+    </div>
+  );
+};
+
 export function InstrumentProfitAnalysis({
   data,
 }: InstrumentProfitAnalysisProps) {
@@ -61,20 +103,7 @@ export function InstrumentProfitAnalysis({
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis type="number" />
             <YAxis type="category" dataKey="name" width={80} fontSize={12} />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "white",
-                border: "1px solid #ccc",
-                borderRadius: "8px",
-              }}
-              formatter={(value: any, name: any) => {
-                if (name === "profit")
-                  return [`$${Number(value).toFixed(2)}`, "Net Profit"];
-                if (name === "winRate")
-                  return [`${Number(value).toFixed(1)}%`, "Win Rate"];
-                return [Number(value).toFixed(2), name];
-              }}
-            />
+            <Tooltip content={<CustomTooltip />} />
             <ReferenceLine x={0} stroke="#666" />
             <Bar dataKey="profit" name="Net Profit">
               {chartData.map((entry, index) => (
