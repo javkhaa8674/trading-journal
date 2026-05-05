@@ -4,28 +4,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
-
-type PsychologyEntry = {
-  id: string;
-  date: string;
-  mood: "calm" | "anxious" | "confident" | "fearful" | "greedy" | "frustrated";
-  confidence_level: number;
-  mistakes: string[];
-  lesson_learned: string;
-  notes: string;
-  trades_count: number;
-  winning_trades: number;
-  losing_trades: number;
-  profit_loss: number;
-};
-
-type Mistake = {
-  id: string;
-  name: string;
-  nameMn: string;
-  category: string;
-  categoryMn: string;
-};
+import { analyzePsychology, generateSummary } from "@/lib/psychologyAnalytics";
+import { PsychologyEntry, Mistake } from "@/types/psychology";
 
 const moodIcons = {
   calm: {
@@ -155,6 +135,8 @@ export default function PsychologyPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().slice(0, 10),
@@ -202,6 +184,22 @@ export default function PsychologyPage() {
     }
     return true;
   });
+
+  const analysis = showAnalysis ? analyzePsychology(filteredEntries) : null;
+
+  const getMistakeName = (id: string) =>
+    commonMistakes.find((m) => m.id === id)?.nameMn || id;
+
+  const summary = showAnalysis ? generateSummary(analysis, getMistakeName) : "";
+
+  const handleGenerate = () => {
+    setLoadingAnalysis(true);
+
+    setTimeout(() => {
+      setShowAnalysis(true);
+      setLoadingAnalysis(false);
+    }, 1500); // fake AI delay 😄
+  };
 
   // Handle edit
   const handleEdit = (entry: PsychologyEntry) => {
@@ -720,139 +718,26 @@ export default function PsychologyPage() {
       )}
 
       {/* Psychology Entries List with Edit & Delete buttons */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold dark:text-white">
-          📓 Сэтгэл зүйн тэмдэглэл
-        </h2>
-        {filteredEntries.length === 0 ? (
-          <div className="rounded-lg border-2 border-dashed p-8 text-center dark:border-gray-700">
-            <div className="mb-2 text-4xl">📔</div>
-            <p className="text-gray-500 dark:text-gray-400">
-              Одоогоор бүртгэлгүй байна
-            </p>
-            <p className="text-sm text-gray-400 dark:text-gray-500">
-              Арилжааны сэтгэл зүйгээ хянаж эхлэх
-            </p>
-          </div>
-        ) : (
-          filteredEntries.map((entry) => (
-            <div
-              key={entry.id}
-              className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`rounded-full p-2 ${moodIcons[entry.mood].color}`}
-                  >
-                    <span className="text-xl">
-                      {moodIcons[entry.mood].icon}
-                    </span>
-                  </div>
-                  <div>
-                    <div className="font-semibold dark:text-white">
-                      {new Date(entry.date).toLocaleDateString()}
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      Өөртөө итгэх итгэл: {entry.confidence_level}
-                      /10 | Win Rate:{" "}
-                      {entry.trades_count > 0
-                        ? (
-                            (entry.winning_trades / entry.trades_count) *
-                            100
-                          ).toFixed(0)
-                        : 0}
-                      %
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`rounded-full px-2 py-1 text-xs ${
-                      entry.profit_loss >= 0
-                        ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
-                        : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
-                    }`}
-                  >
-                    {entry.profit_loss >= 0 ? "+" : ""}
-                    {entry.profit_loss.toFixed(2)} USD
-                  </div>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold dark:text-white">
+          🤖 AI дүгнэлт хийлгэмээр байвал &quot;Анализ хийх&quot; товчийг дарна
+          уу.
+        </h3>
 
-                  {/* Edit & Delete Buttons */}
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handleEdit(entry)}
-                      className="rounded p-1 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950"
-                      title="Edit"
-                    >
-                      ✏️
-                    </button>
-                    {deleteConfirm === entry.id ? (
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleDelete(entry.id)}
-                          className="rounded px-2 py-1 text-xs bg-red-500 text-white hover:bg-red-600"
-                        >
-                          Устгах
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirm(null)}
-                          className="rounded px-2 py-1 text-xs border hover:bg-gray-50"
-                        >
-                          Цуцлах
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setDeleteConfirm(entry.id)}
-                        className="rounded p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
-                        title="Delete"
-                      >
-                        🗑️
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {entry.mistakes.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Алдаанууд:
-                  </span>
-                  {entry.mistakes.map((mistakeId) => {
-                    const mistake = commonMistakes.find(
-                      (m) => m.id === mistakeId,
-                    );
-                    return mistake ? (
-                      <span
-                        key={mistakeId}
-                        className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600 dark:bg-red-950/50 dark:text-red-400"
-                      >
-                        {mistake.nameMn}
-                      </span>
-                    ) : null;
-                  })}
-                </div>
-              )}
-
-              {entry.lesson_learned && (
-                <div className="mt-2 text-sm dark:text-gray-300">
-                  <span className="font-medium">📖 Сургамж:</span>{" "}
-                  {entry.lesson_learned}
-                </div>
-              )}
-
-              {entry.notes && (
-                <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                  {entry.notes}
-                </div>
-              )}
-            </div>
-          ))
-        )}
+        <button
+          onClick={handleGenerate}
+          className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+        >
+          {loadingAnalysis ? "AI ачааллаж байна..." : "Анализ хийх"}
+        </button>
       </div>
-
+      {showAnalysis && (
+        <div className="rounded-lg border bg-purple-50 p-4 dark:bg-purple-950/20 dark:border-purple-800/30">
+          <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">
+            {summary}
+          </pre>
+        </div>
+      )}
       {/* Psychology Tips */}
       <div className="rounded-lg border bg-blue-50 p-4 dark:bg-blue-950/20 dark:border-blue-800/30">
         <div className="flex items-center gap-2">
@@ -904,7 +789,6 @@ export default function PsychologyPage() {
           </li>
         </ul>
       </div>
-
       {/* Golden Rule Section */}
       <div className="mt-8 overflow-hidden rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 p-[1px] shadow-lg">
         <div className="rounded-xl bg-gradient-to-br from-white to-gray-50 p-6 dark:from-gray-900 dark:to-gray-800">
