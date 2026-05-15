@@ -1,4 +1,6 @@
+// middleware.ts
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
@@ -25,7 +27,6 @@ export async function middleware(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser();
 
-    // 🔒 DASHBOARD + ADMIN хамгаална
     const protectedRoutes = ["/dashboard", "/admin"];
 
     if (protectedRoutes.some((path) => request.nextUrl.pathname.startsWith(path))) {
@@ -34,13 +35,24 @@ export async function middleware(request: NextRequest) {
         }
     }
 
-    // 🔥 ADMIN ROLE CHECK
-    if (request.nextUrl.pathname.startsWith("/admin")) {
-        const { data: userRole } = await supabase
+    // 🔥 Admin check with SERVICE ROLE (RLS bypass)
+    if (request.nextUrl.pathname.startsWith("/admin") && user) {
+        const adminClient = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            {
+                auth: {
+                    autoRefreshToken: false,
+                    persistSession: false,
+                },
+            }
+        );
+
+        const { data: userRole } = await adminClient
             .from("user_roles")
             .select("role")
-            .eq("user_id", user?.id)
-            .single();
+            .eq("user_id", user.id)
+            .maybeSingle();
 
         if (!userRole || userRole.role !== "admin") {
             return NextResponse.redirect(new URL("/dashboard", request.url));
