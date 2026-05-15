@@ -1,4 +1,3 @@
-// app/admin/signups/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -16,17 +15,31 @@ export default function AdminSignupsPage() {
   const [requests, setRequests] = useState<SignupRequest[]>([]);
   const [newEmail, setNewEmail] = useState("");
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<number | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const loadRequests = async () => {
-    const { data } = await supabase
-      .from("allowed_signups")
-      .select("*")
-      .order("created_at", { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from("allowed_signups")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-    setRequests(data || []);
-    setLoading(false);
+      if (error) {
+        console.error("Load error:", error);
+        setError("Өгөгдөл ачааллахад алдаа гарлаа: " + error.message);
+      } else {
+        setRequests(data || []);
+      }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      setError("Санамсаргүй алдаа гарлаа");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Check mobile
@@ -46,11 +59,18 @@ export default function AdminSignupsPage() {
       if (!user) return;
 
       // Check if user is admin
-      const { data: roleData } = await supabase
+      const { data: roleData, error: roleError } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle(); // .single() биш .maybeSingle() ашиглах
+
+      if (roleError) {
+        console.error("Role check error:", roleError);
+        setUserRole("user");
+        setLoading(false);
+        return;
+      }
 
       if (!roleData || roleData.role !== "admin") {
         setUserRole("user");
@@ -67,32 +87,70 @@ export default function AdminSignupsPage() {
 
   const addApprovedEmail = async () => {
     if (!newEmail) return;
+    setError(null);
+    setSuccess(null);
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail)) {
+      setError("Зөв имэйл хаяг оруулна уу");
+      return;
+    }
+
+    // Check if email already exists
+    const { data: existing } = await supabase
+      .from("allowed_signups")
+      .select("id")
+      .eq("email", newEmail)
+      .maybeSingle();
+
+    if (existing) {
+      setError("Энэ имэйл аль хэдийн бүртгэгдсэн байна");
+      return;
+    }
 
     const { error } = await supabase
       .from("allowed_signups")
       .insert({ email: newEmail, status: "approved" });
 
     if (error) {
-      alert("Алдаа: " + error.message);
+      console.error("Insert error:", error);
+      setError("Алдаа: " + error.message);
     } else {
       setNewEmail("");
-      loadRequests();
-      alert(`✅ ${newEmail} амжилттай нэмэгдлээ!`);
+      setSuccess(`✅ ${newEmail} амжилттай нэмэгдлээ!`);
+      await loadRequests();
+      setTimeout(() => setSuccess(null), 3000);
     }
   };
 
   const deleteEmail = async (id: number, email: string) => {
-    if (!confirm(`${email} -г устгах уу?`)) return;
+    if (!confirm(`${email} -г устгахдаа итгэлтэй байна уу?`)) return;
+    
+    setDeleting(id);
+    setError(null);
+    setSuccess(null);
 
-    const { error } = await supabase
-      .from("allowed_signups")
-      .delete()
-      .eq("id", id);
+    try {
+      const { error } = await supabase
+        .from("allowed_signups")
+        .delete()
+        .eq("id", id);
 
-    if (error) {
-      alert("Алдаа: " + error.message);
-    } else {
-      loadRequests();
+      if (error) {
+        console.error("Delete error:", error);
+        setError("Устгахад алдаа гарлаа: " + error.message);
+      } else {
+        setSuccess(`✅ ${email} амжилттай устгагдлаа`);
+        // Refresh the list
+        await loadRequests();
+        setTimeout(() => setSuccess(null), 3000);
+      }
+    } catch (err) {
+      console.error("Unexpected delete error:", err);
+      setError("Санамсаргүй алдаа гарлаа");
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -134,24 +192,42 @@ export default function AdminSignupsPage() {
         </div>
       </div>
 
-      {/* Add email form - Mobile friendly */}
+      {/* Error/Success Messages */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg p-3">
+          <p className="text-sm text-red-600 dark:text-red-400">⚠️ {error}</p>
+        </div>
+      )}
+      {success && (
+        <div className="bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800 rounded-lg p-3">
+          <p className="text-sm text-green-600 dark:text-green-400">✅ {success}</p>
+        </div>
+      )}
+
+      {/* Add email form */}
       <div className="flex flex-col sm:flex-row gap-2">
         <input
           type="email"
           placeholder="Имэйл хаяг оруулах..."
           value={newEmail}
           onChange={(e) => setNewEmail(e.target.value)}
-          className="flex-1 p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-sm md:text-base"
+          onKeyPress={(e) => e.key === "Enter" && addApprovedEmail()}
+          className="flex-1 p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
           onClick={addApprovedEmail}
-          className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm md:text-base"
+          className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm md:text-base"
         >
           + Нэмэх
         </button>
       </div>
 
-      {/* Mobile card view (mobile дээр card хэлбэрээр) */}
+      {/* Stats */}
+      <div className="text-sm text-gray-500">
+        Нийт {requests.length} зөвшөөрөгдсөн имэйл
+      </div>
+
+      {/* Mobile card view */}
       {isMobile ? (
         <div className="space-y-3">
           {requests.length === 0 ? (
@@ -180,10 +256,11 @@ export default function AdminSignupsPage() {
                   </div>
                   <button
                     onClick={() => deleteEmail(req.id, req.email)}
-                    className="text-red-500 hover:text-red-700 p-1"
+                    disabled={deleting === req.id}
+                    className="text-red-500 hover:text-red-700 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label="Устгах"
                   >
-                    🗑️
+                    {deleting === req.id ? "⏳" : "🗑️"}
                   </button>
                 </div>
               </div>
@@ -196,13 +273,13 @@ export default function AdminSignupsPage() {
           <table className="w-full min-w-[500px]">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th className="px-4 py-3 text-left text-sm">Имэйл</th>
-                <th className="px-4 py-3 text-left text-sm">Төлөв</th>
-                <th className="px-4 py-3 text-left text-sm">Огноо</th>
-                <th className="px-4 py-3 text-center text-sm">Үйлдэл</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Имэйл</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Төлөв</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Огноо</th>
+                <th className="px-4 py-3 text-center text-sm font-medium">Үйлдэл</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y dark:divide-gray-800">
               {requests.length === 0 ? (
                 <tr>
                   <td
@@ -210,11 +287,11 @@ export default function AdminSignupsPage() {
                     className="px-4 py-8 text-center text-gray-500"
                   >
                     Зөвшөөрөгдсөн имэйл байхгүй байна.
-                  </td>
-                </tr>
+                   </td>
+                 </tr>
               ) : (
                 requests.map((req) => (
-                  <tr key={req.id} className="border-t dark:border-gray-800">
+                  <tr key={req.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <td className="px-4 py-3 text-sm break-all">{req.email}</td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
@@ -227,16 +304,17 @@ export default function AdminSignupsPage() {
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => deleteEmail(req.id, req.email)}
-                        className="text-red-500 hover:text-red-700"
+                        disabled={deleting === req.id}
+                        className="text-red-500 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        🗑️ Устгах
+                        {deleting === req.id ? "⏳ Устгаж байна..." : "🗑️ Устгах"}
                       </button>
                     </td>
                   </tr>
                 ))
               )}
             </tbody>
-          </table>
+           </table>
         </div>
       )}
 
