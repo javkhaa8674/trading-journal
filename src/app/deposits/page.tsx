@@ -1,11 +1,19 @@
-// app/(app)/deposits/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useMemo } from "react";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  flexRender,
+  ColumnDef,
+  SortingState,
+} from "@tanstack/react-table";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
-import { DepositMethod } from "@/types/deposit";
-import { getStatusColor, getStatusIcon } from "@/lib/utils/statusUtils";
 
 type Account = {
   id: string;
@@ -24,85 +32,40 @@ type Deposit = {
   description?: string;
   date: string;
   created_at: string;
+  account_name?: string;
 };
 
-const depositMethods: DepositMethod[] = [
-  {
-    id: "bank_transfer",
-    name: "Bank Transfer",
-    nameMn: "Банкны шилжүүлэг",
-    icon: "🏦",
-    minAmount: 5,
-    maxAmount: 50000,
-    processingTime: "1-3 business days",
-    processingTimeMn: "1-3 ажлын өдөр",
-    fee: 0,
-  },
-  {
-    id: "crypto",
-    name: "Cryptocurrency",
-    nameMn: "Крипто валют",
-    icon: "₿",
-    minAmount: 5,
-    maxAmount: 100000,
-    processingTime: "10-30 minutes",
-    processingTimeMn: "10-30 минут",
-    fee: 0.5,
-  },
-  {
-    id: "credit_card",
-    name: "Credit Card",
-    nameMn: "Зээлийн карт",
-    icon: "💳",
-    minAmount: 5,
-    maxAmount: 10000,
-    processingTime: "Instant",
-    processingTimeMn: "Шуурхай",
-    fee: 2.9,
-  },
-  {
-    id: "paypal",
-    name: "PayPal",
-    nameMn: "PayPal",
-    icon: "💙",
-    minAmount: 5,
-    maxAmount: 10000,
-    processingTime: "Instant",
-    processingTimeMn: "Шуурхай",
-    fee: 3.5,
-  },
-  {
-    id: "other",
-    name: "Other",
-    nameMn: "Бусад",
-    icon: "💵",
-    minAmount: 1,
-    maxAmount: 5000,
-    processingTime: "Varies",
-    processingTimeMn: "Хувьсах",
-    fee: 0,
-  },
+const depositMethods = [
+  { id: "bank_transfer", nameMn: "Банкны шилжүүлэг", icon: "🏦" },
+  { id: "crypto", nameMn: "Крипто валют", icon: "₿" },
+  { id: "credit_card", nameMn: "Зээлийн карт", icon: "💳" },
+  { id: "paypal", nameMn: "PayPal", icon: "💙" },
+  { id: "other", nameMn: "Бусад", icon: "💵" },
 ];
 
 export default function DepositsPage() {
+  const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  // Form state
-  const [formData, setFormData] = useState({
-    account_id: "",
-    amount: 0,
-    method: "bank_transfer" as DepositMethod["id"],
-    transaction_id: "",
-    description: "",
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "date", desc: true },
+  ]);
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: 10,
   });
+  const [rowSelection, setRowSelection] = useState({});
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Load accounts and deposits
+  // Filter states
+  const [selectedAccount, setSelectedAccount] = useState<string>("all");
+  const [selectedMethod, setSelectedMethod] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+
   useEffect(() => {
     const loadData = async () => {
       const user = await getCurrentUser();
@@ -123,118 +86,24 @@ export default function DepositsPage() {
         .eq("user_id", user.id)
         .order("date", { ascending: false });
 
-      setDeposits(depositsData || []);
+      // Join with account names
+      const depositsWithAccountName = (depositsData || []).map((deposit) => ({
+        ...deposit,
+        account_name:
+          accountsData?.find((a) => a.id === deposit.account_id)?.name ||
+          deposit.account_id,
+      }));
+
+      setDeposits(depositsWithAccountName);
       setLoading(false);
     };
 
     loadData();
   }, []);
 
-  // Handle form submit
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    setSuccess(null);
-
-    const user = await getCurrentUser();
-    if (!user) {
-      setError("Нэвтрэнэ үү / Please login first");
-      setSubmitting(false);
-      return;
-    }
-
-    if (!formData.account_id) {
-      setError("Дансаа сонгоно уу / Please select an account");
-      setSubmitting(false);
-      return;
-    }
-
-    if (formData.amount <= 0) {
-      setError("Дүн 0-с их байх ёстой / Amount must be greater than 0");
-      setSubmitting(false);
-      return;
-    }
-
-    const selectedMethod = depositMethods.find((m) => m.id === formData.method);
-    if (selectedMethod) {
-      if (formData.amount < selectedMethod.minAmount) {
-        setError(
-          `Хамгийн бага дүн: $${selectedMethod.minAmount} / Minimum amount is $${selectedMethod.minAmount}`,
-        );
-        setSubmitting(false);
-        return;
-      }
-      if (formData.amount > selectedMethod.maxAmount) {
-        setError(
-          `Хамгийн их дүн: $${selectedMethod.maxAmount} / Maximum amount is $${selectedMethod.maxAmount}`,
-        );
-        setSubmitting(false);
-        return;
-      }
-    }
-
-    // Insert deposit (status хадгалахгүй, balance шинэчлэхгүй)
-    const { error: depositError } = await supabase.from("deposits").insert({
-      user_id: user.id,
-      account_id: formData.account_id,
-      amount: formData.amount,
-      method: formData.method,
-      transaction_id: formData.transaction_id || null,
-      description: formData.description || null,
-      date: new Date().toISOString(),
-    });
-
-    if (depositError) {
-      setError(depositError.message);
-      setSubmitting(false);
-      return;
-    }
-
-    setSuccess(
-      `✅ $${formData.amount.toFixed(2)} амжилттай хадгалагдлаа! / Successfully deposited $${formData.amount.toFixed(2)}!`,
-    );
-    setShowForm(false);
-    setFormData({
-      account_id: "",
-      amount: 0,
-      method: "bank_transfer",
-      transaction_id: "",
-      description: "",
-    });
-
-    // Refresh data
-    const { data: depositsData } = await supabase
-      .from("deposits")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("date", { ascending: false });
-
-    setDeposits(depositsData || []);
-
-    const { data: accountsData } = await supabase
-      .from("accounts")
-      .select("id, name, balance, status")
-      .eq("user_id", user.id);
-
-    setAccounts(accountsData || []);
-
-    setSubmitting(false);
-  };
-
   const getMethodIcon = (method: string) => {
-    switch (method) {
-      case "bank_transfer":
-        return "🏦";
-      case "crypto":
-        return "₿";
-      case "credit_card":
-        return "💳";
-      case "paypal":
-        return "💙";
-      default:
-        return "💵";
-    }
+    const m = depositMethods.find((m) => m.id === method);
+    return m ? m.icon : "💵";
   };
 
   const getMethodName = (method: string) => {
@@ -242,299 +111,558 @@ export default function DepositsPage() {
     return m ? m.nameMn : "Бусад";
   };
 
-  const totalDeposits = deposits.reduce((sum, d) => sum + d.amount, 0);
+  // Apply filters
+  const filteredData = useMemo(() => {
+    let filtered = [...deposits];
+
+    if (selectedAccount !== "all") {
+      filtered = filtered.filter((d) => d.account_id === selectedAccount);
+    }
+
+    if (selectedMethod !== "all") {
+      filtered = filtered.filter((d) => d.method === selectedMethod);
+    }
+
+    if (dateFrom) {
+      filtered = filtered.filter((d) => d.date >= dateFrom);
+    }
+
+    if (dateTo) {
+      filtered = filtered.filter((d) => d.date <= dateTo);
+    }
+
+    return filtered;
+  }, [deposits, selectedAccount, selectedMethod, dateFrom, dateTo]);
+
+  // Column definitions
+  const columns = useMemo<ColumnDef<Deposit>[]>(() => {
+    const cols: ColumnDef<Deposit>[] = [];
+
+    // Select column - зөвхөн select mode үед л харагдана
+    if (isSelectMode) {
+      cols.push({
+        id: "select",
+        header: ({ table }) => (
+          <input
+            type="checkbox"
+            checked={table.getIsAllRowsSelected()}
+            onChange={table.getToggleAllRowsSelectedHandler()}
+            className="h-4 w-4 rounded border-gray-300"
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            checked={row.getIsSelected()}
+            onChange={row.getToggleSelectedHandler()}
+            className="h-4 w-4 rounded border-gray-300"
+          />
+        ),
+      });
+    }
+
+    // Date column
+    cols.push({
+      accessorKey: "date",
+      header: ({ column }) => (
+        <button
+          onClick={() => column.toggleSorting()}
+          className="flex items-center gap-1 hover:text-blue-500"
+        >
+          📅 Огноо
+          {column.getIsSorted() === "asc" && " ↑"}
+          {column.getIsSorted() === "desc" && " ↓"}
+        </button>
+      ),
+      cell: (info) => new Date(info.getValue() as string).toLocaleDateString(),
+    });
+
+    // Account column
+    cols.push({
+      accessorKey: "account_name",
+      header: "🏦 Данс",
+      cell: (info) => info.getValue(),
+    });
+
+    // Method column
+    cols.push({
+      accessorKey: "method",
+      header: "💳 Төлбөрийн хэрэгсэл",
+      cell: (info) => (
+        <span className="flex items-center gap-1">
+          {getMethodIcon(info.getValue() as string)}{" "}
+          {getMethodName(info.getValue() as string)}
+        </span>
+      ),
+    });
+
+    // Amount column
+    cols.push({
+      accessorKey: "amount",
+      header: ({ column }) => (
+        <button
+          onClick={() => column.toggleSorting()}
+          className="flex items-center gap-1 hover:text-blue-500"
+        >
+          💰 Дүн
+          {column.getIsSorted() === "asc" && " ↑"}
+          {column.getIsSorted() === "desc" && " ↓"}
+        </button>
+      ),
+      cell: (info) => (
+        <span className="font-semibold text-green-600">
+          +${(info.getValue() as number).toLocaleString()}
+        </span>
+      ),
+    });
+
+    // Transaction ID column
+    cols.push({
+      accessorKey: "transaction_id",
+      header: "🔢 Гүйлгээний ID",
+      cell: (info) => info.getValue() || "-",
+    });
+
+    // Description column
+    cols.push({
+      accessorKey: "description",
+      header: "📝 Тайлбар",
+      cell: (info) => (
+        <div
+          className="max-w-xs truncate"
+          title={(info.getValue() as string) || ""}
+        >
+          {info.getValue() || "-"}
+        </div>
+      ),
+    });
+
+    // Actions column - Edit only (when not in select mode)
+    if (!isSelectMode) {
+      cols.push({
+        id: "actions",
+        header: "⚙️ Үйлдэл",
+        cell: (info) => (
+          <button
+            onClick={() => router.push(`/deposits/${info.row.original.id}`)}
+            className="rounded bg-blue-500 px-3 py-1 text-xs text-white hover:bg-blue-600"
+          >
+            Засах
+          </button>
+        ),
+      });
+    }
+
+    return cols;
+  }, [isSelectMode, router]);
+
+  const table = useReactTable({
+    data: filteredData,
+    columns,
+    state: {
+      sorting,
+      globalFilter,
+      pagination,
+      rowSelection,
+    },
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    onPaginationChange: setPagination,
+    onRowSelectionChange: setRowSelection,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  // Get selected row IDs
+  const selectedRowIds = table
+    .getSelectedRowModel()
+    .rows.map((row) => row.original.id);
+  const selectedCount = selectedRowIds.length;
+  const totalAmount = filteredData.reduce((sum, d) => sum + d.amount, 0);
+  const filteredAccounts = accounts.filter((acc) => acc.status === "active");
+
+  // Handle delete selected
+  const handleDeleteSelected = async () => {
+    if (selectedCount === 0) return;
+
+    if (!confirm(`${selectedCount} хадгаламж устгахдаа итгэлтэй байна уу?`))
+      return;
+
+    setIsDeleting(true);
+
+    const user = await getCurrentUser();
+    if (!user) {
+      alert("Нэвтрэнэ үү");
+      setIsDeleting(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("deposits")
+      .delete()
+      .in("id", selectedRowIds)
+      .eq("user_id", user.id);
+
+    if (error) {
+      alert(`Алдаа гарлаа: ${error.message}`);
+    } else {
+      // Remove deleted deposits from state
+      setDeposits(deposits.filter((d) => !selectedRowIds.includes(d.id)));
+      setRowSelection({});
+      setIsSelectMode(false);
+      alert(`${selectedCount} хадгаламж амжилттай устгагдлаа`);
+    }
+
+    setIsDeleting(false);
+  };
+
+  // Cancel select mode
+  const cancelSelectMode = () => {
+    setIsSelectMode(false);
+    setRowSelection({});
+  };
+
+  // Enter select mode
+  const enterSelectMode = () => {
+    setIsSelectMode(true);
+  };
+
+  // Reset all filters
+  const resetFilters = () => {
+    setSelectedAccount("all");
+    setSelectedMethod("all");
+    setDateFrom("");
+    setDateTo("");
+    setGlobalFilter("");
+  };
 
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
         <div className="text-center">
           <div className="mb-2 text-2xl">🏦</div>
-          <div className="text-gray-500 dark:text-gray-400">
-            Ачааллаж байна...
-          </div>
+          <div className="text-gray-500">Ачааллаж байна...</div>
         </div>
       </div>
     );
   }
 
-  const filteredAccounts = accounts.filter((acc) => acc.status === "active");
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-3 sm:px-0">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold dark:text-white">💰 Хадгаламж</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <h1 className="text-xl sm:text-2xl font-bold">💰 Хадгаламж</h1>
+          <p className="text-xs sm:text-sm text-gray-500">
             Дансны хадгаламж, санхүүжилтээ удирдах
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
-        >
-          <span className="text-lg">+</span>
-          <span>Шинэ хадгаламж</span>
-        </button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
-          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span className="text-lg">💰</span>
-            <span className="text-sm">Нийт хадгаламж</span>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
+        <div className="rounded-lg border bg-white p-3 sm:p-4 dark:bg-gray-900">
+          <div className="flex items-center gap-2 text-gray-500">
+            <span className="text-base sm:text-lg">💰</span>
+            <span className="text-xs sm:text-sm">Нийт хадгаламж</span>
           </div>
-          <div className="mt-2 text-2xl font-bold text-green-600 dark:text-green-400">
-            ${totalDeposits.toLocaleString()}
-          </div>
-        </div>
-        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
-          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span className="text-lg">📊</span>
-            <span className="text-sm">Нийт гүйлгээ</span>
-          </div>
-          <div className="mt-2 text-2xl font-bold dark:text-white">
-            {deposits.length}
+          <div className="mt-1 sm:mt-2 text-lg sm:text-2xl font-bold text-green-600">
+            ${totalAmount.toLocaleString()}
           </div>
         </div>
-        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
-          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span className="text-lg">🏦</span>
-            <span className="text-sm">Идэвхтэй дансууд</span>
+        <div className="rounded-lg border bg-white p-3 sm:p-4 dark:bg-gray-900">
+          <div className="flex items-center gap-2 text-gray-500">
+            <span className="text-base sm:text-lg">📊</span>
+            <span className="text-xs sm:text-sm">Нийт гүйлгээ</span>
           </div>
-          <div className="mt-2 text-2xl font-bold dark:text-white">
+          <div className="mt-1 sm:mt-2 text-lg sm:text-2xl font-bold">
+            {filteredData.length}
+          </div>
+        </div>
+        <div className="col-span-2 sm:col-span-1 rounded-lg border bg-white p-3 sm:p-4 dark:bg-gray-900">
+          <div className="flex items-center gap-2 text-gray-500">
+            <span className="text-base sm:text-lg">🏦</span>
+            <span className="text-xs sm:text-sm">Идэвхтэй дансууд</span>
+          </div>
+          <div className="mt-1 sm:mt-2 text-lg sm:text-2xl font-bold">
             {filteredAccounts.length}
           </div>
         </div>
       </div>
 
-      {/* Deposit Form */}
-      {showForm && (
-        <div className="rounded-lg border bg-white p-6 dark:bg-gray-900 dark:border-gray-800">
-          <h2 className="mb-4 text-lg font-semibold dark:text-white">
-            📝 Шинэ хадгаламж
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium dark:text-gray-300">
-                🏦 Данс сонгох *
-              </label>
-              <select
-                value={formData.account_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, account_id: e.target.value })
-                }
-                className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                required
-              >
-                <option value="">📋 Данс сонгох</option>
-                {filteredAccounts.map((acc) => (
-                  <option
-                    key={acc.id}
-                    value={acc.id}
-                    className={getStatusColor(acc.status)}
-                  >
-                    {getStatusIcon(acc.status)} {acc.name}
-                    {acc.status !== "active" && ` (${acc.status})`}
-                    {acc.status === "active" &&
-                      ` - $${acc.balance.toLocaleString()}`}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {/* Filter Section */}
+      <div className="rounded-lg border bg-white p-4 dark:bg-gray-900">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h3 className="text-base font-semibold">🔍 Шүүлтүүр</h3>
+          <button
+            onClick={resetFilters}
+            className="text-sm text-blue-500 hover:text-blue-600"
+          >
+            Цэвэрлэх
+          </button>
+        </div>
 
-            <div>
-              <label className="block text-sm font-medium dark:text-gray-300">
-                💰 Дүн *
-              </label>
-              <div className="relative mt-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                  $
-                </span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="1"
-                  value={formData.amount || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      amount: parseFloat(e.target.value),
-                    })
-                  }
-                  className="w-full rounded-lg border p-2 pl-7 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Данс</label>
+            <select
+              value={selectedAccount}
+              onChange={(e) => setSelectedAccount(e.target.value)}
+              className="w-full rounded-lg border p-2 text-sm bg-white dark:bg-gray-800"
+            >
+              <option value="all">Бүх данс</option>
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium dark:text-gray-300">
-                💳 Төлбөрийн хэрэгсэл *
-              </label>
-              <div className="mt-1 grid grid-cols-2 gap-2 md:grid-cols-5">
-                {depositMethods.map((method) => (
-                  <button
-                    key={method.id}
-                    type="button"
-                    onClick={() =>
-                      setFormData({ ...formData, method: method.id })
-                    }
-                    className={`rounded-lg border p-3 text-center transition-all ${
-                      formData.method === method.id
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
-                        : "hover:border-gray-400 dark:border-gray-700"
-                    }`}
-                  >
-                    <div className="text-2xl">{method.icon}</div>
-                    <div className="mt-1 text-xs font-medium">
-                      {method.nameMn}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">
+              Төлбөрийн хэрэгсэл
+            </label>
+            <select
+              value={selectedMethod}
+              onChange={(e) => setSelectedMethod(e.target.value)}
+              className="w-full rounded-lg border p-2 text-sm bg-white dark:bg-gray-800"
+            >
+              <option value="all">Бүх төрөл</option>
+              {depositMethods.map((method) => (
+                <option key={method.id} value={method.id}>
+                  {method.icon} {method.nameMn}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium dark:text-gray-300">
-                🔢 Гүйлгээний ID (Нэмэлт)
-              </label>
-              <input
-                type="text"
-                value={formData.transaction_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, transaction_id: e.target.value })
-                }
-                className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                placeholder="e.g., TXN-123456"
-              />
-            </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">
+              Огноо (эхлэх)
+            </label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-full rounded-lg border p-2 text-sm bg-white dark:bg-gray-800"
+            />
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium dark:text-gray-300">
-                📝 Тайлбар (Нэмэлт)
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                rows={2}
-                placeholder="Нэмэлт мэдээлэл..."
-              />
-            </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">
+              Огноо (дуусах)
+            </label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-full rounded-lg border p-2 text-sm bg-white dark:bg-gray-800"
+            />
+          </div>
+        </div>
+      </div>
 
-            {error && (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">
-                ⚠️ {error}
-              </div>
-            )}
+      {/* Header with Search and Action Buttons */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-1 items-center gap-2">
+          <div className="relative flex-1 sm:flex-initial">
+            <input
+              type="text"
+              value={globalFilter ?? ""}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              placeholder="Гүйлгээний ID, тайлбараар хайх..."
+              className="w-full sm:w-80 rounded-lg border px-4 py-2 pl-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              🔍
+            </span>
+          </div>
+          <span className="text-sm text-gray-500 whitespace-nowrap">
+            {filteredData.length} гүйлгээ
+          </span>
+        </div>
 
-            {success && (
-              <div className="rounded-lg bg-green-50 p-3 text-sm text-green-600 dark:bg-green-950/50 dark:text-green-400">
-                ✅ {success}
-              </div>
-            )}
-
-            <div className="flex gap-3">
+        <div className="flex gap-2">
+          {isSelectMode ? (
+            <>
               <button
-                type="submit"
-                disabled={submitting}
-                className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
+                onClick={handleDeleteSelected}
+                disabled={selectedCount === 0 || isDeleting}
+                className={`rounded-lg px-4 py-2 text-sm text-white ${
+                  selectedCount > 0 && !isDeleting
+                    ? "bg-red-500 hover:bg-red-600"
+                    : "bg-gray-300 cursor-not-allowed"
+                }`}
               >
-                {submitting ? "Боловсруулж байна..." : "✅ Хадгалах / Deposit"}
+                {isDeleting
+                  ? "Устгаж байна..."
+                  : `🗑️ Устгах (${selectedCount})`}
               </button>
               <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="rounded-lg border px-4 py-2 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                onClick={cancelSelectMode}
+                className="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50"
               >
-                ❌ Цуцлах
+                Цуцлах
               </button>
-            </div>
-          </form>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => router.push("/deposits/new")}
+                className="rounded-lg bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600"
+              >
+                + Шинэ хадгаламж
+              </button>
+              <button
+                onClick={enterSelectMode}
+                className="rounded-lg border px-4 py-2 text-sm text-red-500 hover:bg-red-50"
+              >
+                🗑️ Устгах
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Selection info bar */}
+      {isSelectMode && selectedCount > 0 && (
+        <div className="flex items-center justify-between rounded-lg bg-blue-50 p-3 dark:bg-blue-950">
+          <span className="text-sm text-blue-800 dark:text-blue-300">
+            {selectedCount} хадгаламж сонгогдсон (нийт $
+            {selectedRowIds
+              .map((id) => deposits.find((d) => d.id === id)?.amount || 0)
+              .reduce((a, b) => a + b, 0)
+              .toLocaleString()}
+            )
+          </span>
+          <button
+            onClick={() => setRowSelection({})}
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            Сонголтыг арилгах
+          </button>
         </div>
       )}
 
-      {/* Deposits History Table */}
-      <div className="rounded-lg border bg-white dark:bg-gray-900 dark:border-gray-800">
-        <div className="border-b p-4 dark:border-gray-800">
-          <h2 className="text-lg font-semibold dark:text-white">
-            📋 Хадгаламжийн түүх
-          </h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-800">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
-                  📅 Огноо
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
-                  🏦 Данс
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
-                  💳 Төлбөрийн хэрэгсэл
-                </th>
-                <th className="px-4 py-3 text-right text-sm font-medium dark:text-gray-300">
-                  💰 Дүн
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
-                  🔢 Гүйлгээний ID
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y dark:divide-gray-800">
-              {deposits.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="py-8 text-center text-gray-500 dark:text-gray-400"
+      {/* Table */}
+      <div className="overflow-x-auto rounded-lg border">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+          <thead className="bg-gray-50 dark:bg-gray-800">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
                   >
-                    📭 Хадгаламж байхгүй.
-                    <br />
-                    ✏️ &quot;Шинэ хадгаламж&quot; товч дарж нэмэх.
-                  </td>
-                </tr>
-              ) : (
-                deposits.map((deposit) => {
-                  const account = accounts.find(
-                    (a) => a.id === deposit.account_id,
-                  );
-                  return (
-                    <tr
-                      key={deposit.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-800"
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext(),
+                    )}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-800 dark:bg-gray-900">
+            {table.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="py-8 text-center text-gray-500"
+                >
+                  📭 Хадгаламж байхгүй
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className={`hover:bg-gray-50 dark:hover:bg-gray-800 ${
+                    isSelectMode && row.getIsSelected()
+                      ? "bg-blue-50 dark:bg-blue-950/50"
+                      : ""
+                  }`}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td
+                      key={cell.id}
+                      className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap"
                     >
-                      <td className="px-4 py-3 text-sm dark:text-gray-300">
-                        {new Date(deposit.date).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3 text-sm dark:text-gray-300">
-                        {account?.name || deposit.account_id}
-                      </td>
-                      <td className="px-4 py-3 text-sm dark:text-gray-300">
-                        <span className="flex items-center gap-1">
-                          {getMethodIcon(deposit.method)}{" "}
-                          {getMethodName(deposit.method)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm font-medium text-green-600 dark:text-green-400">
-                        +${deposit.amount.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-mono text-xs dark:text-gray-400">
-                        {deposit.transaction_id || "-"}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
+
+      {/* Pagination */}
+      {filteredData.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span>
+              Хуудас {table.getState().pagination.pageIndex + 1} /{" "}
+              {table.getPageCount()}
+            </span>
+            <select
+              value={table.getState().pagination.pageSize}
+              onChange={(e) => table.setPageSize(Number(e.target.value))}
+              className="rounded border px-2 py-1 text-sm"
+            >
+              {[5, 10, 20, 30, 50].map((size) => (
+                <option key={size} value={size}>
+                  {size} харуулах
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+              className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+            >
+              ← Өмнөх
+            </button>
+            {Array.from(
+              { length: Math.min(5, table.getPageCount()) },
+              (_, i) => {
+                const pageNum = i + 1;
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => table.setPageIndex(pageNum - 1)}
+                    className={`rounded px-3 py-1 text-sm ${
+                      table.getState().pagination.pageIndex === pageNum - 1
+                        ? "bg-blue-500 text-white"
+                        : "border hover:bg-gray-50"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              },
+            )}
+            <button
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+              className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+            >
+              Дараах →
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

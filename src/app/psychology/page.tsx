@@ -1,7 +1,7 @@
-// app/(app)/psychology/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
 import { analyzePsychology, generateSummary } from "@/lib/psychologyAnalytics";
@@ -13,6 +13,7 @@ const moodIcons = {
     labelMn: "Тайван",
     labelEn: "Calm",
     color: "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400",
+    borderColor: "border-green-200 dark:border-green-800",
   },
   anxious: {
     icon: "😰",
@@ -20,12 +21,14 @@ const moodIcons = {
     labelEn: "Anxious",
     color:
       "bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400",
+    borderColor: "border-yellow-200 dark:border-yellow-800",
   },
   confident: {
     icon: "😎",
     labelMn: "Итгэлтэй",
     labelEn: "Confident",
     color: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400",
+    borderColor: "border-blue-200 dark:border-blue-800",
   },
   fearful: {
     icon: "😨",
@@ -33,6 +36,7 @@ const moodIcons = {
     labelEn: "Fearful",
     color:
       "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400",
+    borderColor: "border-purple-200 dark:border-purple-800",
   },
   greedy: {
     icon: "🤑",
@@ -40,12 +44,14 @@ const moodIcons = {
     labelEn: "Greedy",
     color:
       "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400",
+    borderColor: "border-orange-200 dark:border-orange-800",
   },
   frustrated: {
     icon: "😤",
     labelMn: "Ууртай",
     labelEn: "Frustrated",
     color: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400",
+    borderColor: "border-red-200 dark:border-red-800",
   },
 };
 
@@ -122,48 +128,51 @@ const commonMistakes: Mistake[] = [
   },
 ];
 
+const ITEMS_PER_PAGE = 10;
+
 export default function PsychologyPage() {
+  const router = useRouter();
   const [entries, setEntries] = useState<PsychologyEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingEntry, setEditingEntry] = useState<PsychologyEntry | null>(
-    null,
-  );
-  const [selectedMistakes, setSelectedMistakes] = useState<string[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
   const [dateRange, setDateRange] = useState<"week" | "month" | "all">("week");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [allEntries, setAllEntries] = useState<PsychologyEntry[]>([]);
 
-  const [formData, setFormData] = useState({
-    date: new Date().toISOString().slice(0, 10),
-    mood: "calm" as PsychologyEntry["mood"],
-    confidence_level: 5,
-    lesson_learned: "",
-    notes: "",
-    trades_count: 0,
-    winning_trades: 0,
-    losing_trades: 0,
-    profit_loss: 0,
-  });
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const lastCardRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (loadingMore) return;
+      if (observerRef.current) observerRef.current.disconnect();
 
-  // Load psychology entries
+      observerRef.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          loadMore();
+        }
+      });
+
+      if (node) observerRef.current.observe(node);
+    },
+    [loadingMore, hasMore],
+  );
+
+  // Load all entries first (for filtering)
   useEffect(() => {
     const loadEntries = async () => {
       const user = await getCurrentUser();
       if (!user) return;
 
-      const query = supabase
+      const { data } = await supabase
         .from("psychology_entries")
         .select("*")
         .eq("user_id", user.id)
         .order("date", { ascending: false });
 
-      const { data } = await query;
-      setEntries(data || []);
+      setAllEntries(data || []);
       setLoading(false);
     };
 
@@ -171,57 +180,75 @@ export default function PsychologyPage() {
   }, []);
 
   // Filter entries by date range
-  const filteredEntries = entries.filter((entry) => {
-    const entryDate = new Date(entry.date);
+  const getFilteredEntries = useCallback(() => {
+    let filtered = [...allEntries];
     const now = new Date();
-    if (dateRange === "week") {
-      const weekAgo = new Date(now.setDate(now.getDate() - 7));
-      return entryDate >= weekAgo;
-    }
-    if (dateRange === "month") {
-      const monthAgo = new Date(now.setMonth(now.getMonth() - 1));
-      return entryDate >= monthAgo;
-    }
-    return true;
-  });
 
-  const analysis = showAnalysis ? analyzePsychology(filteredEntries) : null;
+    if (dateRange === "week") {
+      const weekAgo = new Date();
+      weekAgo.setDate(now.getDate() - 7);
+      filtered = filtered.filter((e) => new Date(e.date) >= weekAgo);
+    } else if (dateRange === "month") {
+      const monthAgo = new Date();
+      monthAgo.setMonth(now.getMonth() - 1);
+      filtered = filtered.filter((e) => new Date(e.date) >= monthAgo);
+    }
+
+    return filtered;
+  }, [allEntries, dateRange]);
+
+  // Reset pagination when filter changes
+  useEffect(() => {
+    setPage(0);
+    setEntries([]);
+    setHasMore(true);
+  }, [dateRange]);
+
+  // Load more entries
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+
+    setLoadingMore(true);
+
+    const filtered = getFilteredEntries();
+    const start = page * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    const newEntries = filtered.slice(start, end);
+
+    setTimeout(() => {
+      if (newEntries.length > 0) {
+        setEntries((prev) => [...prev, ...newEntries]);
+        setPage((prev) => prev + 1);
+        setHasMore(end < filtered.length);
+      } else {
+        setHasMore(false);
+      }
+      setLoadingMore(false);
+    }, 500);
+  }, [page, hasMore, loadingMore, getFilteredEntries]);
+
+  // Initial load
+  useEffect(() => {
+    if (!loading && allEntries.length > 0) {
+      loadMore();
+    }
+  }, [loading, allEntries, loadMore]);
 
   const getMistakeName = (id: string) =>
     commonMistakes.find((m) => m.id === id)?.nameMn || id;
-
+  const analysis = showAnalysis
+    ? analyzePsychology(getFilteredEntries())
+    : null;
   const summary = showAnalysis ? generateSummary(analysis, getMistakeName) : "";
 
   const handleGenerate = () => {
     setLoadingAnalysis(true);
-
     setTimeout(() => {
       setShowAnalysis(true);
       setLoadingAnalysis(false);
-    }, 1500); // fake AI delay 😄
+    }, 1500);
   };
 
-  // Handle edit
-  const handleEdit = (entry: PsychologyEntry) => {
-    setEditingEntry(entry);
-    setFormData({
-      date: entry.date.slice(0, 10),
-      mood: entry.mood,
-      confidence_level: entry.confidence_level,
-      lesson_learned: entry.lesson_learned || "",
-      notes: entry.notes || "",
-      trades_count: entry.trades_count || 0,
-      winning_trades: entry.winning_trades || 0,
-      losing_trades: entry.losing_trades || 0,
-      profit_loss: entry.profit_loss || 0,
-    });
-    setSelectedMistakes(entry.mistakes || []);
-    setShowForm(true);
-    setError(null);
-    setSuccess(null);
-  };
-
-  // Handle delete
   const handleDelete = async (id: string) => {
     const user = await getCurrentUser();
     if (!user) return;
@@ -233,118 +260,17 @@ export default function PsychologyPage() {
       .eq("user_id", user.id);
 
     if (error) {
-      setError(error.message);
+      alert(error.message);
     } else {
+      setAllEntries(allEntries.filter((e) => e.id !== id));
       setEntries(entries.filter((e) => e.id !== id));
-      setSuccess("Entry deleted successfully!");
-      setTimeout(() => setSuccess(null), 3000);
     }
     setDeleteConfirm(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    setSuccess(null);
-
-    const user = await getCurrentUser();
-    if (!user) {
-      setError("Please login first / Нэвтрэнэ үү");
-      setSubmitting(false);
-      return;
-    }
-
-    const dataToSave = {
-      user_id: user.id,
-      date: formData.date,
-      mood: formData.mood,
-      confidence_level: formData.confidence_level,
-      mistakes: selectedMistakes,
-      lesson_learned: formData.lesson_learned,
-      notes: formData.notes,
-      trades_count: formData.trades_count,
-      winning_trades: formData.winning_trades,
-      losing_trades: formData.losing_trades,
-      profit_loss: formData.profit_loss,
-    };
-
-    let error;
-    if (editingEntry) {
-      // Update existing entry
-      const { error: updateError } = await supabase
-        .from("psychology_entries")
-        .update(dataToSave)
-        .eq("id", editingEntry.id)
-        .eq("user_id", user.id);
-      error = updateError;
-    } else {
-      // Insert new entry
-      const { error: insertError } = await supabase
-        .from("psychology_entries")
-        .upsert(dataToSave, {
-          onConflict: "user_id,date",
-        });
-      error = insertError;
-    }
-
-    setSubmitting(false);
-
-    if (error) {
-      console.error(error);
-      setError(error.message);
-    } else {
-      setSuccess(
-        editingEntry ? "Амжилттай шинэчлэгдлээ!" : "Амжилттай хадгалагдлаа!",
-      );
-
-      // Refresh entries
-      const { data } = await supabase
-        .from("psychology_entries")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("date", { ascending: false });
-
-      setEntries(data || []);
-      setShowForm(false);
-      setEditingEntry(null);
-      setFormData({
-        date: new Date().toISOString().slice(0, 10),
-        mood: "calm",
-        confidence_level: 5,
-        lesson_learned: "",
-        notes: "",
-        trades_count: 0,
-        winning_trades: 0,
-        losing_trades: 0,
-        profit_loss: 0,
-      });
-      setSelectedMistakes([]);
-
-      setTimeout(() => setSuccess(null), 3000);
-    }
-  };
-
-  const cancelEdit = () => {
-    setShowForm(false);
-    setEditingEntry(null);
-    setFormData({
-      date: new Date().toISOString().slice(0, 10),
-      mood: "calm",
-      confidence_level: 5,
-      lesson_learned: "",
-      notes: "",
-      trades_count: 0,
-      winning_trades: 0,
-      losing_trades: 0,
-      profit_loss: 0,
-    });
-    setSelectedMistakes([]);
-    setError(null);
-  };
-
   const avgMood = () => {
-    const moods = filteredEntries.map((e) => e.mood);
+    const filtered = getFilteredEntries();
+    const moods = filtered.map((e) => e.mood);
     const moodScores: Record<string, number> = {
       calm: 5,
       confident: 5,
@@ -358,370 +284,149 @@ export default function PsychologyPage() {
     return avg.toFixed(1);
   };
 
+  const getWinRate = () => {
+    const filtered = getFilteredEntries();
+    const totalTrades = filtered.reduce(
+      (sum, e) => sum + (e.trades_count || 0),
+      0,
+    );
+    const winningTrades = filtered.reduce(
+      (sum, e) => sum + (e.winning_trades || 0),
+      0,
+    );
+    return totalTrades > 0
+      ? ((winningTrades / totalTrades) * 100).toFixed(0)
+      : "0";
+  };
+
+  const getTotalProfitLoss = () => {
+    const filtered = getFilteredEntries();
+    return filtered.reduce((sum, e) => sum + (e.profit_loss || 0), 0);
+  };
+
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
         <div className="text-center">
           <div className="mb-2 text-2xl">🧠</div>
-          <div className="text-gray-500 dark:text-gray-400">
-            Ачааллаж байна...
-          </div>
+          <div className="text-gray-500">Ачааллаж байна...</div>
         </div>
       </div>
     );
   }
 
+  const filteredCount = getFilteredEntries().length;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-3 sm:px-0">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold dark:text-white">
+          <h1 className="text-xl sm:text-2xl font-bold">
             🧠 Арилжааны сэтгэлзүй
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Арилжаа хийж байхдаа сэтгэл санаа, алдаа, сэтгэл зүйн байдлаа хянаж
-            тэмдэглэх
+          <p className="text-xs sm:text-sm text-gray-500">
+            Арилжаа хийж байхдаа сэтгэл санаа, алдаа, сэтгэл зүйн байдлаа хянах
           </p>
         </div>
         <button
-          onClick={() => {
-            setShowForm(!showForm);
-            setEditingEntry(null);
-          }}
-          className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 transition-colors"
+          onClick={() => router.push("/psychology/new")}
+          className="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base text-white hover:bg-blue-600"
         >
-          <span className="text-lg">+</span>
-          <span>Нэмэх</span>
+          <span className="text-base sm:text-lg">+</span>
+          <span>Шинэ тэмдэглэл</span>
         </button>
       </div>
 
-      {/* Error / Success Messages */}
-      {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">
-          ⚠️ {error}
-        </div>
-      )}
-      {success && (
-        <div className="rounded-lg bg-green-50 p-3 text-sm text-green-600 dark:bg-green-950/50 dark:text-green-400">
-          ✅ {success}
-        </div>
-      )}
-
-      {/* Psychology Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
-          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span className="text-lg">📊</span>
-            <span className="text-sm">Нийт бүртгэл</span>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+        <div className="rounded-lg border bg-white p-3 sm:p-4 dark:bg-gray-900">
+          <div className="flex items-center gap-2 text-gray-500">
+            <span className="text-base sm:text-lg">📊</span>
+            <span className="text-xs sm:text-sm">Нийт бүртгэл</span>
           </div>
-          <div className="mt-2 text-2xl font-bold dark:text-white">
-            {entries.length}
+          <div className="mt-1 sm:mt-2 text-lg sm:text-2xl font-bold">
+            {filteredCount}
           </div>
         </div>
-        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
-          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span className="text-lg">😊</span>
-            <span className="text-sm">Дундаж сэтгэл санаа</span>
+        <div className="rounded-lg border bg-white p-3 sm:p-4 dark:bg-gray-900">
+          <div className="flex items-center gap-2 text-gray-500">
+            <span className="text-base sm:text-lg">😊</span>
+            <span className="text-xs sm:text-sm">Дундаж сэтгэл санаа</span>
           </div>
-          <div className="mt-2 text-2xl font-bold dark:text-white">
+          <div className="mt-1 sm:mt-2 text-lg sm:text-2xl font-bold">
             {avgMood()}/5
           </div>
         </div>
-        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
-          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span className="text-lg">⚠️</span>
-            <span className="text-sm">Түгээмэл алдаа</span>
+        <div className="rounded-lg border bg-white p-3 sm:p-4 dark:bg-gray-900">
+          <div className="flex items-center gap-2 text-gray-500">
+            <span className="text-base sm:text-lg">📈</span>
+            <span className="text-xs sm:text-sm">Win Rate</span>
           </div>
-          <div className="mt-2 text-sm font-medium dark:text-white">
-            {entries.length > 0 ? "FOMO" : "—"}
+          <div className="mt-1 sm:mt-2 text-lg sm:text-2xl font-bold text-green-600">
+            {getWinRate()}%
           </div>
         </div>
-        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
-          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span className="text-lg">📈</span>
-            <span className="text-sm">Сэтгэл санаа vs Гүйцэтгэл</span>
+        <div className="rounded-lg border bg-white p-3 sm:p-4 dark:bg-gray-900">
+          <div className="flex items-center gap-2 text-gray-500">
+            <span className="text-base sm:text-lg">💰</span>
+            <span className="text-xs sm:text-sm">Нийт P/L</span>
           </div>
-          <div className="mt-2 text-sm dark:text-white">
-            {entries.length > 0 ? "😌 Calm = +2% better" : "—"}
+          <div
+            className={`mt-1 sm:mt-2 text-lg sm:text-2xl font-bold ${getTotalProfitLoss() >= 0 ? "text-green-600" : "text-red-600"}`}
+          >
+            {getTotalProfitLoss() >= 0 ? "+" : ""}
+            {getTotalProfitLoss().toFixed(2)} USD
           </div>
         </div>
       </div>
 
       {/* Date Range Filter */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
+        {[
+          { key: "week", label: "Сүүлийн 7 хоног" },
+          { key: "month", label: "Сүүлийн 30 хоног" },
+          { key: "all", label: "Бүх хугацаа" },
+        ].map((range) => (
+          <button
+            key={range.key}
+            onClick={() => setDateRange(range.key as typeof dateRange)}
+            className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+              dateRange === range.key
+                ? "bg-blue-500 text-white"
+                : "border bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+            }`}
+          >
+            {range.label}
+          </button>
+        ))}
+      </div>
+
+      {/* AI Analysis Section */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
+        <h3 className="text-base sm:text-lg font-semibold">
+          🤖 AI дүгнэлт хийлгэмээр байвал &quot;Анализ хийх&quot; товчийг дарна
+          уу.
+        </h3>
         <button
-          onClick={() => setDateRange("week")}
-          className={`rounded-lg px-3 py-1 text-sm transition-colors ${
-            dateRange === "week"
-              ? "bg-blue-500 text-white"
-              : "border bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-          }`}
+          onClick={handleGenerate}
+          className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
         >
-          Сүүлийн 7 хоног
-        </button>
-        <button
-          onClick={() => setDateRange("month")}
-          className={`rounded-lg px-3 py-1 text-sm transition-colors ${
-            dateRange === "month"
-              ? "bg-blue-500 text-white"
-              : "border bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-          }`}
-        >
-          Сүүлийн 30 хоног
-        </button>
-        <button
-          onClick={() => setDateRange("all")}
-          className={`rounded-lg px-3 py-1 text-sm transition-colors ${
-            dateRange === "all"
-              ? "bg-blue-500 text-white"
-              : "border bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-          }`}
-        >
-          Бүх хугацаа
+          {loadingAnalysis ? "AI ачааллаж байна..." : "Анализ хийх"}
         </button>
       </div>
 
-      {/* Psychology Form */}
-      {showForm && (
-        <div className="rounded-lg border bg-white p-6 dark:bg-gray-900 dark:border-gray-800">
-          <h2 className="mb-4 text-lg font-semibold dark:text-white">
-            {editingEntry ? "Засварлах" : "Өдрийн тэмдэглэл"}
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* ... form fields (өмнөхтэй ижил) ... */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium dark:text-gray-300">
-                  Огноо *
-                </label>
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, date: e.target.value })
-                  }
-                  className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium dark:text-gray-300">
-                  Сэтгэл санаа *
-                </label>
-                <div className="mt-1 grid grid-cols-3 gap-2">
-                  {(
-                    Object.entries(moodIcons) as [
-                      string,
-                      typeof moodIcons.calm,
-                    ][]
-                  ).map(([key, value]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() =>
-                        setFormData({
-                          ...formData,
-                          mood: key as PsychologyEntry["mood"],
-                        })
-                      }
-                      className={`rounded-lg p-2 text-center transition-all ${
-                        formData.mood === key
-                          ? value.color + " ring-2 ring-blue-500"
-                          : "border bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
-                      }`}
-                    >
-                      <div className="text-xl">{value.icon}</div>
-                      <div className="text-xs">{value.labelMn}</div>
-                      <div className="text-xs text-gray-400 dark:text-gray-500">
-                        {value.labelEn}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium dark:text-gray-300">
-                  Итгэлийн түвшин (1-10) *
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={formData.confidence_level}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      confidence_level: parseInt(e.target.value),
-                    })
-                  }
-                  className="mt-1 w-full"
-                />
-                <div className="text-center text-sm font-bold dark:text-white">
-                  {formData.confidence_level}/10
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium dark:text-gray-300">
-                  Арилжааны тоо
-                </label>
-                <input
-                  type="number"
-                  value={formData.trades_count}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      trades_count: parseInt(e.target.value),
-                    })
-                  }
-                  className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium dark:text-gray-300">
-                  Ашигтай арилжаа
-                </label>
-                <input
-                  type="number"
-                  value={formData.winning_trades}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      winning_trades: parseInt(e.target.value),
-                    })
-                  }
-                  className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium dark:text-gray-300">
-                  Алдагдалтай арилжаа
-                </label>
-                <input
-                  type="number"
-                  value={formData.losing_trades}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      losing_trades: parseInt(e.target.value),
-                    })
-                  }
-                  className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium dark:text-gray-300">
-                  Ашиг/Алдагдал ($)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.profit_loss || 0}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      profit_loss:
-                        e.target.value === "" ? 0 : parseFloat(e.target.value),
-                    })
-                  }
-                  className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium dark:text-gray-300">
-                  Гаргасан алдаанууд
-                </label>
-                <div className="mt-1 grid grid-cols-2 gap-2">
-                  {commonMistakes.map((mistake) => (
-                    <label
-                      key={mistake.id}
-                      className="flex items-center gap-2 text-sm dark:text-gray-300"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedMistakes.includes(mistake.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedMistakes([
-                              ...selectedMistakes,
-                              mistake.id,
-                            ]);
-                          } else {
-                            setSelectedMistakes(
-                              selectedMistakes.filter(
-                                (id) => id !== mistake.id,
-                              ),
-                            );
-                          }
-                        }}
-                        className="rounded dark:bg-gray-800"
-                      />
-                      <span className="text-xs text-gray-400">
-                        {mistake.nameMn}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium dark:text-gray-300">
-                  Сургамж
-                </label>
-                <textarea
-                  value={formData.lesson_learned}
-                  onChange={(e) =>
-                    setFormData({ ...formData, lesson_learned: e.target.value })
-                  }
-                  className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                  rows={2}
-                  placeholder="Өнөөдөр юу сурсан бэ?"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium dark:text-gray-300">
-                  Тэмдэглэл
-                </label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
-                  }
-                  className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                  rows={3}
-                  placeholder="Нэмэлт бодол, сэтгэл хөдлөл, ажиглалт..."
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
-              >
-                {submitting
-                  ? "Saving..."
-                  : editingEntry
-                    ? "Шинэчлэх"
-                    : "Хадгалах"}
-              </button>
-              <button
-                type="button"
-                onClick={cancelEdit}
-                className="rounded-lg border px-4 py-2 bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
-              >
-                Цуцлах
-              </button>
-            </div>
-          </form>
+      {showAnalysis && (
+        <div className="rounded-lg border bg-purple-50 p-4 dark:bg-purple-950/20 dark:border-purple-800/30">
+          <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">
+            {summary}
+          </pre>
         </div>
       )}
-      {/* Psychology Entries List with Edit & Delete buttons */}
+
+      {/* Entries List - Card View */}
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold dark:text-white">
-          📓 Сэтгэл зүйн тэмдэглэл
-        </h2>
-        {filteredEntries.length === 0 ? (
+        {entries.length === 0 ? (
           <div className="rounded-lg border-2 border-dashed p-8 text-center dark:border-gray-700">
             <div className="mb-2 text-4xl">📔</div>
             <p className="text-gray-500 dark:text-gray-400">
@@ -732,144 +437,193 @@ export default function PsychologyPage() {
             </p>
           </div>
         ) : (
-          filteredEntries.map((entry) => (
-            <div
-              key={entry.id}
-              className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`rounded-full p-2 ${moodIcons[entry.mood].color}`}
-                  >
-                    <span className="text-xl">
-                      {moodIcons[entry.mood].icon}
-                    </span>
-                  </div>
-                  <div>
-                    <div className="font-semibold dark:text-white">
-                      {new Date(entry.date).toLocaleDateString()}
+          entries.map((entry, index) => {
+            const moodData = moodIcons[entry.mood];
+            const isLast = index === entries.length - 1;
+
+            return (
+              <div
+                key={entry.id}
+                ref={isLast ? lastCardRef : null}
+                className={`rounded-lg border bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-gray-900 dark:border-gray-800 ${moodData?.borderColor || ""}`}
+              >
+                {/* Header */}
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`rounded-full p-2 ${moodData?.color || "bg-gray-100"}`}
+                    >
+                      <span className="text-xl">{moodData?.icon || "😐"}</span>
                     </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      Өөртөө итгэх итгэл: {entry.confidence_level}
-                      /10 | Win Rate:{" "}
-                      {entry.trades_count > 0
-                        ? (
-                            (entry.winning_trades / entry.trades_count) *
-                            100
-                          ).toFixed(0)
-                        : 0}
-                      %
+                    <div>
+                      <div className="font-semibold dark:text-white">
+                        {new Date(entry.date).toLocaleDateString()}
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        Итгэлийн түвшин: {entry.confidence_level}/10
+                      </div>
                     </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`rounded-full px-2 py-1 text-xs ${
-                      entry.profit_loss >= 0
-                        ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
-                        : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
-                    }`}
-                  >
-                    {entry.profit_loss >= 0 ? "+" : ""}
-                    {entry.profit_loss.toFixed(2)} USD
                   </div>
 
-                  {/* Edit & Delete Buttons */}
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handleEdit(entry)}
-                      className="rounded p-1 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950"
-                      title="Edit"
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`rounded-full px-2 py-1 text-xs font-medium ${
+                        entry.profit_loss >= 0
+                          ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
+                          : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
+                      }`}
                     >
-                      ✏️
-                    </button>
+                      {entry.profit_loss >= 0 ? "+" : ""}
+                      {entry.profit_loss?.toFixed(2)} USD
+                    </div>
+
+                    {/* Action Buttons */}
                     {deleteConfirm === entry.id ? (
                       <div className="flex gap-1">
                         <button
                           onClick={() => handleDelete(entry.id)}
-                          className="rounded px-2 py-1 text-xs bg-red-500 text-white hover:bg-red-600"
+                          className="rounded bg-red-500 px-2 py-1 text-xs text-white hover:bg-red-600"
                         >
                           Устгах
                         </button>
                         <button
                           onClick={() => setDeleteConfirm(null)}
-                          className="rounded px-2 py-1 text-xs border hover:bg-gray-50"
+                          className="rounded border px-2 py-1 text-xs hover:bg-gray-50"
                         >
                           Цуцлах
                         </button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => setDeleteConfirm(entry.id)}
-                        className="rounded p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
-                        title="Delete"
-                      >
-                        🗑️
-                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => router.push(`/psychology/${entry.id}`)}
+                          className="rounded p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950"
+                          title="Засах"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(entry.id)}
+                          className="rounded p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+                          title="Устгах"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
+
+                {/* Trading Stats */}
+                {(entry.trades_count > 0 ||
+                  entry.winning_trades > 0 ||
+                  entry.losing_trades > 0) && (
+                  <div className="mt-3 flex flex-wrap gap-3 border-t pt-3 text-sm">
+                    {entry.trades_count > 0 && (
+                      <div>
+                        <span className="text-gray-500">Арилжааны тоо:</span>
+                        <span className="ml-1 font-medium">
+                          {entry.trades_count}
+                        </span>
+                      </div>
+                    )}
+                    {entry.winning_trades > 0 && (
+                      <div>
+                        <span className="text-gray-500">Ашигтай:</span>
+                        <span className="ml-1 font-medium text-green-600">
+                          {entry.winning_trades}
+                        </span>
+                      </div>
+                    )}
+                    {entry.losing_trades > 0 && (
+                      <div>
+                        <span className="text-gray-500">Алдагдалтай:</span>
+                        <span className="ml-1 font-medium text-red-600">
+                          {entry.losing_trades}
+                        </span>
+                      </div>
+                    )}
+                    {entry.trades_count > 0 && (
+                      <div>
+                        <span className="text-gray-500">Win Rate:</span>
+                        <span className="ml-1 font-medium">
+                          {(
+                            (entry.winning_trades / entry.trades_count) *
+                            100
+                          ).toFixed(0)}
+                          %
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Mistakes */}
+                {entry.mistakes && entry.mistakes.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    <span className="text-xs text-gray-500">Алдаанууд:</span>
+                    {entry.mistakes.map((mistakeId) => {
+                      const mistake = commonMistakes.find(
+                        (m) => m.id === mistakeId,
+                      );
+                      return mistake ? (
+                        <span
+                          key={mistakeId}
+                          className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600 dark:bg-red-950/50 dark:text-red-400"
+                        >
+                          {mistake.nameMn}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                )}
+
+                {/* Lesson Learned */}
+                {entry.lesson_learned && (
+                  <div className="mt-3 rounded-lg bg-amber-50 p-3 dark:bg-amber-950/30">
+                    <div className="flex items-start gap-2">
+                      <span className="text-sm">📖</span>
+                      <div>
+                        <div className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                          Сургамж
+                        </div>
+                        <div className="text-sm dark:text-gray-300">
+                          {entry.lesson_learned}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes */}
+                {entry.notes && (
+                  <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    {entry.notes}
+                  </div>
+                )}
               </div>
+            );
+          })
+        )}
 
-              {entry.mistakes.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Алдаанууд:
-                  </span>
-                  {entry.mistakes.map((mistakeId) => {
-                    const mistake = commonMistakes.find(
-                      (m) => m.id === mistakeId,
-                    );
-                    return mistake ? (
-                      <span
-                        key={mistakeId}
-                        className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600 dark:bg-red-950/50 dark:text-red-400"
-                      >
-                        {mistake.nameMn}
-                      </span>
-                    ) : null;
-                  })}
-                </div>
-              )}
-
-              {entry.lesson_learned && (
-                <div className="mt-2 text-sm dark:text-gray-300">
-                  <span className="font-medium">📖 Сургамж:</span>{" "}
-                  {entry.lesson_learned}
-                </div>
-              )}
-
-              {entry.notes && (
-                <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                  {entry.notes}
-                </div>
-              )}
+        {/* Loading indicator */}
+        {loadingMore && (
+          <div className="py-4 text-center">
+            <div className="inline-flex items-center gap-2 text-gray-500">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"></div>
+              <span>Ачааллаж байна...</span>
             </div>
-          ))
+          </div>
+        )}
+
+        {/* No more entries */}
+        {!hasMore && entries.length > 0 && (
+          <div className="py-4 text-center text-sm text-gray-400">
+            — Бүх бүртгэл харагдлаа —
+          </div>
         )}
       </div>
-      {/* Psychology Entries List with Edit & Delete buttons */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold dark:text-white">
-          🤖 AI дүгнэлт хийлгэмээр байвал &quot;Анализ хийх&quot; товчийг дарна
-          уу.
-        </h3>
 
-        <button
-          onClick={handleGenerate}
-          className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
-        >
-          {loadingAnalysis ? "AI ачааллаж байна..." : "Анализ хийх"}
-        </button>
-      </div>
-      {showAnalysis && (
-        <div className="rounded-lg border bg-purple-50 p-4 dark:bg-purple-950/20 dark:border-purple-800/30">
-          <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">
-            {summary}
-          </pre>
-        </div>
-      )}
       {/* Psychology Tips */}
       <div className="rounded-lg border bg-blue-50 p-4 dark:bg-blue-950/20 dark:border-blue-800/30">
         <div className="flex items-center gap-2">
@@ -907,22 +661,11 @@ export default function PsychologyPage() {
             Зах зээлд итгэлтэй биш үед арилжаанд оролцохгүй бай - Хүлээх нь
             алдахаас дээр
           </li>
-          <li>
-            Арилжааны төлөвлөгөөгөө хатуу баримтал - Зөн совиндоо биш, дүрэмдээ
-            дага
-          </li>
-          <li>
-            Стресс ихтэй үед жижиг лотоор арилжаал - Эрсдэлээ бууруулж, сэтгэл
-            санааны ачааллыг хөнгөвчил
-          </li>
-          <li>
-            Амжилт, бүтэлгүйтлээ дүн шинжилгээ хий - Аль нь яагаад болсныг
-            ойлгох нь хамгийн чухал
-          </li>
         </ul>
       </div>
+
       {/* Golden Rule Section */}
-      <div className="mt-8 overflow-hidden rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 p-[1px] shadow-lg">
+      <div className="overflow-hidden rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 p-[1px] shadow-lg">
         <div className="rounded-xl bg-gradient-to-br from-white to-gray-50 p-6 dark:from-gray-900 dark:to-gray-800">
           <div className="flex flex-col items-center justify-center text-center">
             <div className="relative mb-4">

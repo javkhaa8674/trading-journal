@@ -1,10 +1,19 @@
-// app/(app)/withdrawals/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useMemo } from "react";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  flexRender,
+  ColumnDef,
+  SortingState,
+} from "@tanstack/react-table";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
-import { getStatusColor, getStatusIcon } from "@/lib/utils/statusUtils";
 
 type Account = {
   id: string;
@@ -22,110 +31,44 @@ type Withdrawal = {
   method: "bank_transfer" | "crypto" | "paypal" | "other";
   transaction_id?: string;
   description?: string;
+  account_details?: string;
   date: string;
   created_at: string;
+  account_name?: string;
 };
 
-type WithdrawalMethod = {
-  id: string;
-  name: string;
-  nameMn: string;
-  icon: string;
-  minAmount: number;
-  maxAmount: number;
-  processingTime: string;
-  processingTimeMn: string;
-  fee: number;
-  accountField?: string;
-  accountFieldLabel?: string;
-  accountFieldLabelMn?: string;
-};
-
-const withdrawalMethods: WithdrawalMethod[] = [
-  {
-    id: "bank_transfer",
-    name: "Bank Transfer",
-    nameMn: "Банкны шилжүүлэг",
-    icon: "🏦",
-    minAmount: 100,
-    maxAmount: 50000,
-    processingTime: "2-5 business days",
-    processingTimeMn: "2-5 ажлын өдөр",
-    fee: 0,
-    accountField: "bank_account",
-    accountFieldLabel: "Bank Account Number",
-    accountFieldLabelMn: "Банкны дансны дугаар",
-  },
-  {
-    id: "crypto",
-    name: "Cryptocurrency",
-    nameMn: "Крипто валют",
-    icon: "₿",
-    minAmount: 50,
-    maxAmount: 100000,
-    processingTime: "10-30 minutes",
-    processingTimeMn: "10-30 минут",
-    fee: 1,
-    accountField: "wallet_address",
-    accountFieldLabel: "Wallet Address",
-    accountFieldLabelMn: "Хэтэвчний хаяг",
-  },
-  {
-    id: "paypal",
-    name: "PayPal",
-    nameMn: "PayPal",
-    icon: "💙",
-    minAmount: 10,
-    maxAmount: 10000,
-    processingTime: "1-2 business days",
-    processingTimeMn: "1-2 ажлын өдөр",
-    fee: 2.5,
-    accountField: "paypal_email",
-    accountFieldLabel: "PayPal Email",
-    accountFieldLabelMn: "PayPal имэйл",
-  },
-  {
-    id: "other",
-    name: "Other",
-    nameMn: "Бусад",
-    icon: "💵",
-    minAmount: 10,
-    maxAmount: 5000,
-    processingTime: "Varies",
-    processingTimeMn: "Хувьсах",
-    fee: 0,
-    accountField: "account_details",
-    accountFieldLabel: "Account Details",
-    accountFieldLabelMn: "Дансны дэлгэрэнгүй",
-  },
+const withdrawalMethods = [
+  { id: "bank_transfer", nameMn: "Банкны шилжүүлэг", icon: "🏦" },
+  { id: "crypto", nameMn: "Крипто валют", icon: "₿" },
+  { id: "paypal", nameMn: "PayPal", icon: "💙" },
+  { id: "other", nameMn: "Бусад", icon: "💵" },
 ];
 
 export default function WithdrawalsPage() {
+  const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "date", desc: true },
+  ]);
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
+  const [rowSelection, setRowSelection] = useState({});
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Form state
-  const [formData, setFormData] = useState({
-    account_id: "",
-    amount: 0,
-    method: "bank_transfer" as WithdrawalMethod["id"],
-    transaction_id: "",
-    description: "",
-    account_details: "",
-  });
+  // Filter states
+  const [selectedAccount, setSelectedAccount] = useState<string>("all");
+  const [selectedMethod, setSelectedMethod] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
 
-  // Load accounts and withdrawals
   useEffect(() => {
     const loadData = async () => {
       const user = await getCurrentUser();
       if (!user) return;
 
-      // Load accounts
       const { data: accountsData } = await supabase
         .from("accounts")
         .select("id, name, balance, mode, status")
@@ -133,165 +76,31 @@ export default function WithdrawalsPage() {
 
       setAccounts(accountsData || []);
 
-      // Load withdrawals (status байхгүй, бүгд амжилттай гэж үзнэ)
       const { data: withdrawalsData } = await supabase
         .from("withdrawals")
         .select("*")
         .eq("user_id", user.id)
         .order("date", { ascending: false });
 
-      setWithdrawals(withdrawalsData || []);
+      const withdrawalsWithAccountName = (withdrawalsData || []).map(
+        (withdrawal) => ({
+          ...withdrawal,
+          account_name:
+            accountsData?.find((a) => a.id === withdrawal.account_id)?.name ||
+            withdrawal.account_id,
+        }),
+      );
+
+      setWithdrawals(withdrawalsWithAccountName);
       setLoading(false);
     };
 
     loadData();
   }, []);
 
-  const selectedAccount = accounts.find((a) => a.id === formData.account_id);
-  const selectedMethod = withdrawalMethods.find(
-    (m) => m.id === formData.method,
-  );
-
-  // Handle form submit
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    setSuccess(null);
-
-    const user = await getCurrentUser();
-    if (!user) {
-      setError("Нэвтрэнэ үү / Please login first");
-      setSubmitting(false);
-      return;
-    }
-
-    if (!formData.account_id) {
-      setError("Дансаа сонгоно уу / Please select an account");
-      setSubmitting(false);
-      return;
-    }
-
-    if (formData.amount <= 0) {
-      setError("Дүн 0-с их байх ёстой / Amount must be greater than 0");
-      setSubmitting(false);
-      return;
-    }
-
-    if (!selectedAccount) {
-      setError("Сонгосон данс олдсонгүй / Selected account not found");
-      setSubmitting(false);
-      return;
-    }
-
-    if (formData.amount > selectedAccount.balance) {
-      setError(
-        `Хүрэлцэхгүй баланс. Боломжтой: $${selectedAccount.balance.toLocaleString()} / Insufficient balance. Available: $${selectedAccount.balance.toLocaleString()}`,
-      );
-      setSubmitting(false);
-      return;
-    }
-
-    if (selectedMethod) {
-      if (formData.amount < selectedMethod.minAmount) {
-        setError(
-          `Хамгийн бага дүн: $${selectedMethod.minAmount} / Minimum withdrawal amount is $${selectedMethod.minAmount}`,
-        );
-        setSubmitting(false);
-        return;
-      }
-      if (formData.amount > selectedMethod.maxAmount) {
-        setError(
-          `Хамгийн их дүн: $${selectedMethod.maxAmount} / Maximum withdrawal amount is $${selectedMethod.maxAmount}`,
-        );
-        setSubmitting(false);
-        return;
-      }
-    }
-
-    // Calculate fee
-    const fee = selectedMethod
-      ? (formData.amount * selectedMethod.fee) / 100
-      : 0;
-    const netAmount = formData.amount - fee;
-
-    // Insert withdrawal (status хадгалахгүй)
-    const { error: withdrawalError } = await supabase
-      .from("withdrawals")
-      .insert({
-        user_id: user.id,
-        account_id: formData.account_id,
-        amount: formData.amount,
-        method: formData.method,
-        transaction_id: formData.transaction_id || null,
-        description: formData.description || null,
-        account_details: formData.account_details || null,
-        date: new Date().toISOString(),
-      });
-
-    if (withdrawalError) {
-      setError(withdrawalError.message);
-      setSubmitting(false);
-      return;
-    }
-
-    // Update account balance (мөнгийг хасах)
-    const { error: updateError } = await supabase
-      .from("accounts")
-      .update({ balance: selectedAccount.balance - netAmount })
-      .eq("id", formData.account_id);
-
-    if (updateError) {
-      setError(
-        "Дансны баланс шинэчлэгдсэнгүй / Failed to update account balance",
-      );
-      setSubmitting(false);
-      return;
-    }
-
-    setSuccess(
-      `$${formData.amount.toFixed(2)} -ийн мөнгө амжилттай гаргалаа! / Successfully withdrew $${formData.amount.toFixed(2)}!`,
-    );
-    setShowForm(false);
-    setFormData({
-      account_id: "",
-      amount: 0,
-      method: "bank_transfer",
-      transaction_id: "",
-      description: "",
-      account_details: "",
-    });
-
-    // Refresh data
-    const { data: withdrawalsData } = await supabase
-      .from("withdrawals")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("date", { ascending: false });
-
-    setWithdrawals(withdrawalsData || []);
-
-    const { data: accountsData } = await supabase
-      .from("accounts")
-      .select("id, name, balance, mode, status")
-      .eq("user_id", user.id);
-
-    setAccounts(accountsData || []);
-
-    setSubmitting(false);
-  };
-
   const getMethodIcon = (method: string) => {
-    switch (method) {
-      case "bank_transfer":
-        return "🏦";
-      case "crypto":
-        return "₿";
-      case "paypal":
-        return "💙";
-      default:
-        return "💵";
-    }
+    const m = withdrawalMethods.find((m) => m.id === method);
+    return m ? m.icon : "💵";
   };
 
   const getMethodName = (method: string) => {
@@ -299,357 +108,522 @@ export default function WithdrawalsPage() {
     return m ? m.nameMn : "Бусад";
   };
 
-  const totalWithdrawals = withdrawals.reduce((sum, w) => sum + w.amount, 0);
+  // Apply filters
+  const filteredData = useMemo(() => {
+    let filtered = [...withdrawals];
+
+    if (selectedAccount !== "all") {
+      filtered = filtered.filter((w) => w.account_id === selectedAccount);
+    }
+    if (selectedMethod !== "all") {
+      filtered = filtered.filter((w) => w.method === selectedMethod);
+    }
+    if (dateFrom) {
+      filtered = filtered.filter((w) => w.date >= dateFrom);
+    }
+    if (dateTo) {
+      filtered = filtered.filter((w) => w.date <= dateTo);
+    }
+
+    return filtered;
+  }, [withdrawals, selectedAccount, selectedMethod, dateFrom, dateTo]);
+
+  // Column definitions
+  const columns = useMemo<ColumnDef<Withdrawal>[]>(() => {
+    const cols: ColumnDef<Withdrawal>[] = [];
+
+    if (isSelectMode) {
+      cols.push({
+        id: "select",
+        header: ({ table }) => (
+          <input
+            type="checkbox"
+            checked={table.getIsAllRowsSelected()}
+            onChange={table.getToggleAllRowsSelectedHandler()}
+            className="h-4 w-4 rounded border-gray-300"
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            checked={row.getIsSelected()}
+            onChange={row.getToggleSelectedHandler()}
+            className="h-4 w-4 rounded border-gray-300"
+          />
+        ),
+      });
+    }
+
+    cols.push({
+      accessorKey: "date",
+      header: ({ column }) => (
+        <button
+          onClick={() => column.toggleSorting()}
+          className="flex items-center gap-1 hover:text-blue-500"
+        >
+          📅 Огноо
+          {column.getIsSorted() === "asc" && " ↑"}
+          {column.getIsSorted() === "desc" && " ↓"}
+        </button>
+      ),
+      cell: (info) => new Date(info.getValue() as string).toLocaleDateString(),
+    });
+
+    cols.push({
+      accessorKey: "account_name",
+      header: "🏦 Данс",
+      cell: (info) => info.getValue(),
+    });
+
+    cols.push({
+      accessorKey: "method",
+      header: "💳 Төлбөрийн хэрэгсэл",
+      cell: (info) => (
+        <span className="flex items-center gap-1">
+          {getMethodIcon(info.getValue() as string)}{" "}
+          {getMethodName(info.getValue() as string)}
+        </span>
+      ),
+    });
+
+    cols.push({
+      accessorKey: "amount",
+      header: ({ column }) => (
+        <button
+          onClick={() => column.toggleSorting()}
+          className="flex items-center gap-1 hover:text-blue-500"
+        >
+          💰 Дүн
+          {column.getIsSorted() === "asc" && " ↑"}
+          {column.getIsSorted() === "desc" && " ↓"}
+        </button>
+      ),
+      cell: (info) => (
+        <span className="font-semibold text-red-600">
+          -${(info.getValue() as number).toLocaleString()}
+        </span>
+      ),
+    });
+
+    cols.push({
+      accessorKey: "transaction_id",
+      header: "🔢 Гүйлгээний ID",
+      cell: (info) => info.getValue() || "-",
+    });
+
+    cols.push({
+      accessorKey: "account_details",
+      header: "🏦 Дансны дэлгэрэнгүй",
+      cell: (info) => (
+        <div
+          className="max-w-xs truncate"
+          title={(info.getValue() as string) || ""}
+        >
+          {info.getValue() || "-"}
+        </div>
+      ),
+    });
+
+    if (!isSelectMode) {
+      cols.push({
+        id: "actions",
+        header: "⚙️ Үйлдэл",
+        cell: (info) => (
+          <button
+            onClick={() => router.push(`/withrawals/${info.row.original.id}`)}
+            className="rounded bg-blue-500 px-3 py-1 text-xs text-white hover:bg-blue-600"
+          >
+            Засах
+          </button>
+        ),
+      });
+    }
+
+    return cols;
+  }, [isSelectMode, router]);
+
+  const table = useReactTable({
+    data: filteredData,
+    columns,
+    state: { sorting, globalFilter, pagination, rowSelection },
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    onPaginationChange: setPagination,
+    onRowSelectionChange: setRowSelection,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  const selectedRowIds = table
+    .getSelectedRowModel()
+    .rows.map((row) => row.original.id);
+  const selectedCount = selectedRowIds.length;
+  const totalAmount = filteredData.reduce((sum, w) => sum + w.amount, 0);
+  const filteredAccounts = accounts.filter((acc) => acc.status === "active");
+
+  const handleDeleteSelected = async () => {
+    if (selectedCount === 0) return;
+    if (!confirm(`${selectedCount} гүйлгээ устгахдаа итгэлтэй байна уу?`))
+      return;
+
+    setIsDeleting(true);
+    const user = await getCurrentUser();
+    if (!user) {
+      alert("Нэвтрэнэ үү");
+      setIsDeleting(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("withdrawals")
+      .delete()
+      .in("id", selectedRowIds)
+      .eq("user_id", user.id);
+
+    if (error) {
+      alert(`Алдаа гарлаа: ${error.message}`);
+    } else {
+      setWithdrawals(withdrawals.filter((w) => !selectedRowIds.includes(w.id)));
+      setRowSelection({});
+      setIsSelectMode(false);
+      alert(`${selectedCount} гүйлгээ амжилттай устгагдлаа`);
+    }
+    setIsDeleting(false);
+  };
+
+  const resetFilters = () => {
+    setSelectedAccount("all");
+    setSelectedMethod("all");
+    setDateFrom("");
+    setDateTo("");
+    setGlobalFilter("");
+  };
 
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
         <div className="text-center">
           <div className="mb-2 text-2xl">💸</div>
-          <div className="text-gray-500 dark:text-gray-400">
-            Ачааллаж байна...
-          </div>
+          <div className="text-gray-500">Ачааллаж байна...</div>
         </div>
       </div>
     );
   }
 
-  const filteredAccounts = accounts.filter((acc) => acc.status === "active");
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-3 sm:px-0">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold dark:text-white">💸 Мөнгө татах</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Арилжааны данснаас мөнгө татах
+          <h1 className="text-xl sm:text-2xl font-bold">💸 Мөнгө татах</h1>
+          <p className="text-xs sm:text-sm text-gray-500">
+            Арилжааны данснаас мөнгө татах гүйлгээнүүд
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
-        >
-          <span className="text-lg">+</span>
-          <span>Мөнгө татах</span>
-        </button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
-          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span className="text-lg">💰</span>
-            <span className="text-sm">Нийт татсан мөнгө</span>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
+        <div className="rounded-lg border bg-white p-3 sm:p-4 dark:bg-gray-900">
+          <div className="flex items-center gap-2 text-gray-500">
+            <span className="text-base sm:text-lg">💰</span>
+            <span className="text-xs sm:text-sm">Нийт татсан мөнгө</span>
           </div>
-          <div className="mt-2 text-2xl font-bold text-orange-600 dark:text-orange-400">
-            ${totalWithdrawals.toLocaleString()}
-          </div>
-        </div>
-        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
-          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span className="text-lg">📊</span>
-            <span className="text-sm">Нийт гүйлгээ</span>
-          </div>
-          <div className="mt-2 text-2xl font-bold dark:text-white">
-            {withdrawals.length}
+          <div className="mt-1 sm:mt-2 text-lg sm:text-2xl font-bold text-orange-600">
+            ${totalAmount.toLocaleString()}
           </div>
         </div>
-        <div className="rounded-lg border bg-white p-4 dark:bg-gray-900 dark:border-gray-800">
-          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span className="text-lg">🏦</span>
-            <span className="text-sm">Идэвхтэй данс</span>
+        <div className="rounded-lg border bg-white p-3 sm:p-4 dark:bg-gray-900">
+          <div className="flex items-center gap-2 text-gray-500">
+            <span className="text-base sm:text-lg">📊</span>
+            <span className="text-xs sm:text-sm">Нийт гүйлгээ</span>
           </div>
-          <div className="mt-2 text-2xl font-bold dark:text-white">
+          <div className="mt-1 sm:mt-2 text-lg sm:text-2xl font-bold">
+            {filteredData.length}
+          </div>
+        </div>
+        <div className="col-span-2 sm:col-span-1 rounded-lg border bg-white p-3 sm:p-4 dark:bg-gray-900">
+          <div className="flex items-center gap-2 text-gray-500">
+            <span className="text-base sm:text-lg">🏦</span>
+            <span className="text-xs sm:text-sm">Идэвхтэй данс</span>
+          </div>
+          <div className="mt-1 sm:mt-2 text-lg sm:text-2xl font-bold">
             {filteredAccounts.length}
           </div>
         </div>
       </div>
 
-      {/* Withdrawal Form */}
-      {showForm && (
-        <div className="rounded-lg border bg-white p-6 dark:bg-gray-900 dark:border-gray-800">
-          <h2 className="mb-4 text-lg font-semibold dark:text-white">
-            📝 Мөнгө татах
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium dark:text-gray-300">
-                🏦 Данс сонгох *
-              </label>
-              <select
-                value={formData.account_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, account_id: e.target.value })
-                }
-                className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                required
-              >
-                <option value="">📋 Данс сонгох</option>
-                {filteredAccounts.map((acc) => (
-                  <option
-                    key={acc.id}
-                    value={acc.id}
-                    className={getStatusColor(acc.status)}
-                  >
-                    {getStatusIcon(acc.status)} {acc.name}
-                    {acc.status !== "active" && ` (${acc.status})`}
-                    {acc.status === "active" &&
-                      ` - $${acc.balance.toLocaleString()}`}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {/* Filter Section */}
+      <div className="rounded-lg border bg-white p-4 dark:bg-gray-900">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h3 className="text-base font-semibold">🔍 Шүүлтүүр</h3>
+          <button
+            onClick={resetFilters}
+            className="text-sm text-blue-500 hover:text-blue-600"
+          >
+            Цэвэрлэх
+          </button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Данс</label>
+            <select
+              value={selectedAccount}
+              onChange={(e) => setSelectedAccount(e.target.value)}
+              className="w-full rounded-lg border p-2 text-sm bg-white dark:bg-gray-800"
+            >
+              <option value="all">Бүх данс</option>
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">
+              Төлбөрийн хэрэгсэл
+            </label>
+            <select
+              value={selectedMethod}
+              onChange={(e) => setSelectedMethod(e.target.value)}
+              className="w-full rounded-lg border p-2 text-sm bg-white dark:bg-gray-800"
+            >
+              <option value="all">Бүх төрөл</option>
+              {withdrawalMethods.map((method) => (
+                <option key={method.id} value={method.id}>
+                  {method.icon} {method.nameMn}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">
+              Огноо (эхлэх)
+            </label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-full rounded-lg border p-2 text-sm bg-white dark:bg-gray-800"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">
+              Огноо (дуусах)
+            </label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-full rounded-lg border p-2 text-sm bg-white dark:bg-gray-800"
+            />
+          </div>
+        </div>
+      </div>
 
-            <div>
-              <label className="block text-sm font-medium dark:text-gray-300">
-                💰 Дүн *
-              </label>
-              <div className="relative mt-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-                  $
-                </span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="1"
-                  value={formData.amount || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      amount: parseFloat(e.target.value),
-                    })
-                  }
-                  className="w-full rounded-lg border p-2 pl-7 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-              {selectedAccount && formData.amount > selectedAccount.balance && (
-                <p className="mt-1 text-xs text-red-500">
-                  ⚠️ Баланс хүрэлцэхгүй байна. Боломжтой дүн:
-                  {selectedAccount.balance.toLocaleString()}$
-                </p>
-              )}
-            </div>
+      {/* Header with Search and Action Buttons */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-1 items-center gap-2">
+          <div className="relative flex-1 sm:flex-initial">
+            <input
+              type="text"
+              value={globalFilter ?? ""}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              placeholder="Гүйлгээний ID, тайлбараар хайх..."
+              className="w-full sm:w-80 rounded-lg border px-4 py-2 pl-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              🔍
+            </span>
+          </div>
+          <span className="text-sm text-gray-500 whitespace-nowrap">
+            {filteredData.length} гүйлгээ
+          </span>
+        </div>
 
-            <div>
-              <label className="block text-sm font-medium dark:text-gray-300">
-                💳 Төлбөрийн хэрэгсэл *
-              </label>
-              <div className="mt-1 grid grid-cols-2 gap-2 md:grid-cols-4">
-                {withdrawalMethods.map((method) => (
-                  <button
-                    key={method.id}
-                    type="button"
-                    onClick={() =>
-                      setFormData({
-                        ...formData,
-                        method: method.id,
-                        account_details: "",
-                      })
-                    }
-                    className={`rounded-lg border p-3 text-center transition-all ${
-                      formData.method === method.id
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
-                        : "hover:border-gray-400 dark:border-gray-700"
-                    }`}
-                  >
-                    <div className="text-2xl">{method.icon}</div>
-                    <div className="mt-1 text-xs font-medium">
-                      {method.nameMn}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {selectedMethod && selectedMethod.accountField && (
-              <div>
-                <label className="block text-sm font-medium dark:text-gray-300">
-                  {selectedMethod.accountFieldLabelMn} *
-                </label>
-                <input
-                  type="text"
-                  value={formData.account_details}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      account_details: e.target.value,
-                    })
-                  }
-                  className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                  placeholder={`${selectedMethod.accountFieldLabelMn} оруулна уу.`}
-                  required
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium dark:text-gray-300">
-                🔢 Гүйлгээний ID (Нэмэлт)
-              </label>
-              <input
-                type="text"
-                value={formData.transaction_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, transaction_id: e.target.value })
-                }
-                className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                placeholder="e.g., TXN-123456"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium dark:text-gray-300">
-                📝 Тайлбар (Нэмэлт)
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                className="mt-1 w-full rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                rows={2}
-                placeholder="Нэмэлт мэдээлэл / Additional notes..."
-              />
-            </div>
-
-            {/* Fee Information */}
-            {selectedMethod && selectedMethod.fee > 0 && (
-              <div className="rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-800">
-                <div className="flex justify-between">
-                  <span>💰 Гаргах дүн:</span>
-                  <span>${formData.amount.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-red-600">
-                  <span>📉 Шимтгэл ({selectedMethod.fee}%):</span>
-                  <span>
-                    -$
-                    {((formData.amount * selectedMethod.fee) / 100).toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between font-semibold">
-                  <span>✅ Авах дүн:</span>
-                  <span>
-                    $
-                    {(
-                      formData.amount -
-                      (formData.amount * selectedMethod.fee) / 100
-                    ).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">
-                ⚠️ {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="rounded-lg bg-green-50 p-3 text-sm text-green-600 dark:bg-green-950/50 dark:text-green-400">
-                ✅ {success}
-              </div>
-            )}
-
-            <div className="flex gap-3">
+        <div className="flex gap-2">
+          {isSelectMode ? (
+            <>
               <button
-                type="submit"
-                disabled={submitting}
-                className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
+                onClick={handleDeleteSelected}
+                disabled={selectedCount === 0 || isDeleting}
+                className={`rounded-lg px-4 py-2 text-sm text-white ${
+                  selectedCount > 0 && !isDeleting
+                    ? "bg-red-500 hover:bg-red-600"
+                    : "bg-gray-300 cursor-not-allowed"
+                }`}
               >
-                {submitting ? "Боловсруулж байна..." : "✅ Мөнгө татах"}
+                {isDeleting
+                  ? "Устгаж байна..."
+                  : `🗑️ Устгах (${selectedCount})`}
               </button>
               <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="rounded-lg border px-4 py-2 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                onClick={() => {
+                  setIsSelectMode(false);
+                  setRowSelection({});
+                }}
+                className="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50"
               >
-                ❌ Цуцлах
+                Цуцлах
               </button>
-            </div>
-          </form>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => router.push("/withrawals/new")}
+                className="rounded-lg bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600"
+              >
+                + Мөнгө татах
+              </button>
+              <button
+                onClick={() => setIsSelectMode(true)}
+                className="rounded-lg border px-4 py-2 text-sm text-red-500 hover:bg-red-50"
+              >
+                🗑️ Устгах
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Selection info bar */}
+      {isSelectMode && selectedCount > 0 && (
+        <div className="flex items-center justify-between rounded-lg bg-blue-50 p-3 dark:bg-blue-950">
+          <span className="text-sm text-blue-800 dark:text-blue-300">
+            {selectedCount} гүйлгээ сонгогдсон (нийт $
+            {selectedRowIds
+              .map((id) => withdrawals.find((w) => w.id === id)?.amount || 0)
+              .reduce((a, b) => a + b, 0)
+              .toLocaleString()}
+            )
+          </span>
+          <button
+            onClick={() => setRowSelection({})}
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            Сонголтыг арилгах
+          </button>
         </div>
       )}
 
-      {/* Withdrawals History Table */}
-      <div className="rounded-lg border bg-white dark:bg-gray-900 dark:border-gray-800">
-        <div className="border-b p-4 dark:border-gray-800">
-          <h2 className="text-lg font-semibold dark:text-white">
-            📋 Гүйлгээний түүх
-          </h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-800">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
-                  📅 Огноо
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
-                  🏦 Данс
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
-                  💳 Арга
-                </th>
-                <th className="px-4 py-3 text-right text-sm font-medium dark:text-gray-300">
-                  💰 Дүн
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium dark:text-gray-300">
-                  🔢 Гүйлгээний ID
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y dark:divide-gray-800">
-              {withdrawals.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="py-8 text-center text-gray-500 dark:text-gray-400"
+      {/* Table */}
+      <div className="overflow-x-auto rounded-lg border">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+          <thead className="bg-gray-50 dark:bg-gray-800">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
                   >
-                    📭 Гүйлгээ байхгүй.
-                    <br />
-                    ✏️ &quot;Мөнгө татах&quot; товч дарж нэмэх
-                  </td>
-                </tr>
-              ) : (
-                withdrawals.map((withdrawal) => {
-                  const account = accounts.find(
-                    (a) => a.id === withdrawal.account_id,
-                  );
-                  return (
-                    <tr
-                      key={withdrawal.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-800"
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext(),
+                    )}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-800 dark:bg-gray-900">
+            {table.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="py-8 text-center text-gray-500"
+                >
+                  📭 Гүйлгээ байхгүй
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className={`hover:bg-gray-50 dark:hover:bg-gray-800 ${
+                    isSelectMode && row.getIsSelected()
+                      ? "bg-blue-50 dark:bg-blue-950/50"
+                      : ""
+                  }`}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td
+                      key={cell.id}
+                      className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap"
                     >
-                      <td className="px-4 py-3 text-sm dark:text-gray-300">
-                        {new Date(withdrawal.date).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3 text-sm dark:text-gray-300">
-                        {account?.name || withdrawal.account_id}
-                      </td>
-                      <td className="px-4 py-3 text-sm dark:text-gray-300">
-                        <span className="flex items-center gap-1">
-                          {getMethodIcon(withdrawal.method)}{" "}
-                          {getMethodName(withdrawal.method)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm font-medium text-red-600 dark:text-red-400">
-                        -${withdrawal.amount.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-mono text-xs dark:text-gray-400">
-                        {withdrawal.transaction_id || "-"}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
+
+      {/* Pagination */}
+      {filteredData.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span>
+              Хуудас {table.getState().pagination.pageIndex + 1} /{" "}
+              {table.getPageCount()}
+            </span>
+            <select
+              value={table.getState().pagination.pageSize}
+              onChange={(e) => table.setPageSize(Number(e.target.value))}
+              className="rounded border px-2 py-1 text-sm"
+            >
+              {[5, 10, 20, 30, 50].map((size) => (
+                <option key={size} value={size}>
+                  {size} харуулах
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+              className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+            >
+              ← Өмнөх
+            </button>
+            {Array.from(
+              { length: Math.min(5, table.getPageCount()) },
+              (_, i) => {
+                const pageNum = i + 1;
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => table.setPageIndex(pageNum - 1)}
+                    className={`rounded px-3 py-1 text-sm ${
+                      table.getState().pagination.pageIndex === pageNum - 1
+                        ? "bg-blue-500 text-white"
+                        : "border hover:bg-gray-50"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              },
+            )}
+            <button
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+              className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+            >
+              Дараах →
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
