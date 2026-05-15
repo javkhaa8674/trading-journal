@@ -272,31 +272,38 @@ export default function TradeForm() {
       // Tab-ээр тусгаарлагдсан column-ууд
       const columns = line.split("\t").map((col) => col.trim());
 
-      // Хүлээгдэж буй баганын тоо: 13
-      if (columns.length < 13) {
+      // Хүлээгдэж буй баганын тоо: 14 (таны жишээ мөрөөс хархад)
+      if (columns.length < 14) {
         errors.push({
           row: index + 1,
           line,
           errors: [
-            `13 багана хүлээгдэж байсан боловч ${columns.length} олдлоо`,
+            `14 багана хүлээгдэж байсан боловч ${columns.length} олдлоо`,
           ],
         });
         return;
       }
 
       try {
-        const openTimeStr = columns[0]; // Time (нээлтийн цаг)
-        const closeTimeStr = columns[8]; // Time (хаалтын цаг)
+        const openTimeStr = columns[0]; // Time (Open)
+        const ticket = columns[1]; // Ticket number (алгасах)
         const symbol = columns[2]; // Symbol
-        const typeRaw = columns[3]; // Type (buy/sell)
+        const typeRaw = columns[3]; // Type ✅ ЗАССАН: columns[1] -> columns[3]
         const volume = parseFloat(columns[4]); // Volume
-        const openPrice = parseFloat(columns[5].replace(/\s/g, "")); // Price
-        const closePrice = parseFloat(columns[9].replace(/\s/g, "")); // Price
+        const openPrice = parseFloat(columns[5].replace(/\s/g, "")); // Open Price (хоосон зайтай)
         const sl = parseFloat(columns[6].replace(/\s/g, "")) || 0; // S/L
         const tp = parseFloat(columns[7].replace(/\s/g, "")) || 0; // T/P
-        const commission = parseFloat(columns[10]) || 0; // Commission
+        const closeTimeStr = columns[8]; // Time (Close)
+        const closePrice = parseFloat(columns[9].replace(/\s/g, "")); // Close Price
+        const commissionRaw = columns[10]; // Commission ("-" байж болно)
         const swap = parseFloat(columns[11]) || 0; // Swap
         const profit = parseFloat(columns[12]) || 0; // Profit
+
+        // Commission-ийг зөв парслах ("-" байвал 0)
+        let commission = 0;
+        if (commissionRaw !== "-" && commissionRaw !== "") {
+          commission = parseFloat(commissionRaw) || 0;
+        }
 
         // ✅ НИЙТ АШИГ = Commission + Swap + Profit
         const totalProfit = commission + swap + profit;
@@ -316,7 +323,7 @@ export default function TradeForm() {
           return;
         }
 
-        // Огноо формат шалгах (2026.03.19 17:31:08)
+        // Огноо формат шалгах (2026.05.14 16:49:33)
         const openDate = new Date(openTimeStr.replace(/\./g, "-"));
         const closeDate = new Date(closeTimeStr.replace(/\./g, "-"));
 
@@ -348,7 +355,7 @@ export default function TradeForm() {
           close_time: closeTimeStr.replace(/\./g, "-"),
           stop_loss: sl,
           take_profit: tp,
-          profit: totalProfit, // ✅ ХАМГИЙН ЧУХАЛ: Нийт ашгийг хадгалж байна
+          profit: totalProfit,
         });
       } catch (err) {
         errors.push({
@@ -928,8 +935,8 @@ export default function TradeForm() {
                       🎯 MT5 History-с Export хийсэн өгөгдлөө буулгана уу
                     </p>
                     <code className="text-xs bg-gray-200 dark:bg-gray-800 dark:text-gray-300 p-2 block rounded">
-                      Ticket Time Type Size Symbol Price SL TP Time Price
-                      Commission Swap Profit Comment
+                      Time Position Symbol Type Volume Price S/L T/P Time Price
+                      Commission Swap Profit
                     </code>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                       💡 Дээрх дарааллын дагуу өгөгдөл байх ёстой.
@@ -975,8 +982,8 @@ export default function TradeForm() {
                       🎯 MT4 History-с Export хийсэн өгөгдлөө буулгана уу
                     </p>
                     <code className="text-xs bg-gray-200 dark:bg-gray-800 dark:text-gray-300 p-2 block rounded">
-                      Ticket Open Time Type Size Symbol Price SL TP Close Time
-                      Price Commission Swap Profit
+                      Ticket Open Time Type Size Item Price S/L T/P Close Time
+                      Price Commission Taxes Swap Profit
                     </code>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                       💡 Дээрх дарааллын дагуу өгөгдөл байх ёстой.
