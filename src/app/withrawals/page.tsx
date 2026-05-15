@@ -214,14 +214,14 @@ export default function WithdrawalsPage() {
     cols.push({
       accessorKey: "account_details",
       header: "🏦 Дансны дэлгэрэнгүй",
-      cell: (info) => (
-        <div
-          className="max-w-xs truncate"
-          title={(info.getValue() as string) || ""}
-        >
-          {info.getValue() || "-"}
-        </div>
-      ),
+      cell: (info) => {
+        const value = info.getValue() as string | undefined;
+        return (
+          <div className="max-w-xs truncate" title={value || ""}>
+            {value || "-"}
+          </div>
+        );
+      },
     });
 
     if (!isSelectMode) {

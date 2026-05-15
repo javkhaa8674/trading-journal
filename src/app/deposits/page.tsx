@@ -138,7 +138,6 @@ export default function DepositsPage() {
   const columns = useMemo<ColumnDef<Deposit>[]>(() => {
     const cols: ColumnDef<Deposit>[] = [];
 
-    // Select column - зөвхөн select mode үед л харагдана
     if (isSelectMode) {
       cols.push({
         id: "select",
@@ -161,7 +160,6 @@ export default function DepositsPage() {
       });
     }
 
-    // Date column
     cols.push({
       accessorKey: "date",
       header: ({ column }) => (
@@ -174,29 +172,34 @@ export default function DepositsPage() {
           {column.getIsSorted() === "desc" && " ↓"}
         </button>
       ),
-      cell: (info) => new Date(info.getValue() as string).toLocaleDateString(),
+      cell: (info) => {
+        const value = info.getValue() as string;
+        return new Date(value).toLocaleDateString();
+      },
     });
 
-    // Account column
     cols.push({
       accessorKey: "account_name",
       header: "🏦 Данс",
-      cell: (info) => info.getValue(),
+      cell: (info) => {
+        const value = info.getValue() as string;
+        return <span>{value}</span>;
+      },
     });
 
-    // Method column
     cols.push({
       accessorKey: "method",
       header: "💳 Төлбөрийн хэрэгсэл",
-      cell: (info) => (
-        <span className="flex items-center gap-1">
-          {getMethodIcon(info.getValue() as string)}{" "}
-          {getMethodName(info.getValue() as string)}
-        </span>
-      ),
+      cell: (info) => {
+        const value = info.getValue() as string;
+        return (
+          <span className="flex items-center gap-1">
+            {getMethodIcon(value)} {getMethodName(value)}
+          </span>
+        );
+      },
     });
 
-    // Amount column
     cols.push({
       accessorKey: "amount",
       header: ({ column }) => (
@@ -209,35 +212,38 @@ export default function DepositsPage() {
           {column.getIsSorted() === "desc" && " ↓"}
         </button>
       ),
-      cell: (info) => (
-        <span className="font-semibold text-green-600">
-          +${(info.getValue() as number).toLocaleString()}
-        </span>
-      ),
+      cell: (info) => {
+        const value = info.getValue() as number;
+        return (
+          <span className="font-semibold text-green-600">
+            +${value.toLocaleString()}
+          </span>
+        );
+      },
     });
 
-    // Transaction ID column
     cols.push({
       accessorKey: "transaction_id",
       header: "🔢 Гүйлгээний ID",
-      cell: (info) => info.getValue() || "-",
+      cell: (info) => {
+        const value = info.getValue() as string | undefined;
+        return <span>{value || "-"}</span>;
+      },
     });
 
-    // Description column
     cols.push({
       accessorKey: "description",
       header: "📝 Тайлбар",
-      cell: (info) => (
-        <div
-          className="max-w-xs truncate"
-          title={(info.getValue() as string) || ""}
-        >
-          {info.getValue() || "-"}
-        </div>
-      ),
+      cell: (info) => {
+        const value = info.getValue() as string | undefined;
+        return (
+          <div className="max-w-xs truncate" title={value || ""}>
+            {value || "-"}
+          </div>
+        );
+      },
     });
 
-    // Actions column - Edit only (when not in select mode)
     if (!isSelectMode) {
       cols.push({
         id: "actions",
@@ -275,7 +281,6 @@ export default function DepositsPage() {
     getSortedRowModel: getSortedRowModel(),
   });
 
-  // Get selected row IDs
   const selectedRowIds = table
     .getSelectedRowModel()
     .rows.map((row) => row.original.id);
@@ -283,7 +288,6 @@ export default function DepositsPage() {
   const totalAmount = filteredData.reduce((sum, d) => sum + d.amount, 0);
   const filteredAccounts = accounts.filter((acc) => acc.status === "active");
 
-  // Handle delete selected
   const handleDeleteSelected = async () => {
     if (selectedCount === 0) return;
 
@@ -308,7 +312,6 @@ export default function DepositsPage() {
     if (error) {
       alert(`Алдаа гарлаа: ${error.message}`);
     } else {
-      // Remove deleted deposits from state
       setDeposits(deposits.filter((d) => !selectedRowIds.includes(d.id)));
       setRowSelection({});
       setIsSelectMode(false);
@@ -318,18 +321,6 @@ export default function DepositsPage() {
     setIsDeleting(false);
   };
 
-  // Cancel select mode
-  const cancelSelectMode = () => {
-    setIsSelectMode(false);
-    setRowSelection({});
-  };
-
-  // Enter select mode
-  const enterSelectMode = () => {
-    setIsSelectMode(true);
-  };
-
-  // Reset all filters
   const resetFilters = () => {
     setSelectedAccount("all");
     setSelectedMethod("all");
@@ -502,7 +493,10 @@ export default function DepositsPage() {
                   : `🗑️ Устгах (${selectedCount})`}
               </button>
               <button
-                onClick={cancelSelectMode}
+                onClick={() => {
+                  setIsSelectMode(false);
+                  setRowSelection({});
+                }}
                 className="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50"
               >
                 Цуцлах
@@ -517,7 +511,7 @@ export default function DepositsPage() {
                 + Шинэ хадгаламж
               </button>
               <button
-                onClick={enterSelectMode}
+                onClick={() => setIsSelectMode(true)}
                 className="rounded-lg border px-4 py-2 text-sm text-red-500 hover:bg-red-50"
               >
                 🗑️ Устгах
