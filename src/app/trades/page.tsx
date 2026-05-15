@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
 import { Trade } from "@/types/trade";
 import TradeList from "@/app/components/trades/TradeList";
-import { getStatusColor, getStatusIcon } from "@/lib/utils/statusUtils";
+import { getStatusIcon } from "@/lib/utils/statusUtils";
 
 type Account = {
   id: string;
@@ -19,10 +19,11 @@ export default function TradesPage() {
   const router = useRouter();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [accountId, setAccountId] = useState("");
+  const [activeAccount, setActiveAccount] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Load accounts
   // Load accounts
   useEffect(() => {
     const loadAccounts = async () => {
@@ -40,13 +41,20 @@ export default function TradesPage() {
       }
 
       setAccounts(data || []);
+
+      // Зөвхөн active status-тай account-уудыг шүүж эхнийхийг нь сонгох
+      const activeAccounts =
+        data?.filter((acc) => acc.status === "active") || [];
+      if (activeAccounts.length > 0) {
+        setActiveAccount(activeAccounts[0].id);
+      }
     };
 
     loadAccounts();
   }, []);
 
   // Load trades
-  const loadTrades = async (selectedAccount?: string) => {
+  const loadTrades = async () => {
     setLoading(true);
     setError(null);
 
@@ -56,17 +64,18 @@ export default function TradesPage() {
       return;
     }
 
-    let query = supabase
+    if (!activeAccount) {
+      setTrades([]);
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase
       .from("trades")
       .select("*")
       .eq("user_id", user.id)
+      .eq("account_id", activeAccount)
       .order("close_time", { ascending: false });
-
-    if (selectedAccount) {
-      query = query.eq("account_id", selectedAccount);
-    }
-
-    const { data, error } = await query;
 
     if (error) {
       console.error(error);
@@ -79,10 +88,12 @@ export default function TradesPage() {
     setLoading(false);
   };
 
-  // Initial load
+  // Initial load - active account өөрчлөгдөхөд ачаална
   useEffect(() => {
-    loadTrades();
-  }, []);
+    if (activeAccount) {
+      loadTrades();
+    }
+  }, [activeAccount]);
 
   // Delete multiple trades (single or bulk)
   const deleteTrades = async (tradeIds: string[]) => {
@@ -100,7 +111,7 @@ export default function TradesPage() {
 
     if (error) {
       console.error(error);
-      loadTrades(accountId);
+      loadTrades();
       alert("Failed to delete trades. Please try again.");
     }
   };
@@ -110,10 +121,9 @@ export default function TradesPage() {
     router.push(`/trades/${tradeId}`);
   };
 
-  // Handle account filter change
+  // Handle account change
   const handleAccountChange = async (value: string) => {
-    setAccountId(value);
-    await loadTrades(value);
+    setActiveAccount(value);
   };
 
   if (loading) {
@@ -135,22 +145,18 @@ export default function TradesPage() {
 
         {/* Account Filter */}
         <select
-          value={accountId}
+          value={activeAccount || ""}
           onChange={(e) => handleAccountChange(e.target.value)}
           className={`rounded-lg border px-3 py-2 text-sm w-full sm:w-auto bg-white dark:bg-gray-800 dark:border-gray-700`}
         >
-          <option value="">Бүх данс</option>
-          {accounts.map((acc) => (
-            <option
-              key={acc.id}
-              value={acc.id}
-              className={getStatusColor(acc.status)}
-            >
-              {getStatusIcon(acc.status)} {acc.name}
-              {acc.status !== "active" && ` (${acc.status})`}
-              {acc.status === "active" && ` - $${acc.balance.toLocaleString()}`}
-            </option>
-          ))}
+          {accounts
+            .filter((acc) => acc.status === "active") // Зөвхөн active account-ууд
+            .map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {getStatusIcon(acc.status)} {acc.name} - $
+                {acc.balance.toLocaleString()}
+              </option>
+            ))}
         </select>
       </div>
 
