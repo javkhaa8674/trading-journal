@@ -118,7 +118,7 @@ export default function AdminSignupsPage() {
       setError("Алдаа: " + error.message);
     } else {
       setNewEmail("");
-      setSuccess(`✅ ${newEmail} амжилттай нэмэгдлээ!`);
+      setSuccess(` ${newEmail} амжилттай нэмэгдлээ!`);
       await loadRequests();
       setTimeout(() => setSuccess(null), 3000);
     }
@@ -141,7 +141,7 @@ export default function AdminSignupsPage() {
         console.error("Delete error:", error);
         setError("Устгахад алдаа гарлаа: " + error.message);
       } else {
-        setSuccess(`✅ ${email} амжилттай устгагдлаа`);
+        setSuccess(` ${email} амжилттай устгагдлаа`);
         // Refresh the list
         await loadRequests();
         setTimeout(() => setSuccess(null), 3000);
