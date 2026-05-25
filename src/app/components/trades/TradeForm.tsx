@@ -106,159 +106,14 @@ export default function TradeForm() {
     router.replace("/trades");
   };
 
-  // -------------------------
-  // VALIDATION & PARSER
-  // -------------------------
-  const validateTrade = (
-    trade: Partial<ParsedTrade>,
-    rowNum: number,
-    originalLine: string,
-  ): ValidationError | null => {
-    const errors: string[] = [];
-
-    if (!trade.symbol || trade.symbol.trim() === "") {
-      errors.push("Хослолын нэр оруулах шаардлагатай");
-    }
-
-    if (!trade.type || !["buy", "sell"].includes(trade.type.toLowerCase())) {
-      errors.push("Төрөл нь 'buy' эсвэл 'sell' байх ёстой");
-    }
-
-    if (
-      !trade.entry_price ||
-      isNaN(trade.entry_price) ||
-      trade.entry_price <= 0
-    ) {
-      errors.push("Нээлтийн үнэ эерэг тоо байх ёстой");
-    }
-
-    if (!trade.exit_price || isNaN(trade.exit_price) || trade.exit_price <= 0) {
-      errors.push("Хаалтын үнэ эерэг тоо байх ёстой");
-    }
-
-    if (!trade.lot_size || isNaN(trade.lot_size) || trade.lot_size <= 0) {
-      errors.push("Лотын хэмжээ эерэг тоо байх ёстой");
-    }
-
-    if (!trade.open_time || trade.open_time.trim() === "") {
-      errors.push("Нээлтийн огноо оруулах шаардлагатай");
-    } else if (isNaN(new Date(trade.open_time).getTime())) {
-      errors.push(
-        "Нээлтийн огнооны формат буруу байна (Зөв формат: ЖЖЖЖ-СС-ДД ЦЦ:ММ:ССС)",
-      );
-    }
-
-    if (!trade.close_time || trade.close_time.trim() === "") {
-      errors.push("Хаалтын огноо оруулах шаардлагатай");
-    } else if (isNaN(new Date(trade.close_time).getTime())) {
-      errors.push(
-        "Хаалтын огнооны формат буруу байна (Зөв формат: ЖЖЖЖ-СС-ДД ЦЦ:ММ:ССС)",
-      );
-    }
-
-    if (trade.stop_loss && isNaN(trade.stop_loss)) {
-      errors.push("Stop loss нь тоо байх ёстой");
-    }
-
-    if (trade.take_profit && isNaN(trade.take_profit)) {
-      errors.push("Take profit нь тоо байх ёстой");
-    }
-
-    if (trade.profit && isNaN(trade.profit)) {
-      errors.push("Profit нь тоо байх ёстой");
-    }
-
-    if (errors.length > 0) {
-      return { row: rowNum, line: originalLine, errors };
-    }
-
-    return null;
+  // Numeric parse helper (truncate to 2 decimals)
+  const truncateTo2Decimals = (num: number): number => {
+    return Math.trunc(num * 100) / 100;
   };
 
-  const parseTrades = (
-    text: string,
-  ): { validTrades: ParsedTrade[]; errors: ValidationError[] } => {
-    const lines = text
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-
-    const validTrades: ParsedTrade[] = [];
-    const errors: ValidationError[] = [];
-
-    lines.forEach((line, index) => {
-      const parts = line.split(/[,;\t]/).map((p) => p.trim());
-
-      if (parts.length < 10) {
-        errors.push({
-          row: index + 1,
-          line,
-          errors: [`10 багана хүлээгдэж байсан боловч ${parts.length} олдлоо`],
-        });
-        return;
-      }
-
-      const [
-        symbol,
-        type,
-        entry,
-        exit,
-        lot,
-        openTime,
-        closeTime,
-        sl,
-        tp,
-        profit,
-      ] = parts;
-
-      const tradeData: Partial<ParsedTrade> = {
-        symbol,
-        type: type.toLowerCase(),
-        entry_price: Number(entry),
-        exit_price: Number(exit),
-        lot_size: Number(lot),
-        open_time: openTime,
-        close_time: closeTime,
-        stop_loss: Number(sl),
-        take_profit: Number(tp),
-        profit: Number(profit),
-      };
-
-      const validationError = validateTrade(tradeData, index + 1, line);
-
-      if (validationError) {
-        errors.push(validationError);
-      } else {
-        validTrades.push(tradeData as ParsedTrade);
-      }
-    });
-
-    return { validTrades, errors };
+  const cleanNumber = (value: string): string => {
+    return value.replace(/\s/g, ""); // Бүх space-г арилгах
   };
-
-  // -------------------------
-  // PREVIEW HANDLER
-  // -------------------------
-  const handlePreview = () => {
-    if (!bulkText.trim()) {
-      alert("Арилжааны жагсаалтыг оруулна уу.");
-      return;
-    }
-
-    const { validTrades, errors } = parseTrades(bulkText);
-    setParsedTrades(validTrades);
-    setValidationErrors(errors);
-    setShowPreview(true);
-
-    if (errors.length > 0) {
-      alert(`${errors.length} мөрөнд алдаа байна. Булкаас өмнө засаарай.`);
-    } else if (validTrades.length === 0) {
-      alert("Булк хийх хүчинтэй арилжаа олдсонгүй");
-    } else {
-      alert(`${validTrades.length} арилжаа амжилттай боловсруулагдлаа!`);
-    }
-  };
-
   // 📌 MT4/MT5 ПАРСЕР (validationErrors-ийг handle хийсэн)
   // MT5 ПАРСЕР (Commission + Swap + Profit = Нийт ашиг)
   const parseMT5 = (
@@ -290,23 +145,24 @@ export default function TradeForm() {
         const symbol = columns[2]; // Symbol
         const typeRaw = columns[3]; // Type ✅ ЗАССАН: columns[1] -> columns[3]
         const volume = parseFloat(columns[4]); // Volume
-        const openPrice = parseFloat(columns[5].replace(/\s/g, "")); // Open Price (хоосон зайтай)
-        const sl = parseFloat(columns[6].replace(/\s/g, "")) || 0; // S/L
-        const tp = parseFloat(columns[7].replace(/\s/g, "")) || 0; // T/P
+        const openPrice = parseFloat(cleanNumber(columns[5])); // Open Price (хоосон зайтай)
+        const sl = parseFloat(cleanNumber(columns[6])) || 0; // S/L
+        const tp = parseFloat(cleanNumber(columns[7])) || 0; // T/P
         const closeTimeStr = columns[8]; // Time (Close)
-        const closePrice = parseFloat(columns[9].replace(/\s/g, "")); // Close Price
+        const closePrice = parseFloat(cleanNumber(columns[9])); // Close Price
         const commissionRaw = columns[10]; // Commission ("-" байж болно)
-        const swap = parseFloat(columns[11]) || 0; // Swap
-        const profit = parseFloat(columns[12]) || 0; // Profit
+        const swap = parseFloat(columns[11].replace(/\s/g, "")) || 0; // Swap
+        const profit = parseFloat(columns[12].replace(/\s/g, "")) || 0; // Profit
 
         // Commission-ийг зөв парслах ("-" байвал 0)
         let commission = 0;
         if (commissionRaw !== "-" && commissionRaw !== "") {
-          commission = parseFloat(commissionRaw) || 0;
+          commission = parseFloat(commissionRaw.replace(/\s/g, "")) || 0;
         }
 
         // ✅ НИЙТ АШИГ = Commission + Swap + Profit
-        const totalProfit = commission + swap + profit;
+        let totalProfit = commission + swap + profit;
+        totalProfit = truncateTo2Decimals(totalProfit);
 
         // Type шалгах
         let tradeType = "";
@@ -429,17 +285,18 @@ export default function TradeForm() {
         const symbol = columns[4].toUpperCase(); // Item (xauusd -> XAUUSD)
         const type = typeRaw; // Type (buy/sell)
         const size = parseFloat(columns[3]); // Size
-        const openPrice = parseFloat(columns[5]); // Price
-        const closePrice = parseFloat(columns[9]); // Price
-        const sl = parseFloat(columns[6]) || 0; // S/L
-        const tp = parseFloat(columns[7]) || 0; // T/P
+        const openPrice = parseFloat(cleanNumber(columns[5])); // Price
+        const closePrice = parseFloat(cleanNumber(columns[9])); // Price
+        const sl = parseFloat(cleanNumber(columns[6])) || 0; // S/L
+        const tp = parseFloat(cleanNumber(columns[7])) || 0; // T/P
         const commission = parseFloat(columns[10]) || 0; // Commission
-        const taxes = parseFloat(columns[11]) || 0; // Taxes
-        const swap = parseFloat(columns[12]) || 0; // Swap
-        const profit = parseFloat(columns[13]) || 0; // Profit
+        const taxes = parseFloat(columns[11].replace(/\s/g, "")) || 0; // Taxes
+        const swap = parseFloat(columns[12].replace(/\s/g, "")) || 0; // Swap
+        const profit = parseFloat(columns[13].replace(/\s/g, "")) || 0; // Profit
 
         // ✅ НИЙТ АШИГ = Commission + Taxes + Swap + Profit
-        const totalProfit = commission + taxes + swap + profit;
+        let totalProfit = commission + taxes + swap + profit;
+        totalProfit = truncateTo2Decimals(totalProfit);
 
         // Огноо формат шалгах (2026.01.20 14:04:18)
         const openDate = new Date(openTimeStr.replace(/\./g, "-"));
@@ -539,7 +396,7 @@ export default function TradeForm() {
         const directionRaw = columns[2];
         const openPrice = parseFloat(columns[3]);
         const closePrice = parseFloat(columns[4]);
-        const profitRaw = parseFloat(columns[5]);
+        const profitRaw = parseFloat(columns[5].replace(/\s/g, ""));
         const openDateRaw = columns[7];
         const closeDateRaw = columns[8];
         const sl = parseFloat(columns[10]) || 0;
