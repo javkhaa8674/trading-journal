@@ -161,7 +161,9 @@ export default function TradeForm() {
         }
 
         // ✅ НИЙТ АШИГ = Commission + Swap + Profit
-        let totalProfit = commission + swap + profit;
+        // Хэрэв swap эерэг бол 0, харин сөрөг бол хэвээр нь үлдээх
+        const effectiveSwap = swap > 0 ? 0 : swap;
+        let totalProfit = commission + effectiveSwap + profit;
         totalProfit = truncateTo2Decimals(totalProfit);
 
         // Type шалгах
@@ -295,7 +297,8 @@ export default function TradeForm() {
         const profit = parseFloat(columns[13].replace(/\s/g, "")) || 0; // Profit
 
         // ✅ НИЙТ АШИГ = Commission + Taxes + Swap + Profit
-        let totalProfit = commission + taxes + swap + profit;
+        const effectiveSwap = swap > 0 ? 0 : swap;
+        let totalProfit = commission + taxes + effectiveSwap + profit;
         totalProfit = truncateTo2Decimals(totalProfit);
 
         // Огноо формат шалгах (2026.01.20 14:04:18)
