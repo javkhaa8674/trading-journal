@@ -44,7 +44,7 @@ const withdrawalMethods = [
   { id: "other", nameMn: "Бусад", icon: "💵" },
 ];
 
-export default function WithdrawalsPage() {
+export default function WithrawalsPage() {
   const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);

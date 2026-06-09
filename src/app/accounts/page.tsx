@@ -13,6 +13,28 @@ type Account = {
   balance: number;
   status: string;
   created_at: string;
+  last_trade_date?: string | null;
+};
+
+const getDaysInactive = (date?: string | null) => {
+  if (!date) return null;
+
+  const last = new Date(date);
+  const now = new Date();
+
+  return Math.floor((now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
+};
+
+const getRemainingDays = (daysInactive: number | null) => {
+  if (daysInactive === null) return 30;
+  return Math.max(30 - daysInactive, 0);
+};
+
+const getRiskLevel = (remaining: number) => {
+  if (remaining <= 5) return "critical";
+  if (remaining <= 10) return "danger";
+  if (remaining <= 20) return "warning";
+  return "safe";
 };
 
 export default function AccountsPage() {
@@ -111,7 +133,13 @@ export default function AccountsPage() {
         {accountsToRender.map((account) => (
           <div
             key={account.id}
-            className="relative rounded-lg border bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-gray-900"
+            className={`relative rounded-lg border bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-gray-900
+            ${
+              account.last_trade_date &&
+              getRemainingDays(getDaysInactive(account.last_trade_date)) <= 5
+                ? "border-red-400"
+                : ""
+            }`}
           >
             {/* Action Buttons Container */}
             {deleteConfirm === account.id ? (
@@ -240,6 +268,38 @@ export default function AccountsPage() {
             <div className="mt-2 text-xs text-gray-400">
               Үүсгэсэн: {new Date(account.created_at).toLocaleDateString()}
             </div>
+            {account.last_trade_date && (
+              <div className="mt-2 text-xs">
+                <div className="text-gray-500">
+                  Сүүлд trade:{" "}
+                  {new Date(account.last_trade_date).toLocaleDateString()}
+                </div>
+
+                <div className="mt-1">
+                  {(() => {
+                    const days = getDaysInactive(account.last_trade_date);
+                    const remaining = getRemainingDays(days);
+                    const risk = getRiskLevel(remaining);
+
+                    return (
+                      <span
+                        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${
+                          risk === "critical"
+                            ? "bg-red-100 text-red-700"
+                            : risk === "danger"
+                              ? "bg-orange-100 text-orange-700"
+                              : risk === "warning"
+                                ? "bg-yellow-100 text-yellow-700"
+                                : "bg-green-100 text-green-700"
+                        }`}
+                      >
+                        Inactive account rule: {remaining} өдөр үлдсэн
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>

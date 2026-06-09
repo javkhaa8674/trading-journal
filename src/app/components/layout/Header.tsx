@@ -6,6 +6,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useSidebar } from "@/app/context/SidebarContext";
 import { ThemeToggle } from "@/app/components/ui/ThemeToggle";
+import { NotificationBell } from "@/app/components/notifications/NotificationBell";
 import Image from "next/image";
 
 export function Header() {
@@ -129,7 +130,7 @@ export function Header() {
 
       <div className="flex items-center gap-3">
         <ThemeToggle />
-
+        <NotificationBell />
         {/* User Menu Dropdown */}
         <div className="relative" ref={menuRef}>
           <button
