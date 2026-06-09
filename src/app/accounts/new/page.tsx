@@ -97,6 +97,11 @@ export default function CreateAccountPage() {
             <option value="backtest">Backtest</option>
             <option value="challengeStep1">Challenge Step 1</option>
             <option value="challengeStep2">Challenge Step 2</option>
+            <option value="highStakeStep1">HighStake Step 1</option>
+            <option value="highStakeStep2">HighStake Step 2</option>
+            <option value="bootcampStep1">Bootcamp Step 1</option>
+            <option value="bootcampStep2">Bootcamp Step 2</option>
+            <option value="bootcampStep3">Bootcamp Step 3</option>
             <option value="funded">Funded</option>
           </select>
         </div>
