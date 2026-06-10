@@ -136,6 +136,7 @@ export default function AccountsPage() {
             className={`relative rounded-lg border bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-gray-900
             ${
               account.last_trade_date &&
+              !["live", "demo", "backtest"].includes(account.mode) &&
               getRemainingDays(getDaysInactive(account.last_trade_date)) <= 5
                 ? "border-red-400"
                 : ""
@@ -268,38 +269,39 @@ export default function AccountsPage() {
             <div className="mt-2 text-xs text-gray-400">
               Үүсгэсэн: {new Date(account.created_at).toLocaleDateString()}
             </div>
-            {account.last_trade_date && (
-              <div className="mt-2 text-xs">
-                <div className="text-gray-500">
-                  Сүүлд trade:{" "}
-                  {new Date(account.last_trade_date).toLocaleDateString()}
-                </div>
+            {account.last_trade_date &&
+              !["live", "demo", "backtest"].includes(account.mode) && (
+                <div className="mt-2 text-xs">
+                  <div className="text-gray-500">
+                    Сүүлд trade:{" "}
+                    {new Date(account.last_trade_date).toLocaleDateString()}
+                  </div>
 
-                <div className="mt-1">
-                  {(() => {
-                    const days = getDaysInactive(account.last_trade_date);
-                    const remaining = getRemainingDays(days);
-                    const risk = getRiskLevel(remaining);
+                  <div className="mt-1">
+                    {(() => {
+                      const days = getDaysInactive(account.last_trade_date);
+                      const remaining = getRemainingDays(days);
+                      const risk = getRiskLevel(remaining);
 
-                    return (
-                      <span
-                        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${
-                          risk === "critical"
-                            ? "bg-red-100 text-red-700"
-                            : risk === "danger"
-                              ? "bg-orange-100 text-orange-700"
-                              : risk === "warning"
-                                ? "bg-yellow-100 text-yellow-700"
-                                : "bg-green-100 text-green-700"
-                        }`}
-                      >
-                        Inactive account rule: {remaining} өдөр үлдсэн
-                      </span>
-                    );
-                  })()}
+                      return (
+                        <span
+                          className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${
+                            risk === "critical"
+                              ? "bg-red-100 text-red-700"
+                              : risk === "danger"
+                                ? "bg-orange-100 text-orange-700"
+                                : risk === "warning"
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "bg-green-100 text-green-700"
+                          }`}
+                        >
+                          Inactive account rule: {remaining} өдөр үлдсэн
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
         ))}
       </div>
