@@ -245,35 +245,171 @@ HelpTooltip	Mongolian help tooltips
 
 🧩 8. Component Architecture (FINAL)
 
-text
-/components
-   /layout
-      ├── Sidebar.tsx
-      ├── Header.tsx
-      └── AppWrapper.tsx
-   /dashboard
-      ├── DashboardStats.tsx
-      ├── EquityCurveChart.tsx
-      ├── EquityDrawdownChart.tsx
-      ├── MonthlyHeatmap.tsx
-      ├── RiskPanel.tsx
-      ├── TradingDayPerformance.tsx
-      ├── MostTradedInstruments.tsx
-      ├── DailySummaryCalendar.tsx
-      ├── LongShortAnalysis.tsx
-      ├── TradeDurationPnL.tsx
-      ├── InstrumentProfitAnalysis.tsx
-      ├── InstrumentVolumeAnalysis.tsx
-      ├── SpiderWebChart.tsx
-      ├── KeyMetricsCards.tsx
-      └── HelpTooltip.tsx
-   /trades
-      ├── TradeForm.tsx
-      └── TradeList.tsx
-   /ui
-      ├── MetricCard.tsx
-      ├── LoadingSkeleton.tsx
-      └── StatusBadge.tsx
+-- ChapGPT.md
+|-- README.md
+|-- Test.md
+|-- eslint.config.mjs
+|-- next-env.d.ts
+|-- next.config.ts
+|-- package-lock.json
+|-- package.json
+|-- postcss.config.mjs
+|-- public
+|   |-- file.svg
+|   |-- globe.svg
+|   |-- jforex.svg
+|   |-- mt-logo.svg
+|   |-- next.svg
+|   |-- upload.svg
+|   |-- vercel.svg
+|   `-- window.svg
+|-- src
+|   |-- app
+|   |   |-- accounts
+|   |   |   |-- [id]
+|   |   |   |   `-- page.tsx
+|   |   |   |-- new
+|   |   |   |   `-- page.tsx
+|   |   |   `-- page.tsx
+|   |   |-- admin
+|   |   |   |-- layout.tsx
+|   |   |   `-- signups
+|   |   |       `-- page.tsx
+|   |   |-- brokers
+|   |   |   |-- [id]
+|   |   |   |   `-- page.tsx
+|   |   |   |-- new
+|   |   |   |   `-- page.tsx
+|   |   |   `-- page.tsx
+|   |   |-- components
+|   |   |   |-- appwrapper
+|   |   |   |   `-- AppWrapper.tsx
+|   |   |   |-- brokers
+|   |   |   |   |-- BrokerForm.tsx
+|   |   |   |   |-- BrokerList.tsx
+|   |   |   |   |-- BrokerSelect.tsx
+|   |   |   |   `-- BrokerStats.tsx
+|   |   |   |-- dashboard
+|   |   |   |   |-- DailySummaryCalendar.tsx
+|   |   |   |   |-- DashboardStats.tsx
+|   |   |   |   |-- DateRangeFilter.tsx
+|   |   |   |   |-- EquityCurveChart.tsx
+|   |   |   |   |-- EquityDrawdownChart.tsx
+|   |   |   |   |-- HelpTooltip.tsx
+|   |   |   |   |-- InstrumentProfitAnalysis.tsx
+|   |   |   |   |-- InstrumentVolumeAnalysis.tsx
+|   |   |   |   |-- KeyMetricsCards.tsx
+|   |   |   |   |-- LongShortAnalysis.tsx
+|   |   |   |   |-- MetricCard.tsx
+|   |   |   |   |-- MonteCarloEquityChart.tsx
+|   |   |   |   |-- MostTradedInstruments.tsx
+|   |   |   |   |-- RiskForcasting.tsx
+|   |   |   |   |-- RiskOfRuin.tsx
+|   |   |   |   |-- RiskPanel.tsx
+|   |   |   |   |-- RollingEquityChart.tsx
+|   |   |   |   |-- SpiderWebChart.tsx
+|   |   |   |   |-- StatsSummaryTooltip.tsx
+|   |   |   |   |-- TradeDurationPnl.tsx
+|   |   |   |   `-- TradingDayPerformance.tsx
+|   |   |   |-- layout
+|   |   |   |   |-- ClientLayout.tsx
+|   |   |   |   |-- Header.tsx
+|   |   |   |   `-- Sidebar.tsx
+|   |   |   |-- notifications
+|   |   |   |   `-- NotificationBell.tsx
+|   |   |   |-- trades
+|   |   |   |   |-- TradeForm.tsx
+|   |   |   |   `-- TradeList.tsx
+|   |   |   `-- ui
+|   |   |       |-- RichTextEditor.tsx
+|   |   |       `-- ThemeToggle.tsx
+|   |   |-- context
+|   |   |   `-- SidebarContext.tsx
+|   |   |-- dashboard
+|   |   |   `-- page.tsx
+|   |   |-- deposits
+|   |   |   |-- [id]
+|   |   |   |   `-- page.tsx
+|   |   |   |-- new
+|   |   |   |   `-- page.tsx
+|   |   |   `-- page.tsx
+|   |   |-- favicon.ico
+|   |   |-- globals.css
+|   |   |-- layout.tsx
+|   |   |-- login
+|   |   |   `-- page.tsx
+|   |   |-- page.tsx
+|   |   |-- profile
+|   |   |   `-- page.tsx
+|   |   |-- providers
+|   |   |   |-- NotificationProvider.tsx
+|   |   |   |-- Providers.tsx
+|   |   |   `-- ThemeProvider.tsx
+|   |   |-- psychology
+|   |   |   |-- [id]
+|   |   |   |   `-- page.tsx
+|   |   |   |-- new
+|   |   |   |   `-- page.tsx
+|   |   |   `-- page.tsx
+|   |   |-- register
+|   |   |   `-- page.tsx
+|   |   |-- reset-password
+|   |   |   `-- page.tsx
+|   |   |-- settings
+|   |   |   `-- page.tsx
+|   |   |-- trades
+|   |   |   |-- [id]
+|   |   |   |   `-- page.tsx
+|   |   |   |-- new
+|   |   |   |   `-- page.tsx
+|   |   |   `-- page.tsx
+|   |   |-- trading-plan
+|   |   |   `-- page.tsx
+|   |   `-- withrawals
+|   |       |-- [id]
+|   |       |   `-- page.tsx
+|   |       |-- new
+|   |       |   `-- page.tsx
+|   |       `-- page.tsx
+|   |-- assets
+|   |   `-- logo.png
+|   |-- lib
+|   |   |-- advancedAnalytics.ts
+|   |   |-- analytics.ts
+|   |   |-- constants
+|   |   |   `-- metricsHelp.ts
+|   |   |-- dashboardAnalytics.ts
+|   |   |-- equity.ts
+|   |   |-- getCurrentUser.ts
+|   |   |-- hooks
+|   |   |   |-- useAccounts.ts
+|   |   |   |-- useBrokers.ts
+|   |   |   `-- useUser.ts
+|   |   |-- psychologyAnalytics.ts
+|   |   |-- queryClient.ts
+|   |   |-- supabaseClient.ts
+|   |   `-- utils
+|   |       |-- consoleFilter.ts
+|   |       |-- dateUtils.ts
+|   |       `-- statusUtils.ts
+|   |-- middleware.ts
+|   `-- types
+|       |-- accounts.ts
+|       |-- broker.ts
+|       |-- deposit.ts
+|       |-- psychology.ts
+|       `-- trade.ts
+|-- supabase
+|   |-- config.toml
+|   |-- functions
+|   |   `-- inactivity-check
+|   |       |-- deno.json
+|   |       `-- index.ts
+|   `-- migrations
+|       |-- 20260619031934_create_brokers_table.sql
+|       `-- 20260619031949_create_brokers_table.sql
+|-- tailwind.config.ts
+`-- tsconfig.json
 📁 9. Core Library Structure
 text
 /lib

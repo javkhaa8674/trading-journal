@@ -17,9 +17,11 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
+  { name: "Ханш", href: "/chart", icon: "📈" },
   { name: "Хяналтын самбар", href: "/dashboard", icon: "📊" },
   { name: "Арилжаанууд", href: "/trades", icon: "💰" },
-  { name: "Дансууд", href: "/accounts", icon: "🏦" },
+  { name: "Брокерууд", href: "/brokers", icon: "🏦" },
+  { name: "Дансууд", href: "/accounts", icon: "💳" },
   { name: "Арилжааны төлөвлөгөө", href: "/trading-plan", icon: "🗺️" },
   { name: "Хадгаламж", href: "/deposits", icon: "📥" },
   { name: "Татан авалт", href: "/withrawals", icon: "💸" },

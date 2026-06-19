@@ -1,3 +1,4 @@
+// src/app/accounts/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -5,10 +6,18 @@ import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+type Broker = {
+  id: string;
+  name: string;
+  logo_url?: string | null;
+  leverage?: string | null;
+};
+
 type Account = {
   id: string;
   name: string;
   broker: string;
+  broker_id?: string | null;
   mode: string;
   balance: number;
   status: string;
@@ -16,12 +25,15 @@ type Account = {
   last_trade_date?: string | null;
 };
 
+type AccountWithBrokerLogo = Account & {
+  broker_logo?: string | null;
+  broker_leverage?: string | null;
+};
+
 const getDaysInactive = (date?: string | null) => {
   if (!date) return null;
-
   const last = new Date(date);
   const now = new Date();
-
   return Math.floor((now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
 };
 
@@ -39,7 +51,8 @@ const getRiskLevel = (remaining: number) => {
 
 export default function AccountsPage() {
   const router = useRouter();
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accounts, setAccounts] = useState<AccountWithBrokerLogo[]>([]);
+  const [brokers, setBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -49,23 +62,53 @@ export default function AccountsPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      const { data: userData } = await supabase.auth.getUser();
+      try {
+        const { data: userData } = await supabase.auth.getUser();
 
-      if (!userData.user) {
-        router.replace("/login");
-        return;
+        if (!userData.user) {
+          router.replace("/login");
+          return;
+        }
+
+        setUser(userData.user);
+
+        // 1. Брокеруудыг татах
+        const { data: brokersData } = await supabase
+          .from("brokers")
+          .select("id, name, logo_url, leverage")
+          .eq("user_id", userData.user.id);
+
+        setBrokers(brokersData || []);
+
+        // 2. Данснуудыг татах
+        const { data: accountsData } = await supabase
+          .from("accounts")
+          .select("*")
+          .eq("user_id", userData.user.id)
+          .order("created_at", { ascending: false });
+
+        // 3. Данснууд дээр брокерын лого нэмэх
+        const accountsWithLogo = (accountsData || []).map((account) => {
+          // broker_id эсвэл broker нэрээр хайх
+          const broker = brokersData?.find(
+            (b) =>
+              b.id === account.broker_id ||
+              b.name.toLowerCase() === account.broker?.toLowerCase(),
+          );
+
+          return {
+            ...account,
+            broker_logo: broker?.logo_url || null,
+            broker_leverage: broker?.leverage || null,
+          };
+        });
+
+        setAccounts(accountsWithLogo);
+      } catch (error) {
+        console.error("Error loading data:", error);
+      } finally {
+        setLoading(false);
       }
-
-      setUser(userData.user);
-
-      const { data } = await supabase
-        .from("accounts")
-        .select("*")
-        .eq("user_id", userData.user.id)
-        .order("created_at", { ascending: false });
-
-      setAccounts(data || []);
-      setLoading(false);
     };
 
     loadData();
@@ -104,6 +147,10 @@ export default function AccountsPage() {
         return "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300";
       case "demo":
         return "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300";
+      case "funded":
+        return "bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300";
+      case "backtest":
+        return "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300";
       default:
         return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
     }
@@ -115,7 +162,7 @@ export default function AccountsPage() {
   const closedAccounts = accounts.filter((acc) => acc.status === "closed");
 
   // Render account cards
-  const renderAccounts = (accountsToRender: Account[]) => {
+  const renderAccounts = (accountsToRender: AccountWithBrokerLogo[]) => {
     if (accountsToRender.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center">
@@ -160,7 +207,6 @@ export default function AccountsPage() {
               </div>
             ) : (
               <div className="absolute right-2 top-2 flex gap-1 sm:gap-2 z-10">
-                {/* Edit Button - Always visible on mobile, visible on hover on desktop */}
                 <Link
                   href={`/accounts/${account.id}`}
                   className="rounded p-1.5 bg-blue-100 text-blue-600 hover:bg-blue-200 sm:bg-transparent sm:hover:bg-blue-100 transition-colors"
@@ -180,8 +226,6 @@ export default function AccountsPage() {
                     />
                   </svg>
                 </Link>
-
-                {/* Delete Button - Always visible on mobile, visible on hover on desktop */}
                 <button
                   onClick={() => setDeleteConfirm(account.id)}
                   className="rounded p-1.5 bg-red-100 text-red-600 hover:bg-red-200 sm:bg-transparent sm:hover:bg-red-100 transition-colors"
@@ -204,19 +248,32 @@ export default function AccountsPage() {
               </div>
             )}
 
-            {/* Account Icon */}
-            <div className="mt-8 mb-3 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-blue-100 text-xl sm:text-2xl dark:bg-blue-950">
-              {account.mode === "live"
-                ? "💰"
-                : account.mode === "backtest"
-                  ? "📊"
-                  : account.mode === "funded"
-                    ? "🏆"
-                    : account.mode === "challengeStep1"
-                      ? "🚀"
-                      : account.mode === "challengeStep2"
-                        ? "🚀"
-                        : "💻"}
+            {/* ✅ Account Icon - Брокерын лого шууд харагдана */}
+            <div className="mt-8 mb-3 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden flex-shrink-0 border-2 border-gray-200 dark:border-gray-600">
+              {account.broker_logo ? (
+                <img
+                  src={account.broker_logo}
+                  alt={account.broker}
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    // Лого ачаалахгүй бол эхний үсэг харуулах
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = "none";
+                    const parent = target.parentElement;
+                    if (parent) {
+                      parent.className =
+                        "flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 text-lg sm:text-xl font-bold";
+                      parent.textContent =
+                        account.broker?.charAt(0).toUpperCase() || "?";
+                    }
+                  }}
+                />
+              ) : (
+                // Лого байхгүй бол брокерын нэрний эхний үсэг
+                <span className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400">
+                  {account.broker?.charAt(0).toUpperCase() || "?"}
+                </span>
+              )}
             </div>
 
             {/* Account Name */}
@@ -224,10 +281,27 @@ export default function AccountsPage() {
               {account.name}
             </h3>
 
-            {/* Broker */}
-            <p className="text-xs sm:text-sm text-gray-500 truncate">
-              {account.broker}
-            </p>
+            {/* Broker with Logo and Leverage */}
+            <div className="flex items-center gap-2">
+              {account.broker_logo && (
+                <img
+                  src={account.broker_logo}
+                  alt={account.broker}
+                  className="w-4 h-4 rounded-full object-cover flex-shrink-0"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              )}
+              <p className="text-xs sm:text-sm text-gray-500 truncate">
+                {account.broker}
+                {account.broker_leverage && (
+                  <span className="ml-1 text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                    {account.broker_leverage}
+                  </span>
+                )}
+              </p>
+            </div>
 
             {/* Mode and Status Badges */}
             <div className="my-2 flex flex-wrap gap-1.5">
@@ -339,7 +413,7 @@ export default function AccountsPage() {
         </button>
       </div>
 
-      {/* Tabs - Horizontal scroll on mobile */}
+      {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
         <nav
           className="-mb-px flex space-x-4 sm:space-x-8 min-w-max"
@@ -387,14 +461,14 @@ export default function AccountsPage() {
         </nav>
       </div>
 
-      {/* Content based on active tab */}
+      {/* Content */}
       <div>
         {activeTab === "active" && renderAccounts(activeAccounts)}
         {activeTab === "achieved" && renderAccounts(achievedAccounts)}
         {activeTab === "closed" && renderAccounts(closedAccounts)}
       </div>
 
-      {/* Total Balance Summary - Responsive grid */}
+      {/* Total Balance Summary */}
       {activeAccounts.length > 0 && (
         <div className="rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
