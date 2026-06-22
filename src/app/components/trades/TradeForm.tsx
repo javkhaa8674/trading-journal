@@ -590,7 +590,9 @@ export default function TradeForm() {
     setActiveTab("mt5");
   };
 
-  const filtedAccounts = accounts.filter((acc) => acc.status === "active");
+  const filtedAccounts = accounts.accounts.filter(
+    (acc) => acc.status === "active",
+  );
 
   // -------------------------
   // UI

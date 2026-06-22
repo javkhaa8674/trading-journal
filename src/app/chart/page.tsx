@@ -1,7 +1,12 @@
+"use client";
+
 import React from "react";
+import SimpleDrawingTest from "@/app/components/chart/test//SingleDrawingTest";
 
-const Chart = () => {
-  return <div>Light Weight Charts</div>;
-};
-
-export default Chart;
+export default function TestDrawingPage() {
+  return (
+    <div className="min-h-screen bg-[#131722] p-4">
+      <SimpleDrawingTest />
+    </div>
+  );
+}

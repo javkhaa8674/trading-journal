@@ -3,13 +3,14 @@
 
 import { useBrokers } from "@/lib/hooks/useBrokers";
 import { useAccounts } from "@/lib/hooks/useAccounts";
+import { Account } from "@/types/accounts";
 
 export function BrokerStats() {
   const { brokers, loading: brokersLoading } = useBrokers();
-  const accounts = useAccounts(); // Массив буцаана
+  const { accounts, loading: accountsLoading } = useAccounts(); // ✅ объект-с accounts авах
 
   // Loading state
-  if (brokersLoading) {
+  if (brokersLoading || accountsLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[1, 2, 3].map((i) => (
@@ -33,17 +34,20 @@ export function BrokerStats() {
   // Safe calculation with null checks
   const stats = {
     totalBrokers: brokers?.length || 0,
+    // ✅ accounts нь массив эсэхийг шалгах
     activeBrokers:
       brokers?.filter((b) =>
-        accounts?.some(
-          (a: any) => a.broker_id === b.id && a.status === "active",
+        (accounts || [])?.some(
+          (a: Account) => a.broker_id === b.id && a.status === "active",
         ),
       ).length || 0,
     totalBalance:
-      accounts
-        ?.filter((a: any) => a.broker_id)
-        ?.reduce((sum: number, a: any) => sum + (Number(a.balance) || 0), 0) ||
-      0,
+      (accounts || [])
+        ?.filter((a: Account) => a.broker_id)
+        ?.reduce(
+          (sum: number, a: Account) => sum + (Number(a.balance) || 0),
+          0,
+        ) || 0,
   };
 
   return (
