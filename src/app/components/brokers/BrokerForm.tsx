@@ -111,7 +111,7 @@ export function BrokerForm({
         <select
           value={formData.leverage || ""}
           onChange={(e) =>
-            setFormData({ ...formData, leverage: e.target.value || null })
+            setFormData({ ...formData, leverage: e.target.value || undefined })
           }
           className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
           disabled={loading}
@@ -134,7 +134,7 @@ export function BrokerForm({
           type="url"
           value={formData.website || ""}
           onChange={(e) =>
-            setFormData({ ...formData, website: e.target.value || null })
+            setFormData({ ...formData, website: e.target.value || undefined })
           }
           className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
           placeholder="https://broker.com"
@@ -150,7 +150,10 @@ export function BrokerForm({
         <textarea
           value={formData.description || ""}
           onChange={(e) =>
-            setFormData({ ...formData, description: e.target.value || null })
+            setFormData({
+              ...formData,
+              description: e.target.value || undefined,
+            })
           }
           className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none transition-colors resize-none"
           rows={3}

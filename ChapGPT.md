@@ -245,7 +245,7 @@ HelpTooltip	Mongolian help tooltips
 
 🧩 8. Component Architecture (FINAL)
 
--- ChapGPT.md
+|-- ChapGPT.md
 |-- README.md
 |-- Test.md
 |-- eslint.config.mjs
@@ -280,6 +280,8 @@ HelpTooltip	Mongolian help tooltips
 |   |   |   |   `-- page.tsx
 |   |   |   |-- new
 |   |   |   |   `-- page.tsx
+|   |   |   `-- page.tsx
+|   |   |-- chart
 |   |   |   `-- page.tsx
 |   |   |-- components
 |   |   |   |-- appwrapper
@@ -380,6 +382,7 @@ HelpTooltip	Mongolian help tooltips
 |   |   |   `-- metricsHelp.ts
 |   |   |-- dashboardAnalytics.ts
 |   |   |-- equity.ts
+|   |   |-- forexSymbolService.ts
 |   |   |-- getCurrentUser.ts
 |   |   |-- hooks
 |   |   |   |-- useAccounts.ts
