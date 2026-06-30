@@ -1,104 +1,94 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import TradingViewWidget from "@/app/components/chart/TradingViewWidget";
 import PositionCalculator from "@/app/components/chart/PositionCalculator";
 
-interface PositionData {
-  entry: number;
-  tp: number;
-  sl: number;
-  lotSize: number;
-  risk: number;
-  reward: number;
-  rrRatio: number;
-}
-
 export default function ChartPage() {
-  const [positionData, setPositionData] = useState<PositionData | null>(null);
-  const [isCalculatorVisible, setIsCalculatorVisible] = useState(true);
+  const [width, setWidth] = useState(340);
 
-  const handlePositionChange = (data: PositionData) => {
-    setPositionData(data);
-    console.log("📊 Position Data:", data);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const startWidth = useRef(340);
+
+  const MIN_SHOW = 60; // threshold before full hide
+  const MAX = 600;
+
+  // ================= START DRAG =================
+  const onPointerDown = (e: React.PointerEvent) => {
+    isDragging.current = true;
+    startX.current = e.clientX;
+    startWidth.current = width;
+
+    document.body.style.userSelect = "none";
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   };
 
-  const toggleCalculator = () => {
-    setIsCalculatorVisible(!isCalculatorVisible);
-  };
+  // ================= MOVE =================
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (!isDragging.current) return;
+
+      const deltaX = startX.current - e.clientX;
+      let newWidth = startWidth.current + deltaX;
+
+      // 🔥 FULL HIDE LOGIC
+      if (newWidth < MIN_SHOW) {
+        setWidth(0);
+        return;
+      }
+
+      if (newWidth > MAX) newWidth = MAX;
+
+      setWidth(newWidth);
+    };
+
+    const onUp = () => {
+      isDragging.current = false;
+      document.body.style.userSelect = "auto";
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("touchend", onUp);
+
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("touchend", onUp);
+    };
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
-      {/* Header */}
-      <header className="flex-shrink-0 flex flex-wrap items-center justify-between gap-2 px-3 py-2 md:px-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-        <h1 className="text-base md:text-xl font-bold text-gray-900 dark:text-white">
-          📊 Chart Analysis
-        </h1>
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Toggle Button - Header-т */}
-          <button
-            onClick={toggleCalculator}
-            className={`
-              flex items-center gap-1.5
-              px-3 py-1.5 rounded-lg
-              transition-all duration-300
-              ${
-                isCalculatorVisible
-                  ? "bg-blue-500 hover:bg-blue-600 text-white"
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-              }
-              text-sm font-medium
-              whitespace-nowrap
-            `}
-          >
-            {/* Show/Hide өөр өөр icon */}
-            <span>{isCalculatorVisible ? "◀" : "▶"}</span>
-            <span>
-              {isCalculatorVisible ? "Hide Calculator" : "Show Calculator"}
-            </span>
-          </button>
-        </div>
-      </header>
+    <div className="flex h-screen w-full overflow-hidden">
+      {/* ================= CHART ================= */}
+      <div className="flex-1 min-w-0">
+        <TradingViewWidget />
+      </div>
 
-      {/* Main Content */}
-      <main className="flex-1 p-2 md:p-4 overflow-hidden">
-        <div className="w-full h-[calc(100vh-100px)] flex gap-2 transition-all duration-300">
-          {/* Chart - Зүүн талд */}
-          <div
-            className={`
-              rounded-lg shadow-sm overflow-hidden bg-white dark:bg-gray-800
-              transition-all duration-300 ease-in-out
-              ${isCalculatorVisible ? "flex-1" : "w-full"}
-            `}
-          >
-            <TradingViewWidget
-              height="100%"
-              locale="mn"
-              hide_side_toolbar={false}
-              hide_top_toolbar={false}
-              allow_symbol_change={true}
-              hide_volume={true}
-              studies={[]}
-            />
-          </div>
+      {/* ================= RESIZE HANDLE ================= */}
+      <div
+        onPointerDown={onPointerDown}
+        className="
+          w-2 md:w-1
+          bg-gray-300 hover:bg-blue-500
+          cursor-col-resize
+          touch-none
+          z-50
+        "
+      />
 
-          {/* Calculator - Баруун талд */}
-          <div
-            className={`
-              rounded-lg shadow-sm overflow-hidden bg-white dark:bg-gray-800
-              transition-all duration-300 ease-in-out
-              ${isCalculatorVisible ? "w-[340px] opacity-100" : "w-0 opacity-0 overflow-hidden p-0"}
-              flex-shrink-0
-            `}
-          >
-            <PositionCalculator
-              symbol="XAUUSD"
-              onPositionChange={handlePositionChange}
-              defaultVisible={true}
-            />
-          </div>
-        </div>
-      </main>
+      {/* ================= RIGHT PANEL ================= */}
+      <div
+        className="h-full overflow-hidden transition-all duration-150"
+        style={{
+          width: width,
+          minWidth: 0,
+          flexShrink: 0,
+        }}
+      >
+        {width > 0 && <PositionCalculator symbol="XAUUSD" />}
+      </div>
     </div>
   );
 }
