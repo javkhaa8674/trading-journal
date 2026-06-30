@@ -5,11 +5,11 @@ import TradingViewWidget from "@/app/components/chart/TradingViewWidget";
 import PositionCalculator from "@/app/components/chart/PositionCalculator";
 
 export default function ChartPage() {
-  const [width, setWidth] = useState(340);
+  const [width, setWidth] = useState(280);
 
   const isDragging = useRef(false);
   const startX = useRef(0);
-  const startWidth = useRef(340);
+  const startWidth = useRef(280);
 
   const MIN_SHOW = 60; // threshold before full hide
   const MAX = 600;
