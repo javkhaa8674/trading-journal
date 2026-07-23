@@ -58,7 +58,7 @@ export default function DashboardPage() {
         .from("accounts")
         .select("*")
         .eq("user_id", user.id)
-        .eq("status", "active");
+        .order("status", { ascending: true });
       return data || [];
     },
   });
