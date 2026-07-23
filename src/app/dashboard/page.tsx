@@ -57,8 +57,8 @@ export default function DashboardPage() {
       const { data } = await supabase
         .from("accounts")
         .select("*")
-        .eq("user_id", user.id);
-
+        .eq("user_id", user.id)
+        .eq("status", "active");
       return data || [];
     },
   });
