@@ -132,11 +132,7 @@ export default function ChartPage() {
           ${mobileOpen ? "translate-y-0" : "translate-y-full"}
         `}
       >
-        <PositionCalculator
-          symbol="XAUUSD"
-          compact
-          onClose={() => setMobileOpen(false)}
-        />
+        <PositionCalculator symbol="XAUUSD" />
       </div>
     </div>
   );

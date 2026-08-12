@@ -5,6 +5,7 @@ import { useTheme } from "next-themes";
 import { instruments } from "@/types/instrument";
 import { calcLotSize, calcRR } from "@/lib/trading/engine";
 
+
 export default function PositionCalculator({ symbol }: { symbol: string }) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";

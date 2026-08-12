@@ -9,6 +9,7 @@ import {
   ISeriesApi,
   CandlestickData,
   UTCTimestamp,
+  Time,
   LineStyle,
   CrosshairMode,
   CandlestickSeries,
@@ -627,9 +628,9 @@ export function TradingChart({
 
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
 
-  const markersRef = useRef<ReturnType<typeof createSeriesMarkers> | null>(
-    null,
-  );
+  const markersRef = useRef<ReturnType<
+    typeof createSeriesMarkers<Time>
+  > | null>(null);
 
   const lineSeriesRefs = useRef<ISeriesApi<"Line">[]>([]);
 
@@ -733,6 +734,10 @@ export function TradingChart({
 
     const takeProfit = Number(trade.take_profit) || entryPrice * 1.01;
 
+    if (!trade.open_time || !trade.close_time) {
+      throw new Error(`Trade ${trade.id} is missing open_time or close_time`);
+    }
+
     return {
       id: trade.id,
       symbol: trade.symbol,
@@ -744,7 +749,7 @@ export function TradingChart({
       profit: Number(trade.profit) || 0,
       openTime: new Date(trade.open_time),
       closeTime: new Date(trade.close_time),
-      type: trade.type === "long" ? "long" : "short",
+      type: trade.type === "buy" ? "long" : "short",
     };
   };
 
