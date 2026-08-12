@@ -9,6 +9,13 @@ export default function PositionCalculator({ symbol }: { symbol: string }) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
+  // ================= HYDRATION FIX =================
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const instrument =
     instruments.find((i) => i.symbol === symbol) || instruments[0];
 
@@ -79,6 +86,57 @@ export default function PositionCalculator({ symbol }: { symbol: string }) {
   const card =
     "rounded-xl border p-3 space-y-3 " +
     (isDark ? "bg-gray-900 border-gray-700" : "bg-white border-gray-200");
+
+  // ================= LOADING STATE =================
+  if (!isMounted) {
+    return (
+      <div className="w-[280px] h-full p-3 overflow-y-auto space-y-3">
+        <div className="flex justify-between items-center">
+          <div className="text-sm font-semibold">📐 Position Calculator</div>
+          <div className="text-xs opacity-60">{symbol}</div>
+        </div>
+
+        <div className="flex rounded-lg overflow-hidden border">
+          <div className="flex-1 py-2 text-sm font-medium text-center bg-gray-200 dark:bg-gray-700 text-gray-400">
+            📈 Long
+          </div>
+          <div className="flex-1 py-2 text-sm font-medium text-center bg-gray-200 dark:bg-gray-700 text-gray-400">
+            📉 Short
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="w-full px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 h-10 animate-pulse" />
+          <div className="w-full px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 h-10 animate-pulse" />
+          <div className="w-full px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 h-10 animate-pulse" />
+          <div className="grid grid-cols-2 gap-2">
+            <div className="w-full px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 h-10 animate-pulse" />
+            <div className="w-full px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 h-10 animate-pulse" />
+          </div>
+        </div>
+
+        <div className="rounded-xl border p-3 space-y-3 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+          <div className="flex justify-between">
+            <span className="text-sm opacity-70">Lot Size</span>
+            <b className="text-yellow-500">0</b>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-sm opacity-70">Risk</span>
+            <b className="text-red-500">$0.00</b>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-sm opacity-70">Reward</span>
+            <b className="text-green-500">$0.00</b>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-sm opacity-70">R:R</span>
+            <b className="text-gray-400">0</b>
+          </div>
+          <div className="text-xs opacity-60 border-t pt-2">SL: 0 | TP: 0</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-[280px] h-full p-3 overflow-y-auto space-y-3">

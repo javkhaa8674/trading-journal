@@ -31,27 +31,50 @@ type Props = {
   trades: Trade[];
   onDelete: (ids: string[]) => void;
   onEdit: (id: string) => void;
+
+  /*
+   * NEW:
+   *
+   * Chart товч дарахад тухайн
+   * trade-ийн ID-г parent руу дамжуулна.
+   */
+  onChart: (id: string) => void;
 };
 
-export default function TradeList({ trades, onDelete, onEdit }: Props) {
+export default function TradeList({
+  trades,
+  onDelete,
+  onEdit,
+  onChart,
+}: Props) {
   const router = useRouter();
+
   const [sorting, setSorting] = useState<SortingState>([]);
+
   const [globalFilter, setGlobalFilter] = useState("");
+
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 10,
   });
+
   const [rowSelection, setRowSelection] = useState({});
+
   const [isSelectMode, setIsSelectMode] = useState(false);
 
-  // Column definitions - Select column зөвхөн isSelectMode үед л харагдана
+  /* =====================================================
+     COLUMNS
+  ===================================================== */
+
   const columns = useMemo<ColumnDef<Trade>[]>(() => {
     const cols: ColumnDef<Trade>[] = [];
 
-    // Select column - зөвхөн select mode үед л нэмэгдэнэ
+    /* Select column */
+
     if (isSelectMode) {
       cols.push({
         id: "select",
+
         header: ({ table }) => (
           <input
             type="checkbox"
@@ -60,6 +83,7 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
             className="h-4 w-4 rounded border-gray-300"
           />
         ),
+
         cell: ({ row }) => (
           <input
             type="checkbox"
@@ -71,21 +95,28 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
       });
     }
 
-    // Symbol column
+    /* Symbol */
+
     cols.push({
       accessorKey: "symbol",
+
       header: "Хослол",
+
       cell: (info) => (
         <span className="font-medium">{info.getValue() as string}</span>
       ),
     });
 
-    // Type column
+    /* Type */
+
     cols.push({
       accessorKey: "type",
+
       header: "Төрөл",
+
       cell: (info) => {
         const type = info.getValue() as string;
+
         return (
           <span
             className={`rounded-full px-2 py-1 text-xs font-medium ${
@@ -100,47 +131,66 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
       },
     });
 
-    // Entry Price
+    /* Entry Price */
+
     cols.push({
       accessorKey: "entry_price",
+
       header: "Нээлтийн ханш",
+
       cell: (info) => `${(info.getValue() as number).toFixed(4)}`,
     });
 
-    // Exit Price
+    /* Exit Price */
+
     cols.push({
       accessorKey: "exit_price",
+
       header: "Хаалтын ханш",
+
       cell: (info) => `${(info.getValue() as number).toFixed(4)}`,
     });
 
-    // Lot Size
+    /* Lot Size */
+
     cols.push({
       accessorKey: "lot_size",
+
       header: "Лот хэмжээ",
+
       cell: (info) => (info.getValue() as number).toFixed(2),
     });
 
-    // Open Date
+    /* Open Date */
+
     cols.push({
       accessorKey: "open_time",
+
       header: "Нээлтийн огноо",
+
       cell: (info) => new Date(info.getValue() as string).toLocaleString(),
     });
 
-    // Close Date
+    /* Close Date */
+
     cols.push({
       accessorKey: "close_time",
+
       header: "Хаалтын огноо",
+
       cell: (info) => new Date(info.getValue() as string).toLocaleString(),
     });
 
-    // Profit
+    /* Profit */
+
     cols.push({
       accessorKey: "profit",
+
       header: "Ашиг",
+
       cell: (info) => {
         const profit = info.getValue() as number;
+
         return (
           <span
             className={`font-semibold ${
@@ -157,49 +207,115 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
       },
     });
 
-    // Actions column - Edit only (Delete removed)
+    /* =================================================
+         ACTIONS
+
+         NEW:
+         Chart + Засах
+      ================================================= */
+
     cols.push({
       id: "actions",
+
       header: "Үйлдэл",
-      cell: (info) => (
-        <button
-          onClick={() => onEdit(info.row.original.id)}
-          className="rounded bg-blue-500 px-3 py-1 text-xs text-white hover:bg-blue-600"
-        >
-          Засах
-        </button>
-      ),
+
+      cell: (info) => {
+        const tradeId = info.row.original.id;
+
+        return (
+          <div className="flex items-center gap-2">
+            {/* CHART */}
+
+            <button
+              type="button"
+              onClick={() => onChart(tradeId)}
+              className="
+                  rounded
+                  bg-green-600
+                  px-3
+                  py-1
+                  text-xs
+                  text-white
+                  hover:bg-green-700
+                  transition-colors
+                "
+            >
+              📈 Chart
+            </button>
+
+            {/* EDIT */}
+
+            <button
+              type="button"
+              onClick={() => onEdit(tradeId)}
+              className="
+                  rounded
+                  bg-blue-500
+                  px-3
+                  py-1
+                  text-xs
+                  text-white
+                  hover:bg-blue-600
+                  transition-colors
+                "
+            >
+              Засах
+            </button>
+          </div>
+        );
+      },
     });
 
     return cols;
-  }, [isSelectMode, onEdit]);
+  }, [isSelectMode, onEdit, onChart]);
+
+  /* =====================================================
+     TABLE
+  ===================================================== */
 
   const table = useReactTable({
     data: trades,
+
     columns,
+
     state: {
       sorting,
       globalFilter,
       pagination,
       rowSelection,
     },
+
     onSortingChange: setSorting,
+
     onGlobalFilterChange: setGlobalFilter,
+
     onPaginationChange: setPagination,
+
     onRowSelectionChange: setRowSelection,
+
     getCoreRowModel: getCoreRowModel(),
+
     getFilteredRowModel: getFilteredRowModel(),
+
     getPaginationRowModel: getPaginationRowModel(),
+
     getSortedRowModel: getSortedRowModel(),
   });
 
-  // Get selected row IDs
+  /* =====================================================
+     SELECTED ROWS
+  ===================================================== */
+
   const selectedRowIds = table
     .getSelectedRowModel()
     .rows.map((row) => row.original.id);
+
   const selectedCount = selectedRowIds.length;
 
-  // Handle delete selected
+  /* =====================================================
+     DELETE SELECTED
+  ===================================================== */
+
   const handleDeleteSelected = () => {
     if (selectedCount === 0) return;
 
@@ -209,30 +325,42 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
       )
     ) {
       onDelete(selectedRowIds);
+
       setRowSelection({});
-      setIsSelectMode(false); // Exit select mode after delete
+
+      setIsSelectMode(false);
     }
   };
 
-  // Cancel select mode
+  /* =====================================================
+     SELECT MODE
+  ===================================================== */
+
   const cancelSelectMode = () => {
     setIsSelectMode(false);
+
     setRowSelection({});
   };
 
-  // Enter select mode
   const enterSelectMode = () => {
     setIsSelectMode(true);
   };
+
+  /* =====================================================
+     EMPTY
+  ===================================================== */
 
   if (trades.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 text-center">
         <div className="mb-2 text-4xl">📭</div>
+
         <h3 className="text-lg font-semibold">Арилжаа олдсонгүй</h3>
+
         <p className="mb-4 text-gray-500">
           Эхлээд хамгийн эхний арилжааг нэмнэ үү
         </p>
+
         <button
           onClick={() => router.push("/trades/new")}
           className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
@@ -243,9 +371,16 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
     );
   }
 
+  /* =====================================================
+     RENDER
+  ===================================================== */
+
   return (
     <div className="space-y-4">
-      {/* Header with Search and Action Buttons */}
+      {/* =================================================
+          HEADER
+      ================================================= */}
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-1 items-center gap-2">
           <div className="relative">
@@ -256,10 +391,12 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
               placeholder="Хайх..."
               className="w-64 rounded-lg border px-4 py-2 pl-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
               🔍
             </span>
           </div>
+
           <span className="text-sm text-gray-500">
             {trades.length} Нийт арилжаа
           </span>
@@ -268,7 +405,6 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
         <div className="flex gap-2">
           {isSelectMode ? (
             <>
-              {/* Select Mode Active */}
               <button
                 onClick={handleDeleteSelected}
                 disabled={selectedCount === 0}
@@ -278,8 +414,10 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
                     : "bg-gray-300 cursor-not-allowed"
                 }`}
               >
-                🗑️ Устгах({selectedCount})
+                🗑️ Устгах(
+                {selectedCount})
               </button>
+
               <button
                 onClick={cancelSelectMode}
                 className="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50"
@@ -289,13 +427,13 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
             </>
           ) : (
             <>
-              {/* Normal Mode */}
               <button
                 onClick={() => router.push("/trades/new")}
                 className="rounded-lg bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600"
               >
                 + Нэмэх
               </button>
+
               <button
                 onClick={enterSelectMode}
                 className="rounded-lg border px-4 py-2 text-sm text-red-500 hover:bg-red-50"
@@ -307,12 +445,16 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
         </div>
       </div>
 
-      {/* Selection info bar (only in select mode) */}
+      {/* =================================================
+          SELECTION INFO
+      ================================================= */}
+
       {isSelectMode && selectedCount > 0 && (
         <div className="flex items-center justify-between rounded-lg bg-blue-50 p-3 dark:bg-blue-950">
           <span className="text-sm text-blue-800 dark:text-blue-300">
             {selectedCount} сонгогдсон арилжаа
           </span>
+
           <button
             onClick={() => setRowSelection({})}
             className="text-sm text-blue-600 hover:text-blue-800"
@@ -322,7 +464,10 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
         </div>
       )}
 
-      {/* Table */}
+      {/* =================================================
+          TABLE
+      ================================================= */}
+
       <div className="overflow-x-auto rounded-lg border">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50 dark:bg-gray-800">
@@ -343,6 +488,7 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
                         header.column.columnDef.header,
                         header.getContext(),
                       )}
+
                       {{
                         өсөх: " ↑",
                         буурах: " ↓",
@@ -353,6 +499,7 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
               </tr>
             ))}
           </thead>
+
           <tbody className="divide-y divide-gray-200 bg-white dark:bg-gray-900">
             {table.getRowModel().rows.map((row) => (
               <tr
@@ -377,13 +524,17 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
         </table>
       </div>
 
-      {/* Pagination */}
+      {/* =================================================
+          PAGINATION
+      ================================================= */}
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <span>
             Хуудас {table.getState().pagination.pageIndex + 1} /{" "}
             {table.getPageCount()}
           </span>
+
           <select
             value={table.getState().pagination.pageSize}
             onChange={(e) => table.setPageSize(Number(e.target.value))}
@@ -405,22 +556,30 @@ export default function TradeList({ trades, onDelete, onEdit }: Props) {
           >
             ← Өмнөх
           </button>
-          {Array.from({ length: Math.min(5, table.getPageCount()) }, (_, i) => {
-            const pageNum = i + 1;
-            return (
-              <button
-                key={pageNum}
-                onClick={() => table.setPageIndex(pageNum - 1)}
-                className={`rounded px-3 py-1 text-sm ${
-                  table.getState().pagination.pageIndex === pageNum - 1
-                    ? "bg-blue-500 text-white"
-                    : "border hover:bg-gray-50"
-                }`}
-              >
-                {pageNum}
-              </button>
-            );
-          })}
+
+          {Array.from(
+            {
+              length: Math.min(5, table.getPageCount()),
+            },
+            (_, i) => {
+              const pageNum = i + 1;
+
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => table.setPageIndex(pageNum - 1)}
+                  className={`rounded px-3 py-1 text-sm ${
+                    table.getState().pagination.pageIndex === pageNum - 1
+                      ? "bg-blue-500 text-white"
+                      : "border hover:bg-gray-50"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            },
+          )}
+
           <button
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
