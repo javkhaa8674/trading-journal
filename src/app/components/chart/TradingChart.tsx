@@ -58,6 +58,26 @@ interface TimeframeConfig {
   seconds: number;
 }
 
+interface HistoricalCandleResponse {
+  symbol: string;
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+interface HistoricalApiResponse {
+  success: boolean;
+  symbol?: string;
+  timeframe?: Timeframe;
+  startTime?: number;
+  endTime?: number;
+  returned?: number;
+  candles?: HistoricalCandleResponse[];
+  error?: string;
+}
+
 interface ChartTheme {
   background: string;
   text: string;
@@ -108,8 +128,12 @@ const TIMEFRAMES: TimeframeConfig[] = [
   },
 ];
 
-const CANDLES_BEFORE_ENTRY = 50;
-const CANDLES_AFTER_CLOSE = 50;
+const CANDLES_BEFORE_ENTRY = 100;
+const CANDLES_AFTER_CLOSE = 100;
+
+const HISTORICAL_CANDLES_URL =
+  process.env.NEXT_PUBLIC_HISTORICAL_CANDLES_URL ||
+  "https://gethistoricalcandles-nn3pu4motq-uc.a.run.app";
 
 /* =========================================================
    THEME
@@ -188,9 +212,7 @@ function hexToRgba(hex: string, opacity: number) {
 }
 
 /* =========================================================
-   IMPORTANT:
-   LIGHTWEIGHT-CHARTS LINE DATA MUST BE ASCENDING
-   AND MUST NOT CONTAIN DUPLICATE TIMESTAMPS.
+   LINE DATA
 ========================================================= */
 
 function createLineData(
@@ -305,6 +327,14 @@ function calculateMoneyValue(
   }
 
   return Math.abs(distance) * 100000 * lotSize;
+}
+
+/* =========================================================
+   ALIGN TIME
+========================================================= */
+
+function alignTimestamp(timestampSeconds: number, intervalSeconds: number) {
+  return Math.floor(timestampSeconds / intervalSeconds) * intervalSeconds;
 }
 
 /* =========================================================
@@ -530,14 +560,6 @@ function PositionInfoLabel({
       const containerWidth = currentContainer.clientWidth;
       const labelWidth = element.offsetWidth;
 
-      /*
-       * Desktop:
-       *   label -> line-ийн баруун талд
-       *
-       * Mobile:
-       *   дэлгэцээс гарахгүй байхаар автоматаар зүүн тал руу шилжинэ.
-       */
-
       let left = x + 8;
 
       if (left + labelWidth > containerWidth - 4) {
@@ -634,6 +656,8 @@ export function TradingChart({
 
   const lineSeriesRefs = useRef<ISeriesApi<"Line">[]>([]);
 
+  const requestIdRef = useRef(0);
+
   const [selectedTrade, setSelectedTrade] = useState<TradePosition | null>(
     null,
   );
@@ -645,6 +669,10 @@ export function TradingChart({
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  const [historicalLoading, setHistoricalLoading] = useState(false);
+
+  const [historicalError, setHistoricalError] = useState<string | null>(null);
 
   const trades = externalTrades || [];
 
@@ -703,6 +731,7 @@ export function TradingChart({
 
     const sorted = [...trades].sort((a, b) => {
       const aTime = a.close_time || a.open_time;
+
       const bTime = b.close_time || b.open_time;
 
       return new Date(bTime).getTime() - new Date(aTime).getTime();
@@ -754,99 +783,133 @@ export function TradingChart({
   };
 
   /* =======================================================
-     DEMO CANDLE DATA
+     FETCH HISTORICAL CANDLES
   ======================================================= */
 
-  const generateCandlestickData = (
+  const fetchHistoricalCandles = async (
     position: TradePosition,
-  ): CandlestickData[] => {
+    signal: AbortSignal,
+  ): Promise<CandlestickData[]> => {
     const interval = timeframeConfig.seconds;
 
     const entryTime = Math.floor(position.openTime.getTime() / 1000);
 
     const closeTime = Math.floor(position.closeTime.getTime() / 1000);
 
-    const alignedEntry = Math.floor(entryTime / interval) * interval;
+    const alignedEntry = alignTimestamp(entryTime, interval);
 
-    const alignedClose = Math.floor(closeTime / interval) * interval;
+    const alignedClose = alignTimestamp(closeTime, interval);
+
+    /*
+     * Request enough candles before entry
+     * and after close.
+     *
+     * IMPORTANT:
+     * Backend internally converts the range
+     * to M5 boundaries.
+     */
 
     const startTime = alignedEntry - CANDLES_BEFORE_ENTRY * interval;
 
     const endTime = alignedClose + CANDLES_AFTER_CLOSE * interval;
 
-    const data: CandlestickData[] = [];
+    const params = new URLSearchParams({
+      symbol: position.symbol.toUpperCase(),
 
-    const basePrice = position.entryPrice;
+      timeframe,
 
-    let previousClose = basePrice;
+      startTime: String(startTime * 1000),
 
-    let index = 0;
+      endTime: String(endTime * 1000),
+    });
 
-    const symbol = position.symbol.toUpperCase();
+    const url = `${HISTORICAL_CANDLES_URL}?${params.toString()}`;
 
-    let volatility = basePrice * 0.001;
+    const response = await fetch(url, {
+      method: "GET",
+      signal,
 
-    if (symbol.includes("JPY")) {
-      volatility = basePrice * 0.0012;
-    }
+      headers: {
+        Accept: "application/json",
+      },
 
-    if (symbol.includes("XAU") || symbol.includes("GOLD")) {
-      volatility = Math.max(0.8, basePrice * 0.0015);
-    }
+      cache: "no-store",
+    });
 
-    for (
-      let timestamp = startTime;
-      timestamp <= endTime;
-      timestamp += interval
-    ) {
-      const distanceFromEntry = Math.floor(
-        (timestamp - alignedEntry) / interval,
-      );
+    if (!response.ok) {
+      let message = `Historical data request failed (${response.status})`;
 
-      const wave = Math.sin(distanceFromEntry * 0.37);
+      try {
+        const errorBody = (await response.json()) as HistoricalApiResponse;
 
-      const wave2 = Math.sin(distanceFromEntry * 0.11);
-
-      let open = previousClose;
-
-      let close = open + (wave * 0.55 + wave2 * 0.35) * volatility;
-
-      if (timestamp === alignedEntry) {
-        open = basePrice - volatility * 0.1;
-        close = basePrice;
+        if (errorBody.error) {
+          message = errorBody.error;
+        }
+      } catch {
+        // ignore JSON parsing error
       }
 
-      if (timestamp === alignedClose) {
-        const exitPrice = position.exitPrice || previousClose;
+      throw new Error(message);
+    }
 
+    const json = (await response.json()) as HistoricalApiResponse;
+
+    if (!json.success) {
+      throw new Error(json.error || "Historical data request failed");
+    }
+
+    if (!Array.isArray(json.candles)) {
+      throw new Error("Historical API returned invalid candle data");
+    }
+
+    /*
+     * Lightweight Charts requires:
+     *
+     * 1. ascending timestamps
+     * 2. no duplicate timestamps
+     */
+
+    const sorted = [...json.candles]
+      .map((candle) => ({
+        time: Math.floor(Number(candle.timestamp) / 1000) as UTCTimestamp,
+
+        open: Number(candle.open),
+
+        high: Number(candle.high),
+
+        low: Number(candle.low),
+
+        close: Number(candle.close),
+      }))
+      .filter(
+        (candle) =>
+          Number.isFinite(candle.time) &&
+          Number.isFinite(candle.open) &&
+          Number.isFinite(candle.high) &&
+          Number.isFinite(candle.low) &&
+          Number.isFinite(candle.close),
+      )
+      .sort((a, b) => Number(a.time) - Number(b.time));
+
+    const unique: CandlestickData[] = [];
+
+    for (const candle of sorted) {
+      const last = unique[unique.length - 1];
+
+      if (last && Number(last.time) === Number(candle.time)) {
         /*
-         * Хэрэв entry болон close нэг candle дээр
-         * таарсан ч энд асуудалгүй.
+         * If duplicate exists,
+         * keep the latest one.
          */
-        open = previousClose;
-        close = exitPrice;
+        unique[unique.length - 1] = candle;
+
+        continue;
       }
 
-      const wick = volatility * (0.35 + Math.abs(Math.sin(index * 0.29)) * 0.5);
-
-      const high = Math.max(open, close) + wick;
-
-      const low = Math.min(open, close) - wick;
-
-      data.push({
-        time: timestamp as UTCTimestamp,
-        open,
-        high,
-        low,
-        close,
-      });
-
-      previousClose = close;
-
-      index++;
+      unique.push(candle);
     }
 
-    return data;
+    return unique;
   };
 
   /* =======================================================
@@ -876,9 +939,9 @@ export function TradingChart({
 
     const closeTime = Math.floor(trade.closeTime.getTime() / 1000);
 
-    const alignedEntry = Math.floor(entryTime / interval) * interval;
+    const alignedEntry = alignTimestamp(entryTime, interval);
 
-    const alignedClose = Math.floor(closeTime / interval) * interval;
+    const alignedClose = alignTimestamp(closeTime, interval);
 
     const chartStartTime = alignedEntry - CANDLES_BEFORE_ENTRY * interval;
 
@@ -891,16 +954,25 @@ export function TradingChart({
     setRectangles([
       {
         type: "risk",
+
         startTime: alignedEntry,
+
         endTime: alignedClose,
+
         topPrice: Math.max(entryPrice, sl),
+
         bottomPrice: Math.min(entryPrice, sl),
       },
+
       {
         type: "reward",
+
         startTime: alignedEntry,
+
         endTime: alignedClose,
+
         topPrice: Math.max(entryPrice, tp),
+
         bottomPrice: Math.min(entryPrice, tp),
       },
     ]);
@@ -909,7 +981,9 @@ export function TradingChart({
 
     const priceFormat = {
       type: "price" as const,
+
       precision: getPricePrecision(trade.symbol),
+
       minMove: getMinMove(trade.symbol),
     };
 
@@ -919,10 +993,13 @@ export function TradingChart({
 
     const entryLine = chart.addSeries(LineSeries, {
       color: currentTheme.entry,
+
       lineWidth: 2,
+
       lineStyle: LineStyle.Dashed,
 
       priceLineVisible: true,
+
       priceLineColor: currentTheme.entry,
 
       lastValueVisible: true,
@@ -930,27 +1007,29 @@ export function TradingChart({
       priceFormat,
     });
 
-    /*
-     * IMPORTANT:
-     * createLineData() нь duplicate timestamp
-     * автоматаар арилгана.
-     */
     entryLine.setData(
       createLineData([
         {
           time: chartStartTime,
+
           value: entryPrice,
         },
+
         {
           time: alignedEntry,
+
           value: entryPrice,
         },
+
         {
           time: alignedClose,
+
           value: entryPrice,
         },
+
         {
           time: chartEndTime,
+
           value: entryPrice,
         },
       ]),
@@ -964,10 +1043,13 @@ export function TradingChart({
 
     const slLine = chart.addSeries(LineSeries, {
       color: currentTheme.sl,
+
       lineWidth: 1,
+
       lineStyle: LineStyle.Solid,
 
       priceLineVisible: true,
+
       priceLineColor: currentTheme.sl,
 
       lastValueVisible: true,
@@ -979,18 +1061,25 @@ export function TradingChart({
       createLineData([
         {
           time: chartStartTime,
+
           value: sl,
         },
+
         {
           time: alignedEntry,
+
           value: sl,
         },
+
         {
           time: alignedClose,
+
           value: sl,
         },
+
         {
           time: chartEndTime,
+
           value: sl,
         },
       ]),
@@ -1004,10 +1093,13 @@ export function TradingChart({
 
     const tpLine = chart.addSeries(LineSeries, {
       color: currentTheme.tp,
+
       lineWidth: 1,
+
       lineStyle: LineStyle.Solid,
 
       priceLineVisible: true,
+
       priceLineColor: currentTheme.tp,
 
       lastValueVisible: true,
@@ -1019,28 +1111,31 @@ export function TradingChart({
       createLineData([
         {
           time: chartStartTime,
+
           value: tp,
         },
+
         {
           time: alignedEntry,
+
           value: tp,
         },
+
         {
           time: alignedClose,
+
           value: tp,
         },
+
         {
           time: chartEndTime,
+
           value: tp,
         },
       ]),
     );
 
     lineSeries.push(tpLine);
-
-    /* ===================================================
-       R:R REFERENCE
-    =================================================== */
 
     lineSeriesRefs.current.push(...lineSeries);
 
@@ -1061,6 +1156,10 @@ export function TradingChart({
     if (!chartContainerRef.current || loading) {
       return;
     }
+
+    const currentRequestId = ++requestIdRef.current;
+
+    const abortController = new AbortController();
 
     /* ===================================================
        CLEAN OLD CHART
@@ -1084,15 +1183,17 @@ export function TradingChart({
 
     setRectangles([]);
 
+    setHistoricalError(null);
+
+    /* ===================================================
+       CREATE CHART
+    =================================================== */
+
     try {
       const container = chartContainerRef.current;
 
       const width = container.clientWidth || 900;
 
-      /*
-       * Mobile дээр 400px хэт өндөр харагдахаас
-       * сэргийлнэ.
-       */
       const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
 
       const height = isFullscreen
@@ -1103,12 +1204,9 @@ export function TradingChart({
 
       const currentTheme = getCurrentTheme();
 
-      /* =================================================
-         CREATE CHART
-      ================================================= */
-
       const chart = createChart(container, {
         width,
+
         height,
 
         layout: {
@@ -1186,7 +1284,7 @@ export function TradingChart({
       chartRef.current = chart;
 
       /* =================================================
-         TRADE SELECTION
+         TRADE
       ================================================= */
 
       const selectedTradeFromList = getSelectedTrade();
@@ -1246,41 +1344,113 @@ export function TradingChart({
       markersRef.current = createSeriesMarkers(candlestickSeries);
 
       /* =================================================
-         DEMO CANDLES
+         FETCH REAL HISTORICAL DATA
       ================================================= */
 
-      const candleData = generateCandlestickData(position);
+      const loadHistoricalData = async () => {
+        setHistoricalLoading(true);
 
-      candlestickSeries.setData(candleData);
+        setHistoricalError(null);
 
-      /* =================================================
-         POSITION LINES
-      ================================================= */
+        try {
+          const candleData = await fetchHistoricalCandles(
+            position,
+            abortController.signal,
+          );
 
-      const range = drawPositionLines(chart, position, currentTheme);
+          if (
+            abortController.signal.aborted ||
+            currentRequestId !== requestIdRef.current
+          ) {
+            return;
+          }
 
-      /* =================================================
-         VISIBLE RANGE
-      ================================================= */
+          if (candleData.length === 0) {
+            throw new Error(
+              "No historical candles were returned for this trade.",
+            );
+          }
 
-      if (range) {
-        const startIndex = -CANDLES_BEFORE_ENTRY;
+          candlestickSeries.setData(candleData);
 
-        const totalTradeCandles = Math.max(
-          1,
-          Math.floor(
-            (range.alignedClose - range.alignedEntry) / timeframeConfig.seconds,
-          ),
-        );
+          /* =========================================
+               POSITION LINES
+            ========================================= */
 
-        const endIndex = totalTradeCandles + CANDLES_AFTER_CLOSE;
+          const range = drawPositionLines(chart, position, currentTheme);
 
-        chart.timeScale().setVisibleLogicalRange({
-          from: startIndex - 0.5,
+          /* =========================================
+               VISIBLE RANGE
+            ========================================= */
 
-          to: endIndex + 0.5,
-        });
-      }
+          if (range) {
+            /*
+             * Find actual indexes from returned candles.
+             *
+             * This is safer than assuming the trade
+             * contains a specific number of candles,
+             * because weekends / missing market data
+             * can exist.
+             */
+
+            const entryIndex = candleData.findIndex(
+              (candle) => Number(candle.time) >= range.alignedEntry,
+            );
+
+            const closeIndex = candleData.findIndex(
+              (candle) => Number(candle.time) > range.alignedClose,
+            );
+
+            const safeEntryIndex =
+              entryIndex >= 0 ? entryIndex : CANDLES_BEFORE_ENTRY;
+
+            const safeCloseIndex =
+              closeIndex >= 0
+                ? closeIndex
+                : Math.max(
+                    safeEntryIndex + 1,
+                    candleData.length - CANDLES_AFTER_CLOSE,
+                  );
+
+            const visibleFrom = Math.max(
+              0,
+              safeEntryIndex - CANDLES_BEFORE_ENTRY,
+            );
+
+            const visibleTo = Math.min(
+              candleData.length - 1,
+              safeCloseIndex + CANDLES_AFTER_CLOSE,
+            );
+
+            chart.timeScale().setVisibleLogicalRange({
+              from: visibleFrom - 0.5,
+
+              to: visibleTo + 0.5,
+            });
+          }
+        } catch (error) {
+          if (abortController.signal.aborted) {
+            return;
+          }
+
+          console.error("Historical candle error:", error);
+
+          setHistoricalError(
+            error instanceof Error
+              ? error.message
+              : "Failed to load historical market data.",
+          );
+        } finally {
+          if (
+            !abortController.signal.aborted &&
+            currentRequestId === requestIdRef.current
+          ) {
+            setHistoricalLoading(false);
+          }
+        }
+      };
+
+      void loadHistoricalData();
 
       /* =================================================
          RESIZE
@@ -1319,6 +1489,8 @@ export function TradingChart({
       window.addEventListener("resize", handleResize);
 
       return () => {
+        abortController.abort();
+
         window.removeEventListener("resize", handleResize);
 
         resizeObserver.disconnect();
@@ -1351,6 +1523,10 @@ export function TradingChart({
       };
     } catch (error) {
       console.error("Error creating chart:", error);
+
+      setHistoricalError(
+        error instanceof Error ? error.message : "Failed to create chart.",
+      );
     }
   }, [trades, loading, timeframe, isDarkMode, isFullscreen, selectedTradeId]);
 
@@ -1393,9 +1569,9 @@ export function TradingChart({
 
     const closeTime = Math.floor(selectedTrade.closeTime.getTime() / 1000);
 
-    const alignedEntry = Math.floor(entryTime / interval) * interval;
+    const alignedEntry = alignTimestamp(entryTime, interval);
 
-    const alignedClose = Math.floor(closeTime / interval) * interval;
+    const alignedClose = alignTimestamp(closeTime, interval);
 
     return {
       rr,
@@ -1669,8 +1845,6 @@ export function TradingChart({
               whitespace-nowrap
             "
           >
-            {/* ENTRY */}
-
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               <span className="text-gray-500 dark:text-gray-400">Entry</span>
 
@@ -1680,8 +1854,6 @@ export function TradingChart({
                 )}
               </span>
             </div>
-
-            {/* SL */}
 
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               <span className="text-gray-500 dark:text-gray-400">SL</span>
@@ -1693,8 +1865,6 @@ export function TradingChart({
               </span>
             </div>
 
-            {/* TP */}
-
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               <span className="text-gray-500 dark:text-gray-400">TP</span>
 
@@ -1705,8 +1875,6 @@ export function TradingChart({
               </span>
             </div>
 
-            {/* RR */}
-
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               <span className="text-gray-500 dark:text-gray-400">R:R</span>
 
@@ -1715,8 +1883,6 @@ export function TradingChart({
               </span>
             </div>
 
-            {/* LOT */}
-
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               <span className="text-gray-500 dark:text-gray-400">Lot</span>
 
@@ -1724,8 +1890,6 @@ export function TradingChart({
                 {selectedTrade.lotSize}
               </span>
             </div>
-
-            {/* PROFIT */}
 
             <span
               className={
@@ -1764,6 +1928,77 @@ export function TradingChart({
           minHeight: isFullscreen ? undefined : "330px",
         }}
       >
+        {/* =================================================
+            HISTORICAL LOADING
+        ================================================= */}
+
+        {historicalLoading && (
+          <div
+            className="
+              absolute
+              top-2
+              left-1/2
+              -translate-x-1/2
+              z-[100]
+              px-3
+              py-1.5
+              rounded-md
+              text-[11px]
+              font-medium
+              bg-white/90
+              dark:bg-[#161922]/90
+              text-gray-600
+              dark:text-gray-300
+              border
+              border-gray-200
+              dark:border-[#2b2b43]
+              shadow-sm
+              backdrop-blur-sm
+            "
+          >
+            Loading historical data...
+          </div>
+        )}
+
+        {/* =================================================
+            HISTORICAL ERROR
+        ================================================= */}
+
+        {historicalError && (
+          <div
+            className="
+              absolute
+              inset-x-2
+              top-2
+              z-[100]
+              flex
+              items-center
+              justify-center
+              pointer-events-none
+            "
+          >
+            <div
+              className="
+                max-w-[90%]
+                px-3
+                py-2
+                rounded-md
+                text-[11px]
+                bg-red-50
+                dark:bg-red-950/80
+                text-red-600
+                dark:text-red-300
+                border
+                border-red-200
+                dark:border-red-900
+                shadow-sm
+              "
+            >
+              {historicalError}
+            </div>
+          </div>
+        )}
+
         {/* =================================================
             RISK / REWARD RECTANGLES
         ================================================= */}

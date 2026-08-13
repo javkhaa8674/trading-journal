@@ -52,12 +52,13 @@ export default function TradeForm() {
   );
   const [showPreview, setShowPreview] = useState(false);
 
-  // 📌 MT4/MT5 FORMAT STATE (бусад state-уудын хамт нэмэх)
+  // 📌 MT4/MT5 FORMAT STATE
   const [mt4Text, setMt4Text] = useState("");
   const [mt5Text, setMt5Text] = useState("");
   const [jforexText, setJforexText] = useState("");
 
   const [activeTab, setActiveTab] = useState<"jforex" | "mt4" | "mt5">("mt5");
+
   // -------------------------
   // SINGLE TRADE SUBMIT
   // -------------------------
@@ -112,14 +113,52 @@ export default function TradeForm() {
   };
 
   const cleanNumber = (value: string): string => {
-    return value.replace(/\s/g, ""); // Бүх space-г арилгах
+    return value.replace(/\s/g, "");
   };
-  // 📌 MT4/MT5 ПАРСЕР (validationErrors-ийг handle хийсэн)
-  // MT5 ПАРСЕР (Commission + Swap + Profit = Нийт ашиг)
+
+  // ============================================================
+  // 📌 MT5 TIME CONVERTER
+  // MT5 History-ийн цагийг UTC+3 гэж үзнэ.
+  //
+  // Жишээ:
+  // 2026.08.13 09:10:00 (UTC+3)
+  //             ↓
+  // 2026-08-13T06:10:00.000Z (UTC)
+  //
+  // Browser-ийн timezone огт ашиглахгүй.
+  // ============================================================
+  const convertMT5TimeToUTC = (timeString: string): string => {
+    const match = timeString
+      .trim()
+      .match(/^(\d{4})[.-](\d{2})[.-](\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+
+    if (!match) {
+      throw new Error(`MT5 цагийн формат буруу: ${timeString}`);
+    }
+
+    const [, year, month, day, hour, minute, second] = match;
+
+    // MT5 time = UTC+3
+    // Тиймээс UTC болгохын тулд 3 цаг хасна.
+    const utcMillis = Date.UTC(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour) - 3,
+      Number(minute),
+      Number(second),
+    );
+
+    return new Date(utcMillis).toISOString();
+  };
+
+  // 📌 MT5 PARSER
+  // Commission + Swap + Profit = Нийт ашиг
   const parseMT5 = (
     text: string,
   ): { validTrades: ParsedTrade[]; errors: ValidationError[] } => {
     const lines = text.split("\n").filter((line) => line.trim().length > 0);
+
     const validTrades: ParsedTrade[] = [];
     const errors: ValidationError[] = [];
 
@@ -127,7 +166,7 @@ export default function TradeForm() {
       // Tab-ээр тусгаарлагдсан column-ууд
       const columns = line.split("\t").map((col) => col.trim());
 
-      // Хүлээгдэж буй баганын тоо: 14 (таны жишээ мөрөөс хархад)
+      // Хүлээгдэж буй баганын тоо: 14
       if (columns.length < 14) {
         errors.push({
           row: index + 1,
@@ -140,37 +179,42 @@ export default function TradeForm() {
       }
 
       try {
-        const openTimeStr = columns[0]; // Time (Open)
-        const ticket = columns[1]; // Ticket number (алгасах)
-        const symbol = columns[2]; // Symbol
-        const typeRaw = columns[3]; // Type ✅ ЗАССАН: columns[1] -> columns[3]
-        const volume = parseFloat(columns[4]); // Volume
-        const openPrice = parseFloat(cleanNumber(columns[5])); // Open Price (хоосон зайтай)
-        const sl = parseFloat(cleanNumber(columns[6])) || 0; // S/L
-        const tp = parseFloat(cleanNumber(columns[7])) || 0; // T/P
-        const closeTimeStr = columns[8]; // Time (Close)
-        const closePrice = parseFloat(cleanNumber(columns[9])); // Close Price
-        const commissionRaw = columns[10]; // Commission ("-" байж болно)
-        const swap = parseFloat(columns[11].replace(/\s/g, "")) || 0; // Swap
-        const profit = parseFloat(columns[12].replace(/\s/g, "")) || 0; // Profit
+        const openTimeStr = columns[0];
+        const ticket = columns[1];
+        const symbol = columns[2];
+        const typeRaw = columns[3];
+        const volume = parseFloat(columns[4]);
+        const openPrice = parseFloat(cleanNumber(columns[5]));
+        const sl = parseFloat(cleanNumber(columns[6])) || 0;
+        const tp = parseFloat(cleanNumber(columns[7])) || 0;
+        const closeTimeStr = columns[8];
+        const closePrice = parseFloat(cleanNumber(columns[9]));
+        const commissionRaw = columns[10];
+        const swap = parseFloat(columns[11].replace(/\s/g, "")) || 0;
+        const profit = parseFloat(columns[12].replace(/\s/g, "")) || 0;
 
-        // Commission-ийг зөв парслах ("-" байвал 0)
+        // Commission-ийг зөв парслах
         let commission = 0;
+
         if (commissionRaw !== "-" && commissionRaw !== "") {
           commission = parseFloat(commissionRaw.replace(/\s/g, "")) || 0;
         }
 
-        // ✅ НИЙТ АШИГ = Commission + Swap + Profit
-        // Хэрэв swap эерэг бол 0, харин сөрөг бол хэвээр нь үлдээх
+        // НИЙТ АШИГ = Commission + Swap + Profit
         const effectiveSwap = swap > 0 ? 0 : swap;
+
         let totalProfit = commission + effectiveSwap + profit;
+
         totalProfit = truncateTo2Decimals(totalProfit);
 
         // Type шалгах
         let tradeType = "";
-        if (typeRaw.toLowerCase() === "buy") tradeType = "buy";
-        else if (typeRaw.toLowerCase() === "sell") tradeType = "sell";
-        else {
+
+        if (typeRaw.toLowerCase() === "buy") {
+          tradeType = "buy";
+        } else if (typeRaw.toLowerCase() === "sell") {
+          tradeType = "sell";
+        } else {
           errors.push({
             row: index + 1,
             line,
@@ -178,19 +222,64 @@ export default function TradeForm() {
               `Төрөл нь "buy" эсвэл "sell" байх ёстой. Олдсон: ${typeRaw}`,
             ],
           });
+
           return;
         }
 
-        // Огноо формат шалгах (2026.05.14 16:49:33)
-        const openDate = new Date(openTimeStr.replace(/\./g, "-"));
-        const closeDate = new Date(closeTimeStr.replace(/\./g, "-"));
+        // ========================================================
+        // 📌 MT5 TIME → UTC
+        // MT5:
+        // 2026.08.13 09:10:00
+        //
+        // гэж ирвэл UTC+3 гэж үзээд:
+        //
+        // 2026-08-13T06:10:00.000Z
+        //
+        // болгон хадгална.
+        // ========================================================
+
+        let openTimeUTC: string;
+        let closeTimeUTC: string;
+
+        try {
+          openTimeUTC = convertMT5TimeToUTC(openTimeStr);
+        } catch (error) {
+          errors.push({
+            row: index + 1,
+            line,
+            errors: [
+              `Нээлтийн огнооны формат буруу эсвэл UTC хөрвүүлэлт амжилтгүй: ${openTimeStr}`,
+            ],
+          });
+
+          return;
+        }
+
+        try {
+          closeTimeUTC = convertMT5TimeToUTC(closeTimeStr);
+        } catch (error) {
+          errors.push({
+            row: index + 1,
+            line,
+            errors: [
+              `Хаалтын огнооны формат буруу эсвэл UTC хөрвүүлэлт амжилтгүй: ${closeTimeStr}`,
+            ],
+          });
+
+          return;
+        }
+
+        // UTC date validation
+        const openDate = new Date(openTimeUTC);
+        const closeDate = new Date(closeTimeUTC);
 
         if (isNaN(openDate.getTime())) {
           errors.push({
             row: index + 1,
             line,
-            errors: [`Нээлтийн огнооны формат буруу: ${openTimeStr}`],
+            errors: [`Нээлтийн UTC огноо буруу: ${openTimeStr}`],
           });
+
           return;
         }
 
@@ -198,8 +287,9 @@ export default function TradeForm() {
           errors.push({
             row: index + 1,
             line,
-            errors: [`Хаалтын огнооны формат буруу: ${closeTimeStr}`],
+            errors: [`Хаалтын UTC огноо буруу: ${closeTimeStr}`],
           });
+
           return;
         }
 
@@ -209,8 +299,11 @@ export default function TradeForm() {
           entry_price: openPrice,
           exit_price: closePrice,
           lot_size: volume,
-          open_time: openTimeStr.replace(/\./g, "-"),
-          close_time: closeTimeStr.replace(/\./g, "-"),
+
+          // 📌 DB-д UTC ISO хэлбэрээр хадгална
+          open_time: openTimeUTC,
+          close_time: closeTimeUTC,
+
           stop_loss: sl,
           take_profit: tp,
           profit: totalProfit,
@@ -227,10 +320,11 @@ export default function TradeForm() {
     return { validTrades, errors };
   };
 
-  // 📌 MT PREVIEW HANDLER (алдаануудыг setValidationErrors-ээр хадгална)
+  // 📌 MT5 PREVIEW HANDLER
   const handleMt5Preview = () => {
     if (!mt5Text.trim()) {
       alert("MT5 History-с буулгасан арилжааны жагсаалтыг оруулна уу.");
+
       return;
     }
 
@@ -251,19 +345,18 @@ export default function TradeForm() {
     }
   };
 
-  // MT4 ПАРСЕР (Commission + Taxes + Swap + Profit = Нийт ашиг)
+  // 📌 MT4 PARSER
   const parseMT4 = (
     text: string,
   ): { validTrades: ParsedTrade[]; errors: ValidationError[] } => {
     const lines = text.split("\n").filter((line) => line.trim().length > 0);
+
     const validTrades: ParsedTrade[] = [];
     const errors: ValidationError[] = [];
 
     lines.forEach((line, index) => {
-      // Tab-ээр тусгаарлагдсан column-ууд
       const columns = line.split("\t").map((col) => col.trim());
 
-      // Хүлээгдэж буй баганын тоо: 14 (Ticket, Open Time, Type, Size, Item, Price, S/L, T/P, Close Time, Price, Commission, Taxes, Swap, Profit)
       if (columns.length < 14) {
         errors.push({
           row: index + 1,
@@ -272,37 +365,39 @@ export default function TradeForm() {
             `14 багана хүлээгдэж байсан боловч ${columns.length} олдлоо`,
           ],
         });
+
         return;
       }
 
       try {
-        // Зөвхөн trade (buy/sell) мөрүүдийг шүүж, balance мөрийг алгасах
         const typeRaw = columns[2].toLowerCase();
+
         if (typeRaw === "balance") {
-          return; // balance мөрийг алгасах
+          return;
         }
 
-        const openTimeStr = columns[1]; // Open Time
-        const closeTimeStr = columns[8]; // Close Time
-        const symbol = columns[4].toUpperCase(); // Item (xauusd -> XAUUSD)
-        const type = typeRaw; // Type (buy/sell)
-        const size = parseFloat(columns[3]); // Size
-        const openPrice = parseFloat(cleanNumber(columns[5])); // Price
-        const closePrice = parseFloat(cleanNumber(columns[9])); // Price
-        const sl = parseFloat(cleanNumber(columns[6])) || 0; // S/L
-        const tp = parseFloat(cleanNumber(columns[7])) || 0; // T/P
-        const commission = parseFloat(columns[10]) || 0; // Commission
-        const taxes = parseFloat(columns[11].replace(/\s/g, "")) || 0; // Taxes
-        const swap = parseFloat(columns[12].replace(/\s/g, "")) || 0; // Swap
-        const profit = parseFloat(columns[13].replace(/\s/g, "")) || 0; // Profit
+        const openTimeStr = columns[1];
+        const closeTimeStr = columns[8];
+        const symbol = columns[4].toUpperCase();
+        const type = typeRaw;
+        const size = parseFloat(columns[3]);
+        const openPrice = parseFloat(cleanNumber(columns[5]));
+        const closePrice = parseFloat(cleanNumber(columns[9]));
+        const sl = parseFloat(cleanNumber(columns[6])) || 0;
+        const tp = parseFloat(cleanNumber(columns[7])) || 0;
+        const commission = parseFloat(columns[10]) || 0;
+        const taxes = parseFloat(columns[11].replace(/\s/g, "")) || 0;
+        const swap = parseFloat(columns[12].replace(/\s/g, "")) || 0;
+        const profit = parseFloat(columns[13].replace(/\s/g, "")) || 0;
 
-        // ✅ НИЙТ АШИГ = Commission + Taxes + Swap + Profit
         const effectiveSwap = swap > 0 ? 0 : swap;
+
         let totalProfit = commission + taxes + effectiveSwap + profit;
+
         totalProfit = truncateTo2Decimals(totalProfit);
 
-        // Огноо формат шалгах (2026.01.20 14:04:18)
         const openDate = new Date(openTimeStr.replace(/\./g, "-"));
+
         const closeDate = new Date(closeTimeStr.replace(/\./g, "-"));
 
         if (isNaN(openDate.getTime())) {
@@ -311,6 +406,7 @@ export default function TradeForm() {
             line,
             errors: [`Нээлтийн огнооны формат буруу: ${openTimeStr}`],
           });
+
           return;
         }
 
@@ -320,6 +416,7 @@ export default function TradeForm() {
             line,
             errors: [`Хаалтын огнооны формат буруу: ${closeTimeStr}`],
           });
+
           return;
         }
 
@@ -333,7 +430,7 @@ export default function TradeForm() {
           close_time: closeTimeStr.replace(/\./g, "-"),
           stop_loss: sl,
           take_profit: tp,
-          profit: totalProfit, // ✅ Нийт ашгийг хадгалж байна
+          profit: totalProfit,
         });
       } catch (err) {
         errors.push({
@@ -351,6 +448,7 @@ export default function TradeForm() {
   const handleMt4Preview = () => {
     if (!mt4Text.trim()) {
       alert("MT4 History-с буулгасан арилжааны жагсаалтыг оруулна уу.");
+
       return;
     }
 
@@ -371,18 +469,18 @@ export default function TradeForm() {
     }
   };
 
-  // JFOREX ПАРСЕР
+  // 📌 JFOREX PARSER
   const parseJForex = (
     text: string,
   ): { validTrades: ParsedTrade[]; errors: ValidationError[] } => {
     const lines = text.split("\n").filter((line) => line.trim().length > 0);
+
     const validTrades: ParsedTrade[] = [];
     const errors: ValidationError[] = [];
 
     lines.forEach((line, index) => {
       const columns = line.split("\t").map((col) => col.trim());
 
-      // Хүлээгдэж буй баганын тоо: 13 (Label, Amount, Direction, Open price, Close price, Profit/Loss, Profit/Loss in pips, Open date, Close date, Comment, SL, TP, Symbol)
       if (columns.length < 13) {
         errors.push({
           row: index + 1,
@@ -391,6 +489,7 @@ export default function TradeForm() {
             `13 багана хүлээгдэж байсан боловч ${columns.length} олдлоо`,
           ],
         });
+
         return;
       }
 
@@ -399,17 +498,24 @@ export default function TradeForm() {
         const directionRaw = columns[2];
         const openPrice = parseFloat(columns[3]);
         const closePrice = parseFloat(columns[4]);
+
         const profitRaw = parseFloat(columns[5].replace(/\s/g, ""));
+
         const openDateRaw = columns[7];
         const closeDateRaw = columns[8];
+
         const sl = parseFloat(columns[10]) || 0;
         const tp = parseFloat(columns[11]) || 0;
-        const symbol = columns[12]; // Symbol багана
+
+        const symbol = columns[12];
 
         let tradeType = "";
-        if (directionRaw.toLowerCase() === "buy") tradeType = "buy";
-        else if (directionRaw.toLowerCase() === "sell") tradeType = "sell";
-        else {
+
+        if (directionRaw.toLowerCase() === "buy") {
+          tradeType = "buy";
+        } else if (directionRaw.toLowerCase() === "sell") {
+          tradeType = "sell";
+        } else {
           errors.push({
             row: index + 1,
             line,
@@ -417,6 +523,7 @@ export default function TradeForm() {
               `Төрөл нь "BUY" эсвэл "SELL" байх ёстой. Олдсон: ${directionRaw}`,
             ],
           });
+
           return;
         }
 
@@ -424,7 +531,12 @@ export default function TradeForm() {
           const parts = dateStr.split(" ");
           const dateParts = parts[0].split("/");
           const timePart = parts[1] || "00:00";
-          const formattedDate = `${dateParts[2]}-${dateParts[0].padStart(2, "0")}-${dateParts[1].padStart(2, "0")}`;
+
+          const formattedDate = `${dateParts[2]}-${dateParts[0].padStart(
+            2,
+            "0",
+          )}-${dateParts[1].padStart(2, "0")}`;
+
           return `${formattedDate} ${timePart}`;
         };
 
@@ -440,6 +552,7 @@ export default function TradeForm() {
             line,
             errors: [`Нээлтийн огнооны формат буруу: ${openDateRaw}`],
           });
+
           return;
         }
 
@@ -449,6 +562,7 @@ export default function TradeForm() {
             line,
             errors: [`Хаалтын огнооны формат буруу: ${closeDateRaw}`],
           });
+
           return;
         }
 
@@ -480,6 +594,7 @@ export default function TradeForm() {
   const handleJForexPreview = () => {
     if (!jforexText.trim()) {
       alert("JForex-ээс буулгасан арилжааны жагсаалтыг оруулна уу.");
+
       return;
     }
 
@@ -528,8 +643,11 @@ export default function TradeForm() {
       exit_price: t.exit_price,
       profit: t.profit,
       lot_size: t.lot_size,
+
+      // MT5 parser-ээс аль хэдийн UTC ISO string ирж байгаа.
       open_time: new Date(t.open_time),
       close_time: new Date(t.close_time),
+
       stop_loss: t.stop_loss,
       take_profit: t.take_profit,
     }));
@@ -543,7 +661,9 @@ export default function TradeForm() {
 
     if (error) {
       console.log("error", error);
+
       alert("Булк хийхэд алдаа гарлаа: " + error.message);
+
       return;
     }
 
@@ -553,16 +673,19 @@ export default function TradeForm() {
     setParsedTrades([]);
     setValidationErrors([]);
     setShowPreview(false);
+
     router.replace("/trades");
   };
 
-  // MT5 цэвэрлэх
+  // MT4 цэвэрлэх
   const handleClearMt4 = () => {
     setMt4Text("");
     setShowPreview(false);
     setParsedTrades([]);
     setValidationErrors([]);
   };
+
+  // MT5 цэвэрлэх
   const handleClearMt5 = () => {
     setMt5Text("");
     setShowPreview(false);
@@ -612,6 +735,7 @@ export default function TradeForm() {
             className="w-full p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
           >
             <option value="">Данс сонгох</option>
+
             {filtedAccounts.map((acc) => (
               <option key={acc.id} value={acc.id}>
                 {getStatusIcon(acc.status)} {acc.name} - $
@@ -648,6 +772,7 @@ export default function TradeForm() {
               onChange={(e) => setEntry(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
             />
+
             <input
               type="number"
               placeholder="Хаалтын ханш"
@@ -665,6 +790,7 @@ export default function TradeForm() {
               onChange={(e) => setSl(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
             />
+
             <input
               type="number"
               placeholder="TP"
@@ -672,6 +798,7 @@ export default function TradeForm() {
               onChange={(e) => setTp(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
             />
+
             <input
               type="number"
               placeholder="Лот хэмжээ"
@@ -679,6 +806,7 @@ export default function TradeForm() {
               onChange={(e) => setLot(e.target.value)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
             />
+
             <input
               type="number"
               placeholder="Ашиг"
@@ -694,6 +822,7 @@ export default function TradeForm() {
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                 Нээлтийн огноо
               </label>
+
               <input
                 type="datetime-local"
                 value={openTime || ""}
@@ -701,10 +830,12 @@ export default function TradeForm() {
                 className="w-full p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               />
             </div>
+
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                 Хаалтын огноо
               </label>
+
               <input
                 type="datetime-local"
                 value={closeTime || ""}
@@ -724,7 +855,7 @@ export default function TradeForm() {
 
           <hr className="my-4 dark:border-gray-700" />
 
-          {/* TAB ХЭСЭГ - Олон арилжаа нэмэх */}
+          {/* TAB ХЭСЭГ */}
           <div className="mt-6">
             <div className="border-b border-gray-200 dark:border-gray-700">
               <div className="flex gap-2">
@@ -740,13 +871,15 @@ export default function TradeForm() {
                   }`}
                 >
                   <Image
-                    src="/mt-logo.svg" // Таны SVG файлын зам (public хавтаснаас эхэлнэ)
+                    src="/mt-logo.svg"
                     alt="MT4 Logo"
                     width={40}
                     height={40}
                   />
+
                   <span>MT5</span>
                 </button>
+
                 <button
                   onClick={() => {
                     setActiveTab("mt4");
@@ -759,13 +892,15 @@ export default function TradeForm() {
                   }`}
                 >
                   <Image
-                    src="/mt-logo.svg" // Таны SVG файлын зам (public хавтаснаас эхэлнэ)
+                    src="/mt-logo.svg"
                     alt="MT4 Logo"
                     width={40}
                     height={40}
                   />
+
                   <span>MT4</span>
                 </button>
+
                 <button
                   onClick={() => {
                     setActiveTab("jforex");
@@ -778,11 +913,12 @@ export default function TradeForm() {
                   }`}
                 >
                   <Image
-                    src="/jforex.svg" // Таны SVG файлын зам (public хавтаснаас эхэлнэ)
+                    src="/jforex.svg"
                     alt="MT4 Logo"
                     width={40}
                     height={40}
                   />
+
                   <span>JForex</span>
                 </button>
               </div>
@@ -796,12 +932,15 @@ export default function TradeForm() {
                     <p className="font-medium mb-2 text-gray-900 dark:text-gray-200">
                       🎯 MT5 History-с Export хийсэн өгөгдлөө буулгана уу
                     </p>
+
                     <code className="text-xs bg-gray-200 dark:bg-gray-800 dark:text-gray-300 p-2 block rounded">
                       Time Position Symbol Type Volume Price S/L T/P Time Price
                       Commission Swap Profit
                     </code>
+
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      💡 Дээрх дарааллын дагуу өгөгдөл байх ёстой.
+                      💡 MT5 History-ийн цагийг UTC+3 гэж үзэн UTC болгон
+                      хадгална.
                     </p>
                   </div>
 
@@ -824,6 +963,7 @@ export default function TradeForm() {
                     >
                       🔍 Шалгах
                     </button>
+
                     {mt5Text && (
                       <button
                         onClick={handleClearMt5}
@@ -843,10 +983,12 @@ export default function TradeForm() {
                     <p className="font-medium mb-2 text-gray-900 dark:text-gray-200">
                       🎯 MT4 History-с Export хийсэн өгөгдлөө буулгана уу
                     </p>
+
                     <code className="text-xs bg-gray-200 dark:bg-gray-800 dark:text-gray-300 p-2 block rounded">
                       Ticket Open Time Type Size Item Price S/L T/P Close Time
                       Price Commission Taxes Swap Profit
                     </code>
+
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                       💡 Дээрх дарааллын дагуу өгөгдөл байх ёстой.
                     </p>
@@ -871,6 +1013,7 @@ export default function TradeForm() {
                     >
                       🔍 Шалгах
                     </button>
+
                     {mt4Text && (
                       <button
                         onClick={handleClearMt4}
@@ -890,11 +1033,13 @@ export default function TradeForm() {
                     <p className="font-medium mb-2 text-gray-900 dark:text-gray-200">
                       🎯 JForex Platform-с Export хийсэн өгөгдлөө буулгана уу
                     </p>
+
                     <code className="text-xs bg-gray-200 dark:bg-gray-800 dark:text-gray-300 p-2 block rounded whitespace-pre-wrap">
                       Label Amount Direction Open price Close price Profit/Loss
                       Profit/Loss in pips Open date Close date Comment SL TP
                       Symbol
                     </code>
+
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                       💡 Дээрх дарааллын дагуу өгөгдөл байх ёстой.
                     </p>
@@ -919,6 +1064,7 @@ export default function TradeForm() {
                     >
                       🔍 Шалгах
                     </button>
+
                     {jforexText && (
                       <button
                         onClick={handleClearJForex}
@@ -932,7 +1078,6 @@ export default function TradeForm() {
               )}
             </div>
 
-            {/* Clear button */}
             {(bulkText || mt4Text || mt5Text || jforexText) && (
               <button
                 onClick={handleClearBulk}
@@ -942,6 +1087,7 @@ export default function TradeForm() {
               </button>
             )}
           </div>
+
           {/* PREVIEW SECTION */}
           {showPreview && (
             <div className="space-y-3 border rounded-lg p-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600">
@@ -949,6 +1095,7 @@ export default function TradeForm() {
                 <h4 className="font-semibold text-gray-900 dark:text-white">
                   Шалгалт: {parsedTrades.length} хүчинтэй арилжаа
                 </h4>
+
                 {validationErrors.length > 0 && (
                   <span className="text-red-600 dark:text-red-400 text-sm font-medium">
                     {validationErrors.length} алдаа
@@ -962,6 +1109,7 @@ export default function TradeForm() {
                   <h5 className="font-medium text-red-800 dark:text-red-300 mb-2">
                     ⚠️ Алдаанууд:
                   </h5>
+
                   <div className="space-y-2 max-h-60 overflow-auto">
                     {validationErrors.map((err, idx) => (
                       <div
@@ -971,9 +1119,11 @@ export default function TradeForm() {
                         <p className="font-mono text-red-700 dark:text-red-400">
                           {err.row} -р мөр:
                         </p>
+
                         <p className="text-gray-600 dark:text-gray-400 text-xs break-all">
                           Мөр: {err.line}
                         </p>
+
                         <ul className="list-disc list-inside text-red-600 dark:text-red-400 text-xs ml-2">
                           {err.errors.map((error, i) => (
                             <li key={i}>{error}</li>
@@ -991,6 +1141,7 @@ export default function TradeForm() {
                   <h5 className="font-medium text-gray-900 dark:text-white mb-2">
                     Хүчинтэй арилжаанууд:
                   </h5>
+
                   <div className="overflow-x-auto max-h-80 overflow-auto">
                     <table className="min-w-full text-xs border-collapse">
                       <thead className="sticky top-0 bg-gray-100 dark:bg-gray-800">
@@ -998,38 +1149,49 @@ export default function TradeForm() {
                           <th className="p-2 text-left text-gray-900 dark:text-white">
                             #
                           </th>
+
                           <th className="p-2 text-left text-gray-900 dark:text-white">
                             Хослол
                           </th>
+
                           <th className="p-2 text-left text-gray-900 dark:text-white">
                             Төрөл
                           </th>
+
                           <th className="p-2 text-right text-gray-900 dark:text-white">
                             Нээлт
                           </th>
+
                           <th className="p-2 text-right text-gray-900 dark:text-white">
                             Хаалт
                           </th>
+
                           <th className="p-2 text-right text-gray-900 dark:text-white">
                             Лот
                           </th>
+
                           <th className="p-2 text-left text-gray-900 dark:text-white">
                             Нээсэн огноо
                           </th>
+
                           <th className="p-2 text-left text-gray-900 dark:text-white">
                             Хаасан огноо
                           </th>
+
                           <th className="p-2 text-right text-gray-900 dark:text-white">
                             SL
                           </th>
+
                           <th className="p-2 text-right text-gray-900 dark:text-white">
                             TP
                           </th>
+
                           <th className="p-2 text-right text-gray-900 dark:text-white">
                             Ашиг
                           </th>
                         </tr>
                       </thead>
+
                       <tbody>
                         {parsedTrades.slice(0, 20).map((trade, idx) => (
                           <tr
@@ -1039,37 +1201,55 @@ export default function TradeForm() {
                             <td className="p-2 text-gray-900 dark:text-white">
                               {idx + 1}
                             </td>
+
                             <td className="p-2 font-medium text-gray-900 dark:text-white">
                               {trade.symbol}
                             </td>
+
                             <td
-                              className={`p-2 ${trade.type === "buy" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                              className={`p-2 ${
+                                trade.type === "buy"
+                                  ? "text-green-600 dark:text-green-400"
+                                  : "text-red-600 dark:text-red-400"
+                              }`}
                             >
                               {trade.type === "buy" ? "Buy" : "Sell"}
                             </td>
+
                             <td className="p-2 text-right text-gray-900 dark:text-white">
                               {trade.entry_price}
                             </td>
+
                             <td className="p-2 text-right text-gray-900 dark:text-white">
                               {trade.exit_price}
                             </td>
+
                             <td className="p-2 text-right text-gray-900 dark:text-white">
                               {trade.lot_size}
                             </td>
+
                             <td className="p-2 text-gray-900 dark:text-white">
                               {new Date(trade.open_time).toLocaleString()}
                             </td>
+
                             <td className="p-2 text-gray-900 dark:text-white">
                               {new Date(trade.close_time).toLocaleString()}
                             </td>
+
                             <td className="p-2 text-right text-gray-900 dark:text-white">
                               {trade.stop_loss}
                             </td>
+
                             <td className="p-2 text-right text-gray-900 dark:text-white">
                               {trade.take_profit}
                             </td>
+
                             <td
-                              className={`p-2 text-right font-medium ${trade.profit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                              className={`p-2 text-right font-medium ${
+                                trade.profit >= 0
+                                  ? "text-green-600 dark:text-green-400"
+                                  : "text-red-600 dark:text-red-400"
+                              }`}
                             >
                               {trade.profit}
                             </td>
@@ -1077,6 +1257,7 @@ export default function TradeForm() {
                         ))}
                       </tbody>
                     </table>
+
                     {parsedTrades.length > 20 && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 p-2">
                         Эхний 20-ыг харуулж байна. Нийт {parsedTrades.length}{" "}
