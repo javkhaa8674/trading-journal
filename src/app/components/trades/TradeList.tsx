@@ -31,15 +31,59 @@ type Props = {
   trades: Trade[];
   onDelete: (ids: string[]) => void;
   onEdit: (id: string) => void;
-
-  /*
-   * NEW:
-   *
-   * Chart товч дарахад тухайн
-   * trade-ийн ID-г parent руу дамжуулна.
-   */
   onChart: (id: string) => void;
 };
+
+/* =====================================================
+   PRICE FORMATTER
+===================================================== */
+
+const getPriceDecimals = (symbol: string): number => {
+  const normalizedSymbol = symbol.toUpperCase();
+
+  if (normalizedSymbol === "XAUUSD") {
+    return 3;
+  }
+
+  return 5;
+};
+
+const formatPrice = (price: number, symbol: string): string => {
+  return price.toFixed(getPriceDecimals(symbol));
+};
+
+/* =====================================================
+   TIME FORMATTER
+===================================================== */
+
+/**
+ * IMPORTANT:
+ *
+ * open_time / close_time are expected to be
+ * PostgreSQL timestamptz / ISO timestamps.
+ *
+ * Example:
+ *
+ * 2026-08-12T06:51:41.000Z
+ *
+ * Date preserves the exact instant.
+ *
+ * toLocaleString() only controls how that instant
+ * is displayed to the user.
+ */
+const formatTradeTime = (value: string): string => {
+  const date = new Date(value);
+
+  if (!Number.isFinite(date.getTime())) {
+    return "-";
+  }
+
+  return `${date.toISOString().slice(0, 19).replace("T", " ")} UTC`;
+};
+
+/* =====================================================
+   MAIN COMPONENT
+===================================================== */
 
 export default function TradeList({
   trades,
@@ -69,7 +113,9 @@ export default function TradeList({
   const columns = useMemo<ColumnDef<Trade>[]>(() => {
     const cols: ColumnDef<Trade>[] = [];
 
-    /* Select column */
+    /* =================================================
+       SELECT COLUMN
+    ================================================= */
 
     if (isSelectMode) {
       cols.push({
@@ -95,7 +141,9 @@ export default function TradeList({
       });
     }
 
-    /* Symbol */
+    /* =================================================
+       SYMBOL
+    ================================================= */
 
     cols.push({
       accessorKey: "symbol",
@@ -107,7 +155,9 @@ export default function TradeList({
       ),
     });
 
-    /* Type */
+    /* =================================================
+       TYPE
+    ================================================= */
 
     cols.push({
       accessorKey: "type",
@@ -131,27 +181,41 @@ export default function TradeList({
       },
     });
 
-    /* Entry Price */
+    /* =================================================
+       ENTRY PRICE
+    ================================================= */
 
     cols.push({
       accessorKey: "entry_price",
 
       header: "Нээлтийн ханш",
 
-      cell: (info) => `${(info.getValue() as number).toFixed(4)}`,
+      cell: (info) => {
+        const row = info.row.original;
+
+        return formatPrice(info.getValue() as number, row.symbol);
+      },
     });
 
-    /* Exit Price */
+    /* =================================================
+       EXIT PRICE
+    ================================================= */
 
     cols.push({
       accessorKey: "exit_price",
 
       header: "Хаалтын ханш",
 
-      cell: (info) => `${(info.getValue() as number).toFixed(4)}`,
+      cell: (info) => {
+        const row = info.row.original;
+
+        return formatPrice(info.getValue() as number, row.symbol);
+      },
     });
 
-    /* Lot Size */
+    /* =================================================
+       LOT SIZE
+    ================================================= */
 
     cols.push({
       accessorKey: "lot_size",
@@ -161,27 +225,77 @@ export default function TradeList({
       cell: (info) => (info.getValue() as number).toFixed(2),
     });
 
-    /* Open Date */
+    /* =================================================
+       STOP LOSS
+    ================================================= */
+
+    cols.push({
+      accessorKey: "stop_loss",
+
+      header: "SL",
+
+      cell: (info) => {
+        const row = info.row.original;
+
+        const value = info.getValue() as number;
+
+        if (!value) {
+          return "-";
+        }
+
+        return formatPrice(value, row.symbol);
+      },
+    });
+
+    /* =================================================
+       TAKE PROFIT
+    ================================================= */
+
+    cols.push({
+      accessorKey: "take_profit",
+
+      header: "TP",
+
+      cell: (info) => {
+        const row = info.row.original;
+
+        const value = info.getValue() as number;
+
+        if (!value) {
+          return "-";
+        }
+
+        return formatPrice(value, row.symbol);
+      },
+    });
+
+    /* =================================================
+       OPEN DATE
+    ================================================= */
 
     cols.push({
       accessorKey: "open_time",
 
       header: "Нээлтийн огноо",
 
-      cell: (info) => new Date(info.getValue() as string).toLocaleString(),
+      cell: (info) => formatTradeTime(info.getValue() as string),
     });
 
-    /* Close Date */
+    /* =================================================
+       CLOSE DATE
+    ================================================= */
 
     cols.push({
       accessorKey: "close_time",
 
       header: "Хаалтын огноо",
 
-      cell: (info) => new Date(info.getValue() as string).toLocaleString(),
+      cell: (info) => formatTradeTime(info.getValue() as string),
     });
 
-    /* Profit */
+    /* =================================================
+       PROFIT
+    ================================================= */
 
     cols.push({
       accessorKey: "profit",
@@ -208,11 +322,8 @@ export default function TradeList({
     });
 
     /* =================================================
-         ACTIONS
-
-         NEW:
-         Chart + Засах
-      ================================================= */
+       ACTIONS
+    ================================================= */
 
     cols.push({
       id: "actions",
@@ -230,15 +341,15 @@ export default function TradeList({
               type="button"
               onClick={() => onChart(tradeId)}
               className="
-                  rounded
-                  bg-green-600
-                  px-3
-                  py-1
-                  text-xs
-                  text-white
-                  hover:bg-green-700
-                  transition-colors
-                "
+                rounded
+                bg-green-600
+                px-3
+                py-1
+                text-xs
+                text-white
+                hover:bg-green-700
+                transition-colors
+              "
             >
               📈 Chart
             </button>
@@ -249,15 +360,15 @@ export default function TradeList({
               type="button"
               onClick={() => onEdit(tradeId)}
               className="
-                  rounded
-                  bg-blue-500
-                  px-3
-                  py-1
-                  text-xs
-                  text-white
-                  hover:bg-blue-600
-                  transition-colors
-                "
+                rounded
+                bg-blue-500
+                px-3
+                py-1
+                text-xs
+                text-white
+                hover:bg-blue-600
+                transition-colors
+              "
             >
               Засах
             </button>
@@ -317,7 +428,9 @@ export default function TradeList({
   ===================================================== */
 
   const handleDeleteSelected = () => {
-    if (selectedCount === 0) return;
+    if (selectedCount === 0) {
+      return;
+    }
 
     if (
       confirm(

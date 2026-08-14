@@ -44,7 +44,29 @@ export default function TradeForm() {
   const [closeTime, setCloseTime] = useState("");
   const [profit, setProfit] = useState<string>("");
 
-  // 📌 BULK INPUT STATE
+  // ============================================================
+  // SERVER TIME OFFSET
+  //
+  // Broker-ийн server time-г UTC руу хөрвүүлэхэд хэрэглэнэ.
+  //
+  // Жишээ:
+  // Broker Server = UTC+3
+  // Input          = 2026-08-13 09:10:00
+  // DB UTC         = 2026-08-13T06:10:00.000Z
+  //
+  // Broker Server = UTC+2
+  // Input          = 2026-08-13 09:10:00
+  // DB UTC         = 2026-08-13T07:10:00.000Z
+  //
+  // 0 = аль хэдийн UTC
+  // ============================================================
+
+  const [serverOffset, setServerOffset] = useState("0");
+
+  // -------------------------
+  // BULK INPUT STATE
+  // -------------------------
+
   const [bulkText, setBulkText] = useState("");
   const [parsedTrades, setParsedTrades] = useState<ParsedTrade[]>([]);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
@@ -52,22 +74,228 @@ export default function TradeForm() {
   );
   const [showPreview, setShowPreview] = useState(false);
 
-  // 📌 MT4/MT5 FORMAT STATE
+  // -------------------------
+  // MT4 / MT5 / JFOREX STATE
+  // -------------------------
+
   const [mt4Text, setMt4Text] = useState("");
   const [mt5Text, setMt5Text] = useState("");
   const [jforexText, setJforexText] = useState("");
 
   const [activeTab, setActiveTab] = useState<"jforex" | "mt4" | "mt5">("mt5");
 
-  // -------------------------
+  // ============================================================
+  // SERVER OFFSET OPTIONS
+  // ============================================================
+
+  const serverOffsetOptions = Array.from(
+    { length: 27 },
+    (_, index) => index - 12,
+  );
+
+  // ============================================================
+  // TIME HELPERS
+  // ============================================================
+
+  /**
+   * Broker/server time-ийг UTC ISO string болгоно.
+   *
+   * Жишээ:
+   *
+   * input:
+   * 2026-08-13 09:10:00
+   *
+   * offset:
+   * +3
+   *
+   * result:
+   * 2026-08-13T06:10:00.000Z
+   *
+   * Browser timezone огт ашиглахгүй.
+   */
+  const convertServerTimeToUTC = (
+    timeString: string,
+    offsetHours: number,
+  ): string => {
+    const normalized = timeString.trim();
+
+    const match = normalized.match(
+      /^(\d{4})[-.](\d{1,2})[-.](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/,
+    );
+
+    if (!match) {
+      throw new Error(`Огнооны формат буруу: ${timeString}`);
+    }
+
+    const [, year, month, day, hour, minute, second = "0"] = match;
+
+    const localServerMillis = Date.UTC(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second),
+    );
+
+    const utcMillis = localServerMillis - offsetHours * 60 * 60 * 1000;
+
+    return new Date(utcMillis).toISOString();
+  };
+
+  /**
+   * JForex:
+   *
+   * 1/7/2026 16:14
+   *
+   * -> 2026-01-07 16:14:00
+   *
+   * Мөн секундтэй format зөвшөөрнө:
+   *
+   * 1/7/2026 16:14:30
+   */
+  const formatJForexDate = (dateStr: string): string => {
+    const parts = dateStr.trim().split(/\s+/);
+
+    if (parts.length < 2) {
+      throw new Error(`JForex огнооны формат буруу: ${dateStr}`);
+    }
+
+    const dateParts = parts[0].split("/");
+
+    if (dateParts.length !== 3) {
+      throw new Error(`JForex огнооны формат буруу: ${dateStr}`);
+    }
+
+    const timeParts = parts[1].split(":");
+
+    if (timeParts.length < 2) {
+      throw new Error(`JForex цагийн формат буруу: ${dateStr}`);
+    }
+
+    const year = Number(dateParts[2]);
+    const month = Number(dateParts[0]);
+    const day = Number(dateParts[1]);
+
+    const hour = Number(timeParts[0]);
+    const minute = Number(timeParts[1]);
+    const second = timeParts[2] ? Number(timeParts[2]) : 0;
+
+    if (
+      !Number.isInteger(year) ||
+      !Number.isInteger(month) ||
+      !Number.isInteger(day) ||
+      !Number.isInteger(hour) ||
+      !Number.isInteger(minute) ||
+      !Number.isInteger(second)
+    ) {
+      throw new Error(`JForex огнооны формат буруу: ${dateStr}`);
+    }
+
+    if (
+      month < 1 ||
+      month > 12 ||
+      day < 1 ||
+      day > 31 ||
+      hour < 0 ||
+      hour > 23 ||
+      minute < 0 ||
+      minute > 59 ||
+      second < 0 ||
+      second > 59
+    ) {
+      throw new Error(`JForex огнооны утга буруу: ${dateStr}`);
+    }
+
+    return (
+      `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(
+        2,
+        "0",
+      )} ` +
+      `${String(hour).padStart(2, "0")}:${String(minute).padStart(
+        2,
+        "0",
+      )}:${String(second).padStart(2, "0")}`
+    );
+  };
+
+  /**
+   * Preview дээр UTC-г browser local timezone руу шилжүүлэхгүйгээр
+   * шууд UTC хэлбэрээр харуулна.
+   */
+  const formatUTCForDisplay = (isoString: string): string => {
+    const date = new Date(isoString);
+
+    if (isNaN(date.getTime())) {
+      return isoString;
+    }
+
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const hour = String(date.getUTCHours()).padStart(2, "0");
+    const minute = String(date.getUTCMinutes()).padStart(2, "0");
+    const second = String(date.getUTCSeconds()).padStart(2, "0");
+
+    return `${year}-${month}-${day} ${hour}:${minute}:${second} UTC`;
+  };
+
+  /**
+   * datetime-local input нь timezone information агуулахгүй.
+   *
+   * Тиймээс input дээр байгаа цагийг UTC гэж үзээд
+   * шууд UTC ISO string үүсгэнэ.
+   *
+   * Browser-ийн local timezone ашиглахгүй.
+   */
+  const convertDateTimeLocalAsUTC = (value: string): string => {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+
+    if (!match) {
+      throw new Error(`Datetime format буруу: ${value}`);
+    }
+
+    const [, year, month, day, hour, minute] = match;
+
+    return new Date(
+      Date.UTC(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        0,
+      ),
+    ).toISOString();
+  };
+
+  // ============================================================
   // SINGLE TRADE SUBMIT
-  // -------------------------
+  // ============================================================
+
   const handleSubmit = async () => {
     const user = await getCurrentUser();
 
     if (!user) return alert("Хэрэглэгч нэвтрээгүй байна");
     if (!accountId) return alert("Данс сонгоно уу");
     if (!symbol) return alert("Хослолын нэр оруулна уу");
+
+    let openTimeUTC: string;
+    let closeTimeUTC: string;
+
+    try {
+      openTimeUTC = openTime
+        ? convertDateTimeLocalAsUTC(openTime)
+        : new Date().toISOString();
+
+      closeTimeUTC = closeTime
+        ? convertDateTimeLocalAsUTC(closeTime)
+        : new Date().toISOString();
+    } catch (error) {
+      console.error(error);
+      alert("Огноо боловсруулах үед алдаа гарлаа");
+      return;
+    }
 
     const { error } = await supabase.from("trades").insert({
       user_id: user.id,
@@ -80,8 +308,10 @@ export default function TradeForm() {
       stop_loss: sl === "" ? 0 : parseFloat(sl),
       take_profit: tp === "" ? 0 : parseFloat(tp),
       lot_size: lot === "" ? 0.1 : parseFloat(lot),
-      open_time: openTime ? new Date(openTime) : new Date(),
-      close_time: closeTime ? new Date(closeTime) : new Date(),
+
+      // UTC ISO
+      open_time: openTimeUTC,
+      close_time: closeTimeUTC,
     });
 
     if (error) {
@@ -107,7 +337,10 @@ export default function TradeForm() {
     router.replace("/trades");
   };
 
-  // Numeric parse helper (truncate to 2 decimals)
+  // ============================================================
+  // NUMERIC HELPERS
+  // ============================================================
+
   const truncateTo2Decimals = (num: number): number => {
     return Math.trunc(num * 100) / 100;
   };
@@ -117,43 +350,9 @@ export default function TradeForm() {
   };
 
   // ============================================================
-  // 📌 MT5 TIME CONVERTER
-  // MT5 History-ийн цагийг UTC+3 гэж үзнэ.
-  //
-  // Жишээ:
-  // 2026.08.13 09:10:00 (UTC+3)
-  //             ↓
-  // 2026-08-13T06:10:00.000Z (UTC)
-  //
-  // Browser-ийн timezone огт ашиглахгүй.
+  // MT5 PARSER
   // ============================================================
-  const convertMT5TimeToUTC = (timeString: string): string => {
-    const match = timeString
-      .trim()
-      .match(/^(\d{4})[.-](\d{2})[.-](\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
 
-    if (!match) {
-      throw new Error(`MT5 цагийн формат буруу: ${timeString}`);
-    }
-
-    const [, year, month, day, hour, minute, second] = match;
-
-    // MT5 time = UTC+3
-    // Тиймээс UTC болгохын тулд 3 цаг хасна.
-    const utcMillis = Date.UTC(
-      Number(year),
-      Number(month) - 1,
-      Number(day),
-      Number(hour) - 3,
-      Number(minute),
-      Number(second),
-    );
-
-    return new Date(utcMillis).toISOString();
-  };
-
-  // 📌 MT5 PARSER
-  // Commission + Swap + Profit = Нийт ашиг
   const parseMT5 = (
     text: string,
   ): { validTrades: ParsedTrade[]; errors: ValidationError[] } => {
@@ -163,10 +362,8 @@ export default function TradeForm() {
     const errors: ValidationError[] = [];
 
     lines.forEach((line, index) => {
-      // Tab-ээр тусгаарлагдсан column-ууд
       const columns = line.split("\t").map((col) => col.trim());
 
-      // Хүлээгдэж буй баганын тоо: 14
       if (columns.length < 14) {
         errors.push({
           row: index + 1,
@@ -175,12 +372,12 @@ export default function TradeForm() {
             `14 багана хүлээгдэж байсан боловч ${columns.length} олдлоо`,
           ],
         });
+
         return;
       }
 
       try {
         const openTimeStr = columns[0];
-        const ticket = columns[1];
         const symbol = columns[2];
         const typeRaw = columns[3];
         const volume = parseFloat(columns[4]);
@@ -193,21 +390,18 @@ export default function TradeForm() {
         const swap = parseFloat(columns[11].replace(/\s/g, "")) || 0;
         const profit = parseFloat(columns[12].replace(/\s/g, "")) || 0;
 
-        // Commission-ийг зөв парслах
         let commission = 0;
 
         if (commissionRaw !== "-" && commissionRaw !== "") {
           commission = parseFloat(commissionRaw.replace(/\s/g, "")) || 0;
         }
 
-        // НИЙТ АШИГ = Commission + Swap + Profit
         const effectiveSwap = swap > 0 ? 0 : swap;
 
         let totalProfit = commission + effectiveSwap + profit;
 
         totalProfit = truncateTo2Decimals(totalProfit);
 
-        // Type шалгах
         let tradeType = "";
 
         if (typeRaw.toLowerCase() === "buy") {
@@ -226,23 +420,18 @@ export default function TradeForm() {
           return;
         }
 
-        // ========================================================
-        // 📌 MT5 TIME → UTC
-        // MT5:
-        // 2026.08.13 09:10:00
-        //
-        // гэж ирвэл UTC+3 гэж үзээд:
-        //
-        // 2026-08-13T06:10:00.000Z
-        //
-        // болгон хадгална.
-        // ========================================================
+        // ======================================================
+        // MT5 SERVER TIME -> UTC
+        // ======================================================
 
         let openTimeUTC: string;
         let closeTimeUTC: string;
 
         try {
-          openTimeUTC = convertMT5TimeToUTC(openTimeStr);
+          openTimeUTC = convertServerTimeToUTC(
+            openTimeStr,
+            Number(serverOffset),
+          );
         } catch (error) {
           errors.push({
             row: index + 1,
@@ -256,7 +445,10 @@ export default function TradeForm() {
         }
 
         try {
-          closeTimeUTC = convertMT5TimeToUTC(closeTimeStr);
+          closeTimeUTC = convertServerTimeToUTC(
+            closeTimeStr,
+            Number(serverOffset),
+          );
         } catch (error) {
           errors.push({
             row: index + 1,
@@ -269,7 +461,6 @@ export default function TradeForm() {
           return;
         }
 
-        // UTC date validation
         const openDate = new Date(openTimeUTC);
         const closeDate = new Date(closeTimeUTC);
 
@@ -294,16 +485,13 @@ export default function TradeForm() {
         }
 
         validTrades.push({
-          symbol: symbol,
+          symbol,
           type: tradeType,
           entry_price: openPrice,
           exit_price: closePrice,
           lot_size: volume,
-
-          // 📌 DB-д UTC ISO хэлбэрээр хадгална
           open_time: openTimeUTC,
           close_time: closeTimeUTC,
-
           stop_loss: sl,
           take_profit: tp,
           profit: totalProfit,
@@ -320,7 +508,10 @@ export default function TradeForm() {
     return { validTrades, errors };
   };
 
-  // 📌 MT5 PREVIEW HANDLER
+  // ============================================================
+  // MT5 PREVIEW
+  // ============================================================
+
   const handleMt5Preview = () => {
     if (!mt5Text.trim()) {
       alert("MT5 History-с буулгасан арилжааны жагсаалтыг оруулна уу.");
@@ -345,7 +536,10 @@ export default function TradeForm() {
     }
   };
 
-  // 📌 MT4 PARSER
+  // ============================================================
+  // MT4 PARSER
+  // ============================================================
+
   const parseMT4 = (
     text: string,
   ): { validTrades: ParsedTrade[]; errors: ValidationError[] } => {
@@ -396,15 +590,47 @@ export default function TradeForm() {
 
         totalProfit = truncateTo2Decimals(totalProfit);
 
-        const openDate = new Date(openTimeStr.replace(/\./g, "-"));
+        // ======================================================
+        // MT4 SERVER TIME -> UTC
+        // ======================================================
 
-        const closeDate = new Date(closeTimeStr.replace(/\./g, "-"));
+        let openTimeUTC: string;
+        let closeTimeUTC: string;
+
+        try {
+          const normalizedOpen = openTimeStr.replace(/\./g, "-");
+
+          const normalizedClose = closeTimeStr.replace(/\./g, "-");
+
+          openTimeUTC = convertServerTimeToUTC(
+            normalizedOpen,
+            Number(serverOffset),
+          );
+
+          closeTimeUTC = convertServerTimeToUTC(
+            normalizedClose,
+            Number(serverOffset),
+          );
+        } catch (error) {
+          errors.push({
+            row: index + 1,
+            line,
+            errors: [
+              `MT4 огноог UTC болгон хөрвүүлэхэд алдаа гарлаа: ${error}`,
+            ],
+          });
+
+          return;
+        }
+
+        const openDate = new Date(openTimeUTC);
+        const closeDate = new Date(closeTimeUTC);
 
         if (isNaN(openDate.getTime())) {
           errors.push({
             row: index + 1,
             line,
-            errors: [`Нээлтийн огнооны формат буруу: ${openTimeStr}`],
+            errors: [`Нээлтийн UTC огноо буруу: ${openTimeStr}`],
           });
 
           return;
@@ -414,20 +640,20 @@ export default function TradeForm() {
           errors.push({
             row: index + 1,
             line,
-            errors: [`Хаалтын огнооны формат буруу: ${closeTimeStr}`],
+            errors: [`Хаалтын UTC огноо буруу: ${closeTimeStr}`],
           });
 
           return;
         }
 
         validTrades.push({
-          symbol: symbol,
-          type: type,
+          symbol,
+          type,
           entry_price: openPrice,
           exit_price: closePrice,
           lot_size: size,
-          open_time: openTimeStr.replace(/\./g, "-"),
-          close_time: closeTimeStr.replace(/\./g, "-"),
+          open_time: openTimeUTC,
+          close_time: closeTimeUTC,
           stop_loss: sl,
           take_profit: tp,
           profit: totalProfit,
@@ -444,7 +670,10 @@ export default function TradeForm() {
     return { validTrades, errors };
   };
 
-  // 📌 MT4 PREVIEW HANDLER
+  // ============================================================
+  // MT4 PREVIEW
+  // ============================================================
+
   const handleMt4Preview = () => {
     if (!mt4Text.trim()) {
       alert("MT4 History-с буулгасан арилжааны жагсаалтыг оруулна уу.");
@@ -469,7 +698,10 @@ export default function TradeForm() {
     }
   };
 
-  // 📌 JFOREX PARSER
+  // ============================================================
+  // JFOREX PARSER
+  // ============================================================
+
   const parseJForex = (
     text: string,
   ): { validTrades: ParsedTrade[]; errors: ValidationError[] } => {
@@ -527,30 +759,55 @@ export default function TradeForm() {
           return;
         }
 
-        const formatDate = (dateStr: string): string => {
-          const parts = dateStr.split(" ");
-          const dateParts = parts[0].split("/");
-          const timePart = parts[1] || "00:00";
+        // ======================================================
+        // JFOREX DATE FORMAT
+        //
+        // 1/7/2026 16:14
+        // 1/7/2026 16:14:30
+        //
+        // аль алиныг зөвшөөрнө.
+        // ======================================================
 
-          const formattedDate = `${dateParts[2]}-${dateParts[0].padStart(
-            2,
-            "0",
-          )}-${dateParts[1].padStart(2, "0")}`;
+        const openTimeStr = formatJForexDate(openDateRaw);
+        const closeTimeStr = formatJForexDate(closeDateRaw);
 
-          return `${formattedDate} ${timePart}`;
-        };
+        // ======================================================
+        // JFOREX SERVER TIME -> UTC
+        // ======================================================
 
-        const openTimeStr = formatDate(openDateRaw);
-        const closeTimeStr = formatDate(closeDateRaw);
+        let openTimeUTC: string;
+        let closeTimeUTC: string;
 
-        const openDate = new Date(openTimeStr);
-        const closeDate = new Date(closeTimeStr);
+        try {
+          openTimeUTC = convertServerTimeToUTC(
+            openTimeStr,
+            Number(serverOffset),
+          );
+
+          closeTimeUTC = convertServerTimeToUTC(
+            closeTimeStr,
+            Number(serverOffset),
+          );
+        } catch (error) {
+          errors.push({
+            row: index + 1,
+            line,
+            errors: [
+              `JForex огноог UTC болгон хөрвүүлэхэд алдаа гарлаа: ${error}`,
+            ],
+          });
+
+          return;
+        }
+
+        const openDate = new Date(openTimeUTC);
+        const closeDate = new Date(closeTimeUTC);
 
         if (isNaN(openDate.getTime())) {
           errors.push({
             row: index + 1,
             line,
-            errors: [`Нээлтийн огнооны формат буруу: ${openDateRaw}`],
+            errors: [`Нээлтийн UTC огноо буруу: ${openDateRaw}`],
           });
 
           return;
@@ -560,20 +817,20 @@ export default function TradeForm() {
           errors.push({
             row: index + 1,
             line,
-            errors: [`Хаалтын огнооны формат буруу: ${closeDateRaw}`],
+            errors: [`Хаалтын UTC огноо буруу: ${closeDateRaw}`],
           });
 
           return;
         }
 
         validTrades.push({
-          symbol: symbol,
+          symbol,
           type: tradeType,
           entry_price: openPrice,
           exit_price: closePrice,
           lot_size: amount,
-          open_time: openTimeStr,
-          close_time: closeTimeStr,
+          open_time: openTimeUTC,
+          close_time: closeTimeUTC,
           stop_loss: sl,
           take_profit: tp,
           profit: profitRaw,
@@ -590,7 +847,10 @@ export default function TradeForm() {
     return { validTrades, errors };
   };
 
-  // 📌 JFOREX PREVIEW HANDLER
+  // ============================================================
+  // JFOREX PREVIEW
+  // ============================================================
+
   const handleJForexPreview = () => {
     if (!jforexText.trim()) {
       alert("JForex-ээс буулгасан арилжааны жагсаалтыг оруулна уу.");
@@ -615,9 +875,10 @@ export default function TradeForm() {
     }
   };
 
-  // -------------------------
+  // ============================================================
   // BULK SUBMIT
-  // -------------------------
+  // ============================================================
+
   const handleBulkSubmit = async () => {
     if (parsedTrades.length === 0) {
       alert("Булк хийх хүчинтэй арилжаа байхгүй байна.");
@@ -631,8 +892,15 @@ export default function TradeForm() {
 
     const user = await getCurrentUser();
 
-    if (!user) return alert("Хэрэглэгч нэвтрээгүй байна");
-    if (!accountId) return alert("Данс сонгоно уу");
+    if (!user) {
+      alert("Хэрэглэгч нэвтрээгүй байна");
+      return;
+    }
+
+    if (!accountId) {
+      alert("Данс сонгоно уу");
+      return;
+    }
 
     const formatted = parsedTrades.map((t) => ({
       user_id: user.id,
@@ -644,9 +912,10 @@ export default function TradeForm() {
       profit: t.profit,
       lot_size: t.lot_size,
 
-      // MT5 parser-ээс аль хэдийн UTC ISO string ирж байгаа.
-      open_time: new Date(t.open_time),
-      close_time: new Date(t.close_time),
+      // Parser аль хэдийн UTC ISO string үүсгэсэн.
+      // Browser timezone ашиглахгүй.
+      open_time: t.open_time,
+      close_time: t.close_time,
 
       stop_loss: t.stop_loss,
       take_profit: t.take_profit,
@@ -677,7 +946,10 @@ export default function TradeForm() {
     router.replace("/trades");
   };
 
-  // MT4 цэвэрлэх
+  // ============================================================
+  // CLEAR
+  // ============================================================
+
   const handleClearMt4 = () => {
     setMt4Text("");
     setShowPreview(false);
@@ -685,7 +957,6 @@ export default function TradeForm() {
     setValidationErrors([]);
   };
 
-  // MT5 цэвэрлэх
   const handleClearMt5 = () => {
     setMt5Text("");
     setShowPreview(false);
@@ -693,7 +964,6 @@ export default function TradeForm() {
     setValidationErrors([]);
   };
 
-  // JForex цэвэрлэх
   const handleClearJForex = () => {
     setJforexText("");
     setShowPreview(false);
@@ -701,7 +971,6 @@ export default function TradeForm() {
     setValidationErrors([]);
   };
 
-  // Other (Bulk) цэвэрлэх
   const handleClearBulk = () => {
     setShowPreview(false);
     setParsedTrades([]);
@@ -713,13 +982,18 @@ export default function TradeForm() {
     setActiveTab("mt5");
   };
 
+  // ============================================================
+  // ACCOUNTS
+  // ============================================================
+
   const filtedAccounts = accounts.accounts.filter(
     (acc) => acc.status === "active",
   );
 
-  // -------------------------
+  // ============================================================
   // UI
-  // -------------------------
+  // ============================================================
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       <div className="max-w-4xl mx-auto p-6">
@@ -729,6 +1003,7 @@ export default function TradeForm() {
           </h2>
 
           {/* ACCOUNT */}
+
           <select
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
@@ -745,6 +1020,7 @@ export default function TradeForm() {
           </select>
 
           {/* SYMBOL + TYPE */}
+
           <div className="grid grid-cols-2 gap-2">
             <input
               placeholder="Хослол (EURUSD)"
@@ -764,6 +1040,7 @@ export default function TradeForm() {
           </div>
 
           {/* PRICES */}
+
           <div className="grid grid-cols-2 gap-2">
             <input
               type="number"
@@ -817,6 +1094,7 @@ export default function TradeForm() {
           </div>
 
           {/* TIME */}
+
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
@@ -846,6 +1124,7 @@ export default function TradeForm() {
           </div>
 
           {/* SINGLE SUBMIT */}
+
           <button
             onClick={handleSubmit}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded transition-colors"
@@ -855,10 +1134,67 @@ export default function TradeForm() {
 
           <hr className="my-4 dark:border-gray-700" />
 
-          {/* TAB ХЭСЭГ */}
+          {/* ================================================== */}
+          {/* SERVER TIME OFFSET */}
+          {/* ================================================== */}
+
+          <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
+            <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+              🌐 Broker Server Time Offset
+            </label>
+
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <select
+                value={serverOffset}
+                onChange={(e) => {
+                  setServerOffset(e.target.value);
+
+                  // Өмнөх preview-г хүчингүй болгоно.
+                  setShowPreview(false);
+                  setParsedTrades([]);
+                  setValidationErrors([]);
+                }}
+                className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              >
+                {serverOffsetOptions.map((offset) => (
+                  <option key={offset} value={offset}>
+                    {offset === 0
+                      ? "UTC ±0"
+                      : offset > 0
+                        ? `UTC +${offset}`
+                        : `UTC ${offset}`}
+                  </option>
+                ))}
+              </select>
+
+              <div className="text-xs text-gray-600 dark:text-gray-300">
+                <p>Broker-ийн server цагийг UTC руу хөрвүүлэхэд хэрэглэнэ.</p>
+
+                <p className="mt-1">
+                  Жишээ: Broker UTC+3 бол <strong>UTC +3</strong>-г сонгоно.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 text-xs text-gray-600 dark:text-gray-400">
+              <strong>Одоогийн сонголт:</strong>{" "}
+              {Number(serverOffset) === 0
+                ? "UTC"
+                : Number(serverOffset) > 0
+                  ? `UTC+${serverOffset}`
+                  : `UTC${serverOffset}`}
+            </div>
+          </div>
+
+          {/* ================================================== */}
+          {/* TABS */}
+          {/* ================================================== */}
+
           <div className="mt-6">
             <div className="border-b border-gray-200 dark:border-gray-700">
               <div className="flex gap-2">
+                {/* MT5 */}
+
                 <button
                   onClick={() => {
                     setActiveTab("mt5");
@@ -872,13 +1208,15 @@ export default function TradeForm() {
                 >
                   <Image
                     src="/mt-logo.svg"
-                    alt="MT4 Logo"
+                    alt="MT5 Logo"
                     width={40}
                     height={40}
                   />
 
                   <span>MT5</span>
                 </button>
+
+                {/* MT4 */}
 
                 <button
                   onClick={() => {
@@ -901,6 +1239,8 @@ export default function TradeForm() {
                   <span>MT4</span>
                 </button>
 
+                {/* JFOREX */}
+
                 <button
                   onClick={() => {
                     setActiveTab("jforex");
@@ -914,7 +1254,7 @@ export default function TradeForm() {
                 >
                   <Image
                     src="/jforex.svg"
-                    alt="MT4 Logo"
+                    alt="JForex Logo"
                     width={40}
                     height={40}
                   />
@@ -925,7 +1265,10 @@ export default function TradeForm() {
             </div>
 
             <div className="mt-4">
+              {/* ================================================== */}
               {/* MT5 TAB */}
+              {/* ================================================== */}
+
               {activeTab === "mt5" && (
                 <div className="space-y-3">
                   <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded text-sm">
@@ -939,8 +1282,8 @@ export default function TradeForm() {
                     </code>
 
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      💡 MT5 History-ийн цагийг UTC+3 гэж үзэн UTC болгон
-                      хадгална.
+                      💡 Дээрх Server Time Offset сонголтоор MT5 broker-ийн
+                      server цагийг UTC болгон хөрвүүлнэ.
                     </p>
                   </div>
 
@@ -976,7 +1319,10 @@ export default function TradeForm() {
                 </div>
               )}
 
+              {/* ================================================== */}
               {/* MT4 TAB */}
+              {/* ================================================== */}
+
               {activeTab === "mt4" && (
                 <div className="space-y-3">
                   <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded text-sm">
@@ -990,7 +1336,8 @@ export default function TradeForm() {
                     </code>
 
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      💡 Дээрх дарааллын дагуу өгөгдөл байх ёстой.
+                      💡 Дээрх Server Time Offset сонголтоор MT4 broker-ийн
+                      server цагийг UTC болгон хөрвүүлнэ.
                     </p>
                   </div>
 
@@ -1026,7 +1373,10 @@ export default function TradeForm() {
                 </div>
               )}
 
+              {/* ================================================== */}
               {/* JFOREX TAB */}
+              {/* ================================================== */}
+
               {activeTab === "jforex" && (
                 <div className="space-y-3">
                   <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded text-sm">
@@ -1041,7 +1391,9 @@ export default function TradeForm() {
                     </code>
 
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      💡 Дээрх дарааллын дагуу өгөгдөл байх ёстой.
+                      💡 JForex-ийн <strong>1/7/2026 16:14</strong> шиг
+                      секундгүй цагийг мөн зөвшөөрнө. Server Time Offset-оор UTC
+                      болгон хөрвүүлнэ.
                     </p>
                   </div>
 
@@ -1078,6 +1430,8 @@ export default function TradeForm() {
               )}
             </div>
 
+            {/* CLEAR ALL */}
+
             {(bulkText || mt4Text || mt5Text || jforexText) && (
               <button
                 onClick={handleClearBulk}
@@ -1088,7 +1442,10 @@ export default function TradeForm() {
             )}
           </div>
 
+          {/* ================================================== */}
           {/* PREVIEW SECTION */}
+          {/* ================================================== */}
+
           {showPreview && (
             <div className="space-y-3 border rounded-lg p-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600">
               <div className="flex justify-between items-center">
@@ -1104,6 +1461,7 @@ export default function TradeForm() {
               </div>
 
               {/* Validation Errors */}
+
               {validationErrors.length > 0 && (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3">
                   <h5 className="font-medium text-red-800 dark:text-red-300 mb-2">
@@ -1135,7 +1493,8 @@ export default function TradeForm() {
                 </div>
               )}
 
-              {/* Valid Trades Preview Table */}
+              {/* Valid Trades Preview */}
+
               {parsedTrades.length > 0 && (
                 <div>
                   <h5 className="font-medium text-gray-900 dark:text-white mb-2">
@@ -1228,12 +1587,12 @@ export default function TradeForm() {
                               {trade.lot_size}
                             </td>
 
-                            <td className="p-2 text-gray-900 dark:text-white">
-                              {new Date(trade.open_time).toLocaleString()}
+                            <td className="p-2 text-gray-900 dark:text-white whitespace-nowrap">
+                              {formatUTCForDisplay(trade.open_time)}
                             </td>
 
-                            <td className="p-2 text-gray-900 dark:text-white">
-                              {new Date(trade.close_time).toLocaleString()}
+                            <td className="p-2 text-gray-900 dark:text-white whitespace-nowrap">
+                              {formatUTCForDisplay(trade.close_time)}
                             </td>
 
                             <td className="p-2 text-right text-gray-900 dark:text-white">
@@ -1269,6 +1628,7 @@ export default function TradeForm() {
               )}
 
               {/* Upload Button */}
+
               {parsedTrades.length > 0 && validationErrors.length === 0 && (
                 <button
                   onClick={handleBulkSubmit}

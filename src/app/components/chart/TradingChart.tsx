@@ -212,6 +212,45 @@ function hexToRgba(hex: string, opacity: number) {
 }
 
 /* =========================================================
+   TIME HELPERS
+========================================================= */
+
+/**
+ * IMPORTANT:
+ *
+ * Trade time must NEVER be aligned to candle boundaries.
+ *
+ * open_time / close_time are the exact trade timestamps.
+ *
+ * This function is ONLY used for historical candle
+ * request ranges and candle indexing.
+ */
+function alignTimestamp(timestampSeconds: number, intervalSeconds: number) {
+  return Math.floor(timestampSeconds / intervalSeconds) * intervalSeconds;
+}
+
+/**
+ * Convert DB timestamp to exact UTC epoch seconds.
+ *
+ * PostgreSQL timestamptz values should arrive as ISO strings,
+ * e.g.
+ *
+ * 2026-08-12T06:51:41.000Z
+ *
+ * Date.getTime() always represents the exact instant in UTC.
+ */
+function toTimestampSeconds(value: string | Date): number {
+  const milliseconds =
+    value instanceof Date ? value.getTime() : new Date(value).getTime();
+
+  if (!Number.isFinite(milliseconds)) {
+    throw new Error(`Invalid timestamp: ${String(value)}`);
+  }
+
+  return Math.floor(milliseconds / 1000);
+}
+
+/* =========================================================
    LINE DATA
 ========================================================= */
 
@@ -253,7 +292,7 @@ function getPricePrecision(symbol: string) {
   }
 
   if (upper.includes("XAU") || upper.includes("GOLD")) {
-    return 2;
+    return 3;
   }
 
   return 5;
@@ -327,14 +366,6 @@ function calculateMoneyValue(
   }
 
   return Math.abs(distance) * 100000 * lotSize;
-}
-
-/* =========================================================
-   ALIGN TIME
-========================================================= */
-
-function alignTimestamp(timestampSeconds: number, intervalSeconds: number) {
-  return Math.floor(timestampSeconds / intervalSeconds) * intervalSeconds;
 }
 
 /* =========================================================
@@ -767,6 +798,18 @@ export function TradingChart({
       throw new Error(`Trade ${trade.id} is missing open_time or close_time`);
     }
 
+    const openTime = new Date(trade.open_time);
+    const closeTime = new Date(trade.close_time);
+
+    if (
+      !Number.isFinite(openTime.getTime()) ||
+      !Number.isFinite(closeTime.getTime())
+    ) {
+      throw new Error(
+        `Trade ${trade.id} contains invalid open_time or close_time`,
+      );
+    }
+
     return {
       id: trade.id,
       symbol: trade.symbol,
@@ -776,8 +819,12 @@ export function TradingChart({
       takeProfit,
       lotSize: Number(trade.lot_size) || 1,
       profit: Number(trade.profit) || 0,
-      openTime: new Date(trade.open_time),
-      closeTime: new Date(trade.close_time),
+
+      // IMPORTANT:
+      // Keep exact trade timestamps.
+      openTime,
+      closeTime,
+
       type: trade.type === "buy" ? "long" : "short",
     };
   };
@@ -792,22 +839,23 @@ export function TradingChart({
   ): Promise<CandlestickData[]> => {
     const interval = timeframeConfig.seconds;
 
-    const entryTime = Math.floor(position.openTime.getTime() / 1000);
+    /*
+     * EXACT TRADE TIME
+     *
+     * These are never used as the actual position
+     * coordinates after this point.
+     */
+    const entryTime = toTimestampSeconds(position.openTime);
 
-    const closeTime = Math.floor(position.closeTime.getTime() / 1000);
+    const closeTime = toTimestampSeconds(position.closeTime);
 
+    /*
+     * Candle alignment is ONLY for requesting enough
+     * historical candle data.
+     */
     const alignedEntry = alignTimestamp(entryTime, interval);
 
     const alignedClose = alignTimestamp(closeTime, interval);
-
-    /*
-     * Request enough candles before entry
-     * and after close.
-     *
-     * IMPORTANT:
-     * Backend internally converts the range
-     * to M5 boundaries.
-     */
 
     const startTime = alignedEntry - CANDLES_BEFORE_ENTRY * interval;
 
@@ -815,11 +863,8 @@ export function TradingChart({
 
     const params = new URLSearchParams({
       symbol: position.symbol.toUpperCase(),
-
       timeframe,
-
       startTime: String(startTime * 1000),
-
       endTime: String(endTime * 1000),
     });
 
@@ -862,13 +907,6 @@ export function TradingChart({
       throw new Error("Historical API returned invalid candle data");
     }
 
-    /*
-     * Lightweight Charts requires:
-     *
-     * 1. ascending timestamps
-     * 2. no duplicate timestamps
-     */
-
     const sorted = [...json.candles]
       .map((candle) => ({
         time: Math.floor(Number(candle.timestamp) / 1000) as UTCTimestamp,
@@ -897,10 +935,6 @@ export function TradingChart({
       const last = unique[unique.length - 1];
 
       if (last && Number(last.time) === Number(candle.time)) {
-        /*
-         * If duplicate exists,
-         * keep the latest one.
-         */
         unique[unique.length - 1] = candle;
 
         continue;
@@ -935,10 +969,20 @@ export function TradingChart({
 
     const interval = timeframeConfig.seconds;
 
-    const entryTime = Math.floor(trade.openTime.getTime() / 1000);
+    /*
+     * IMPORTANT:
+     *
+     * These are the EXACT trade timestamps.
+     * DO NOT align them to candle boundaries.
+     */
+    const entryTime = toTimestampSeconds(trade.openTime);
 
-    const closeTime = Math.floor(trade.closeTime.getTime() / 1000);
+    const closeTime = toTimestampSeconds(trade.closeTime);
 
+    /*
+     * Alignment is used ONLY to determine the outer
+     * chart range.
+     */
     const alignedEntry = alignTimestamp(entryTime, interval);
 
     const alignedClose = alignTimestamp(closeTime, interval);
@@ -955,9 +999,12 @@ export function TradingChart({
       {
         type: "risk",
 
-        startTime: alignedEntry,
+        /*
+         * EXACT trade open → close.
+         */
+        startTime: entryTime,
 
-        endTime: alignedClose,
+        endTime: closeTime,
 
         topPrice: Math.max(entryPrice, sl),
 
@@ -967,9 +1014,12 @@ export function TradingChart({
       {
         type: "reward",
 
-        startTime: alignedEntry,
+        /*
+         * EXACT trade open → close.
+         */
+        startTime: entryTime,
 
-        endTime: alignedClose,
+        endTime: closeTime,
 
         topPrice: Math.max(entryPrice, tp),
 
@@ -1015,14 +1065,20 @@ export function TradingChart({
           value: entryPrice,
         },
 
+        /*
+         * EXACT open time.
+         */
         {
-          time: alignedEntry,
+          time: entryTime,
 
           value: entryPrice,
         },
 
+        /*
+         * EXACT close time.
+         */
         {
-          time: alignedClose,
+          time: closeTime,
 
           value: entryPrice,
         },
@@ -1066,13 +1122,13 @@ export function TradingChart({
         },
 
         {
-          time: alignedEntry,
+          time: entryTime,
 
           value: sl,
         },
 
         {
-          time: alignedClose,
+          time: closeTime,
 
           value: sl,
         },
@@ -1116,13 +1172,13 @@ export function TradingChart({
         },
 
         {
-          time: alignedEntry,
+          time: entryTime,
 
           value: tp,
         },
 
         {
-          time: alignedClose,
+          time: closeTime,
 
           value: tp,
         },
@@ -1142,8 +1198,19 @@ export function TradingChart({
     return {
       chartStartTime,
       chartEndTime,
+
+      /*
+       * EXACT trade timestamps.
+       */
+      entryTime,
+      closeTime,
+
+      /*
+       * Keep these for candle range calculations.
+       */
       alignedEntry,
       alignedClose,
+
       rr,
     };
   };
@@ -1232,6 +1299,7 @@ export function TradingChart({
 
           scaleMargins: {
             top: 0.08,
+
             bottom: 0.08,
           },
         },
@@ -1344,7 +1412,7 @@ export function TradingChart({
       markersRef.current = createSeriesMarkers(candlestickSeries);
 
       /* =================================================
-         FETCH REAL HISTORICAL DATA
+         FETCH HISTORICAL DATA
       ================================================= */
 
       const loadHistoricalData = async () => {
@@ -1385,12 +1453,8 @@ export function TradingChart({
 
           if (range) {
             /*
-             * Find actual indexes from returned candles.
-             *
-             * This is safer than assuming the trade
-             * contains a specific number of candles,
-             * because weekends / missing market data
-             * can exist.
+             * Use candle-aligned timestamps
+             * ONLY for finding candle indexes.
              */
 
             const entryIndex = candleData.findIndex(
@@ -1563,15 +1627,15 @@ export function TradingChart({
       selectedTrade.lotSize,
     );
 
-    const interval = timeframeConfig.seconds;
+    /*
+     * IMPORTANT:
+     *
+     * Labels use EXACT trade timestamps.
+     * No candle alignment here.
+     */
+    const entryTime = toTimestampSeconds(selectedTrade.openTime);
 
-    const entryTime = Math.floor(selectedTrade.openTime.getTime() / 1000);
-
-    const closeTime = Math.floor(selectedTrade.closeTime.getTime() / 1000);
-
-    const alignedEntry = alignTimestamp(entryTime, interval);
-
-    const alignedClose = alignTimestamp(closeTime, interval);
+    const closeTime = toTimestampSeconds(selectedTrade.closeTime);
 
     return {
       rr,
@@ -1584,11 +1648,11 @@ export function TradingChart({
 
       tpAmount,
 
-      entryTime: alignedEntry,
+      entryTime,
 
-      closeTime: alignedClose,
+      closeTime,
     };
-  }, [selectedTrade, timeframeConfig.seconds]);
+  }, [selectedTrade]);
 
   /* =======================================================
      LOADING
@@ -1685,7 +1749,7 @@ export function TradingChart({
             <polyline points="9 3 9 9 3 9" />
             <polyline points="15 3 15 9 21 9" />
             <polyline points="9 21 9 15 3 15" />
-            <polyline points="15 21 15 15 21 15" />
+            <polyline points="15 21 15 15 21 21" />
           </svg>
         </button>
       )}
