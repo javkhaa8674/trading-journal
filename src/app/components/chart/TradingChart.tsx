@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   createChart,
-  createSeriesMarkers,
   IChartApi,
   ISeriesApi,
   CandlestickData,
@@ -55,6 +54,7 @@ type Timeframe = "M5" | "M15" | "H1" | "H4" | "D1";
 
 interface TimeframeConfig {
   label: Timeframe;
+  dukascopyTimeframe: string;
   seconds: number;
 }
 
@@ -71,6 +71,7 @@ interface HistoricalApiResponse {
   success: boolean;
   symbol?: string;
   timeframe?: Timeframe;
+  dukascopyTimeframe?: string;
   startTime?: number;
   endTime?: number;
   returned?: number;
@@ -101,6 +102,70 @@ interface ChartTheme {
   tooltipBackground: string;
 }
 
+interface CandleContinuityGap {
+  previous: number;
+  current: number;
+  expectedSeconds: number;
+  actualSeconds: number;
+}
+
+interface CandleContinuityResult {
+  complete: boolean;
+  gaps: CandleContinuityGap[];
+  duplicates: number[];
+}
+
+interface HistoricalCoverageResult {
+  complete: boolean;
+
+  requestedStart: number;
+  requestedEnd: number;
+
+  returnedStart: number | null;
+  returnedEnd: number | null;
+
+  expectedFirstCandle: number | null;
+  expectedLastCandle: number | null;
+
+  missingBeforeSeconds: number;
+  missingAfterSeconds: number;
+
+  startWeekendAdjusted: boolean;
+  endWeekendAdjusted: boolean;
+}
+
+interface HistoricalDebugInfo {
+  requestId: number;
+
+  symbol: string;
+
+  timeframe: Timeframe;
+
+  nativeTimeframe: string;
+
+  requestedStart: number;
+
+  requestedEnd: number;
+
+  returnedStart: number | null;
+
+  returnedEnd: number | null;
+
+  requestedDurationSeconds: number;
+
+  returnedDurationSeconds: number;
+
+  candleCount: number;
+
+  expectedIntervalSeconds: number;
+
+  continuity: CandleContinuityResult;
+
+  coverage: HistoricalCoverageResult;
+
+  attempt?: number;
+}
+
 /* =========================================================
    CONSTANTS
 ========================================================= */
@@ -108,28 +173,53 @@ interface ChartTheme {
 const TIMEFRAMES: TimeframeConfig[] = [
   {
     label: "M5",
+    dukascopyTimeframe: "m5",
     seconds: 5 * 60,
   },
   {
     label: "M15",
+    dukascopyTimeframe: "m15",
     seconds: 15 * 60,
   },
   {
     label: "H1",
+    dukascopyTimeframe: "h1",
     seconds: 60 * 60,
   },
   {
     label: "H4",
+    dukascopyTimeframe: "h4",
     seconds: 4 * 60 * 60,
   },
   {
     label: "D1",
+    dukascopyTimeframe: "d1",
     seconds: 24 * 60 * 60,
   },
 ];
 
 const CANDLES_BEFORE_ENTRY = 100;
 const CANDLES_AFTER_CLOSE = 100;
+
+/*
+ * If the first request does not contain the expected
+ * historical boundary, expand the request progressively.
+ *
+ * This is intentionally client-side only.
+ *
+ * Attempt 0:
+ *   normal range
+ *
+ * Attempt 1:
+ *   +64 candles on the missing side
+ *
+ * Attempt 2:
+ *   +128 candles
+ *
+ * Attempt 3:
+ *   +256 candles
+ */
+const RANGE_RETRY_EXTRA_CANDLES = [0, 64, 128, 256];
 
 const HISTORICAL_CANDLES_URL =
   process.env.NEXT_PUBLIC_HISTORICAL_CANDLES_URL ||
@@ -186,7 +276,7 @@ const LIGHT_THEME: ChartTheme = {
 };
 
 /* =========================================================
-   HELPERS
+   THEME HELPERS
 ========================================================= */
 
 function getCurrentTheme(): ChartTheme {
@@ -194,9 +284,9 @@ function getCurrentTheme(): ChartTheme {
     return DARK_THEME;
   }
 
-  const isDark = document.documentElement.classList.contains("dark");
-
-  return isDark ? DARK_THEME : LIGHT_THEME;
+  return document.documentElement.classList.contains("dark")
+    ? DARK_THEME
+    : LIGHT_THEME;
 }
 
 function hexToRgba(hex: string, opacity: number) {
@@ -212,33 +302,9 @@ function hexToRgba(hex: string, opacity: number) {
 }
 
 /* =========================================================
-   TIME HELPERS
+   UTC TIME HELPERS
 ========================================================= */
 
-/**
- * IMPORTANT:
- *
- * Trade time must NEVER be aligned to candle boundaries.
- *
- * open_time / close_time are the exact trade timestamps.
- *
- * This function is ONLY used for historical candle
- * request ranges and candle indexing.
- */
-function alignTimestamp(timestampSeconds: number, intervalSeconds: number) {
-  return Math.floor(timestampSeconds / intervalSeconds) * intervalSeconds;
-}
-
-/**
- * Convert DB timestamp to exact UTC epoch seconds.
- *
- * PostgreSQL timestamptz values should arrive as ISO strings,
- * e.g.
- *
- * 2026-08-12T06:51:41.000Z
- *
- * Date.getTime() always represents the exact instant in UTC.
- */
 function toTimestampSeconds(value: string | Date): number {
   const milliseconds =
     value instanceof Date ? value.getTime() : new Date(value).getTime();
@@ -250,24 +316,509 @@ function toTimestampSeconds(value: string | Date): number {
   return Math.floor(milliseconds / 1000);
 }
 
+function alignTimestamp(timestampSeconds: number, intervalSeconds: number) {
+  return Math.floor(timestampSeconds / intervalSeconds) * intervalSeconds;
+}
+
+function formatUtcTimestamp(timestampSeconds: number | null) {
+  if (timestampSeconds === null) {
+    return null;
+  }
+
+  return new Date(timestampSeconds * 1000).toISOString();
+}
+
+function formatChartUtcTime(time: Time): string {
+  let timestampSeconds: number;
+
+  if (typeof time === "number") {
+    timestampSeconds = time;
+  } else if (typeof time === "string") {
+    timestampSeconds = Math.floor(new Date(time).getTime() / 1000);
+  } else {
+    timestampSeconds = Date.UTC(time.year, time.month - 1, time.day) / 1000;
+  }
+
+  if (!Number.isFinite(timestampSeconds)) {
+    return "";
+  }
+
+  const date = new Date(timestampSeconds * 1000);
+
+  const year = date.getUTCFullYear();
+
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+
+  const day = String(date.getUTCDate()).padStart(2, "0");
+
+  const hours = String(date.getUTCHours()).padStart(2, "0");
+
+  const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day} ${hours}:${minutes} UTC`;
+}
+
+/* =========================================================
+   FOREX MARKET WEEKEND
+========================================================= */
+
+/**
+ * Dukascopy / Forex weekend boundary.
+ *
+ * This is intentionally UTC-only.
+ *
+ * Friday 22:00 UTC -> Sunday 22:00 UTC
+ *
+ * IMPORTANT:
+ * Continuity does NOT simply compare Friday -> Monday.
+ * Instead, it checks every expected candle timestamp inside
+ * the gap. Therefore a real missing candle cannot be hidden
+ * by the weekend rule.
+ */
+
+function isForexWeekendClosed(timestampSeconds: number): boolean {
+  const date = new Date(timestampSeconds * 1000);
+
+  const day = date.getUTCDay();
+
+  const hour = date.getUTCHours();
+
+  const minute = date.getUTCMinutes();
+
+  const second = date.getUTCSeconds();
+
+  const totalSeconds = hour * 3600 + minute * 60 + second;
+
+  const fridayClose = 22 * 3600;
+
+  const sundayOpen = 22 * 3600;
+
+  if (day === 6) {
+    return true;
+  }
+
+  if (day === 0) {
+    return totalSeconds < sundayOpen;
+  }
+
+  if (day === 5) {
+    return totalSeconds >= fridayClose;
+  }
+
+  return false;
+}
+
+/**
+ * Returns the next valid Forex candle timestamp.
+ */
+function getNextForexOpenTimestamp(
+  timestampSeconds: number,
+  intervalSeconds: number,
+): number {
+  let current = alignTimestamp(timestampSeconds, intervalSeconds);
+
+  for (let i = 0; i < 1000; i++) {
+    if (!isForexWeekendClosed(current)) {
+      return current;
+    }
+
+    current += intervalSeconds;
+  }
+
+  return current;
+}
+
+/**
+ * Returns the last valid Forex candle timestamp before
+ * requestedEnd.
+ *
+ * requestedEnd is exclusive.
+ */
+function getLastForexCandleTimestamp(
+  requestedEnd: number,
+  intervalSeconds: number,
+): number {
+  let current = alignTimestamp(requestedEnd - intervalSeconds, intervalSeconds);
+
+  for (let i = 0; i < 1000; i++) {
+    if (!isForexWeekendClosed(current)) {
+      return current;
+    }
+
+    current -= intervalSeconds;
+  }
+
+  return current;
+}
+
+/* =========================================================
+   WEEKEND GAP DETECTION
+========================================================= */
+
+/**
+ * IMPORTANT:
+ *
+ * We do NOT simply say:
+ *
+ *   Friday -> Monday = weekend
+ *
+ * because that could hide a real missing Friday candle.
+ *
+ * Instead we walk through every expected candle timestamp.
+ *
+ * A gap is considered a legitimate weekend gap ONLY when
+ * every expected timestamp between previous and current is
+ * inside the Forex closed period.
+ */
+function isPureForexWeekendGap(
+  previousTimestamp: number,
+  currentTimestamp: number,
+  intervalSeconds: number,
+): boolean {
+  if (currentTimestamp <= previousTimestamp) {
+    return false;
+  }
+
+  const actualDifference = currentTimestamp - previousTimestamp;
+
+  if (actualDifference <= intervalSeconds) {
+    return false;
+  }
+
+  let expectedTimestamp = previousTimestamp + intervalSeconds;
+
+  let checked = 0;
+
+  while (expectedTimestamp < currentTimestamp) {
+    if (!isForexWeekendClosed(expectedTimestamp)) {
+      return false;
+    }
+
+    expectedTimestamp += intervalSeconds;
+
+    checked++;
+
+    /*
+     * Safety guard.
+     *
+     * A normal weekend is tiny compared with this limit.
+     * If something enormous happens, do not classify it as
+     * a weekend gap automatically.
+     */
+    if (checked > 10000) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/* =========================================================
+   COVERAGE VALIDATION
+========================================================= */
+
+function validateHistoricalCoverage(
+  requestedStart: number,
+  requestedEnd: number,
+  returnedStart: number | null,
+  returnedEnd: number | null,
+  intervalSeconds: number,
+): HistoricalCoverageResult {
+  if (returnedStart === null || returnedEnd === null) {
+    return {
+      complete: false,
+
+      requestedStart,
+      requestedEnd,
+
+      returnedStart,
+      returnedEnd,
+
+      expectedFirstCandle: null,
+      expectedLastCandle: null,
+
+      missingBeforeSeconds: 0,
+      missingAfterSeconds: 0,
+
+      startWeekendAdjusted: false,
+      endWeekendAdjusted: false,
+    };
+  }
+
+  const expectedFirstCandle = getNextForexOpenTimestamp(
+    requestedStart,
+    intervalSeconds,
+  );
+
+  const expectedLastCandle = getLastForexCandleTimestamp(
+    requestedEnd,
+    intervalSeconds,
+  );
+
+  const startWeekendAdjusted = expectedFirstCandle > requestedStart;
+
+  const endWeekendAdjusted =
+    expectedLastCandle < requestedEnd - intervalSeconds;
+
+  /*
+   * No tolerance is used here.
+   *
+   * If the API returned one whole candle later than the
+   * expected first candle, that is a real missing candle.
+   *
+   * If it returned earlier than expected, that is acceptable
+   * because the server may align the requested boundary.
+   */
+  const missingBeforeSeconds = Math.max(0, returnedStart - expectedFirstCandle);
+
+  const missingAfterSeconds = Math.max(0, expectedLastCandle - returnedEnd);
+
+  const complete =
+    returnedStart <= expectedFirstCandle && returnedEnd >= expectedLastCandle;
+
+  return {
+    complete,
+
+    requestedStart,
+    requestedEnd,
+
+    returnedStart,
+    returnedEnd,
+
+    expectedFirstCandle,
+    expectedLastCandle,
+
+    missingBeforeSeconds,
+    missingAfterSeconds,
+
+    startWeekendAdjusted,
+    endWeekendAdjusted,
+  };
+}
+
+/* =========================================================
+   CANDLE CONTINUITY
+========================================================= */
+
+function validateForexCandleContinuity(
+  candles: CandlestickData[],
+  expectedIntervalSeconds: number,
+): CandleContinuityResult {
+  const gaps: CandleContinuityGap[] = [];
+
+  const duplicates: number[] = [];
+
+  for (let i = 1; i < candles.length; i++) {
+    const previous = Number(candles[i - 1].time);
+
+    const current = Number(candles[i].time);
+
+    const diff = current - previous;
+
+    if (diff === 0) {
+      duplicates.push(current);
+
+      continue;
+    }
+
+    /*
+     * Normal adjacent candles.
+     */
+    if (diff === expectedIntervalSeconds) {
+      continue;
+    }
+
+    /*
+     * A larger interval is acceptable only if EVERY expected
+     * timestamp between the two candles is Forex-weekend
+     * closed.
+     */
+    if (
+      diff > expectedIntervalSeconds &&
+      isPureForexWeekendGap(previous, current, expectedIntervalSeconds)
+    ) {
+      continue;
+    }
+
+    /*
+     * Anything else is a real continuity problem.
+     */
+    gaps.push({
+      previous,
+      current,
+      expectedSeconds: expectedIntervalSeconds,
+      actualSeconds: diff,
+    });
+  }
+
+  return {
+    complete: gaps.length === 0 && duplicates.length === 0,
+
+    gaps,
+    duplicates,
+  };
+}
+
+/* =========================================================
+   HISTORICAL DEBUG
+========================================================= */
+
+function logHistoricalDebug(info: HistoricalDebugInfo) {
+  console.groupCollapsed(
+    `%c[HISTORICAL TEST] ${info.timeframe} | ${info.symbol} | request #${info.requestId}${
+      typeof info.attempt === "number" ? ` | attempt ${info.attempt + 1}` : ""
+    }`,
+    "font-weight:700;color:#2962ff;",
+  );
+
+  console.log("Request", {
+    requestId: info.requestId,
+
+    attempt: typeof info.attempt === "number" ? info.attempt + 1 : undefined,
+
+    symbol: info.symbol,
+
+    timeframe: info.timeframe,
+
+    nativeTimeframe: info.nativeTimeframe,
+
+    requestedStart: formatUtcTimestamp(info.requestedStart),
+
+    requestedEnd: formatUtcTimestamp(info.requestedEnd),
+
+    requestedDurationHours: info.requestedDurationSeconds / 3600,
+  });
+
+  console.log("Response", {
+    returnedStart: formatUtcTimestamp(info.returnedStart),
+
+    returnedEnd: formatUtcTimestamp(info.returnedEnd),
+
+    returnedDurationHours: info.returnedDurationSeconds / 3600,
+
+    candleCount: info.candleCount,
+  });
+
+  console.log("Continuity", {
+    complete: info.continuity.complete,
+
+    expectedIntervalSeconds: info.expectedIntervalSeconds,
+
+    gapCount: info.continuity.gaps.length,
+
+    duplicateCount: info.continuity.duplicates.length,
+  });
+
+  console.log("Coverage", {
+    complete: info.coverage.complete,
+
+    expectedFirstCandle: formatUtcTimestamp(info.coverage.expectedFirstCandle),
+
+    expectedLastCandle: formatUtcTimestamp(info.coverage.expectedLastCandle),
+
+    returnedStart: formatUtcTimestamp(info.coverage.returnedStart),
+
+    returnedEnd: formatUtcTimestamp(info.coverage.returnedEnd),
+
+    missingBeforeSeconds: info.coverage.missingBeforeSeconds,
+
+    missingAfterSeconds: info.coverage.missingAfterSeconds,
+
+    missingBeforeHours: info.coverage.missingBeforeSeconds / 3600,
+
+    missingAfterHours: info.coverage.missingAfterSeconds / 3600,
+
+    startWeekendAdjusted: info.coverage.startWeekendAdjusted,
+
+    endWeekendAdjusted: info.coverage.endWeekendAdjusted,
+  });
+
+  if (info.continuity.gaps.length > 0) {
+    console.warn(
+      "Unexpected candle gaps:",
+      info.continuity.gaps.map((gap) => ({
+        previous: formatUtcTimestamp(gap.previous),
+
+        current: formatUtcTimestamp(gap.current),
+
+        expectedSeconds: gap.expectedSeconds,
+
+        actualSeconds: gap.actualSeconds,
+
+        actualHours: gap.actualSeconds / 3600,
+      })),
+    );
+  }
+
+  if (info.continuity.duplicates.length > 0) {
+    console.warn(
+      "Duplicate candle timestamps:",
+      info.continuity.duplicates.map(formatUtcTimestamp),
+    );
+  }
+
+  if (info.continuity.complete) {
+    console.log("%cCANDLE CONTINUITY: PASS", "font-weight:700;color:#16a34a;");
+  } else {
+    console.error(
+      "%cCANDLE CONTINUITY: FAIL",
+      "font-weight:700;color:#dc2626;",
+    );
+  }
+
+  if (info.coverage.complete) {
+    if (
+      info.coverage.startWeekendAdjusted ||
+      info.coverage.endWeekendAdjusted
+    ) {
+      console.log(
+        "%cHISTORICAL COVERAGE: PASS (WEEKEND-ADJUSTED)",
+        "font-weight:700;color:#16a34a;",
+      );
+    } else {
+      console.log(
+        "%cHISTORICAL COVERAGE: PASS",
+        "font-weight:700;color:#16a34a;",
+      );
+    }
+  } else {
+    console.error(
+      "%cHISTORICAL COVERAGE: FAIL",
+      "font-weight:700;color:#dc2626;",
+    );
+  }
+
+  console.groupEnd();
+}
+
 /* =========================================================
    LINE DATA
 ========================================================= */
 
 function createLineData(
-  points: { time: number; value: number }[],
-): { time: UTCTimestamp; value: number }[] {
+  points: {
+    time: number;
+    value: number;
+  }[],
+): {
+  time: UTCTimestamp;
+  value: number;
+}[] {
   const sorted = [...points].sort((a, b) => a.time - b.time);
 
-  const unique: { time: UTCTimestamp; value: number }[] = [];
+  const unique: {
+    time: UTCTimestamp;
+    value: number;
+  }[] = [];
 
   for (const point of sorted) {
     const time = point.time as UTCTimestamp;
 
     const last = unique[unique.length - 1];
 
-    if (last && last.time === time) {
+    if (last && Number(last.time) === Number(time)) {
       last.value = point.value;
+
       continue;
     }
 
@@ -305,7 +856,7 @@ function getMinMove(symbol: string) {
 }
 
 /* =========================================================
-   PIP SIZE
+   PIP
 ========================================================= */
 
 function getPipSize(symbol: string) {
@@ -321,10 +872,6 @@ function getPipSize(symbol: string) {
 
   return 0.0001;
 }
-
-/* =========================================================
-   PIPS
-========================================================= */
 
 function calculatePips(symbol: string, distance: number) {
   const pipSize = getPipSize(symbol);
@@ -382,11 +929,17 @@ function PositionRectangle({
   borderColor,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
+
   seriesRef: React.RefObject<ISeriesApi<"Candlestick"> | null>;
+
   chartRef: React.RefObject<IChartApi | null>;
+
   rectangle: RectangleData;
+
   color: string;
+
   fillOpacity: number;
+
   borderColor: string;
 }) {
   const rectangleRef = useRef<HTMLDivElement | null>(null);
@@ -401,11 +954,17 @@ function PositionRectangle({
     const element = document.createElement("div");
 
     element.style.position = "absolute";
+
     element.style.pointerEvents = "none";
+
     element.style.zIndex = "5";
+
     element.style.boxSizing = "border-box";
+
     element.style.background = hexToRgba(color, fillOpacity);
+
     element.style.border = `1px solid ${borderColor}`;
+
     element.style.borderRadius = "1px";
 
     container.appendChild(element);
@@ -414,7 +973,9 @@ function PositionRectangle({
 
     const updateRectangle = () => {
       const chart = chartRef.current;
+
       const series = seriesRef.current;
+
       const target = rectangleRef.current;
 
       if (!chart || !series || !target) {
@@ -430,6 +991,7 @@ function PositionRectangle({
         .timeToCoordinate(rectangle.endTime as UTCTimestamp);
 
       const topY = series.priceToCoordinate(rectangle.topPrice);
+
       const bottomY = series.priceToCoordinate(rectangle.bottomPrice);
 
       if (
@@ -439,19 +1001,26 @@ function PositionRectangle({
         bottomY === null
       ) {
         target.style.display = "none";
+
         return;
       }
 
       const left = Math.min(startX, endX);
+
       const right = Math.max(startX, endX);
 
       const top = Math.min(topY, bottomY);
+
       const bottom = Math.max(topY, bottomY);
 
       target.style.display = "block";
+
       target.style.left = `${left}px`;
+
       target.style.top = `${top}px`;
+
       target.style.width = `${Math.max(1, right - left)}px`;
+
       target.style.height = `${Math.max(1, bottom - top)}px`;
     };
 
@@ -464,6 +1033,7 @@ function PositionRectangle({
     };
 
     timeScale?.subscribeVisibleLogicalRangeChange(handleRangeChange);
+
     timeScale?.subscribeVisibleTimeRangeChange(handleRangeChange);
 
     const resizeObserver = new ResizeObserver(handleRangeChange);
@@ -486,6 +1056,7 @@ function PositionRectangle({
       cancelAnimationFrame(animationFrame);
 
       timeScale?.unsubscribeVisibleLogicalRangeChange(handleRangeChange);
+
       timeScale?.unsubscribeVisibleTimeRangeChange(handleRangeChange);
 
       resizeObserver.disconnect();
@@ -530,13 +1101,21 @@ function PositionInfoLabel({
   textColor,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
+
   seriesRef: React.RefObject<ISeriesApi<"Candlestick"> | null>;
+
   chartRef: React.RefObject<IChartApi | null>;
+
   time: number;
+
   price: number;
+
   text: string;
+
   background: string;
+
   borderColor: string;
+
   textColor: string;
 }) {
   const labelRef = useRef<HTMLDivElement | null>(null);
@@ -551,18 +1130,31 @@ function PositionInfoLabel({
     const label = document.createElement("div");
 
     label.style.position = "absolute";
+
     label.style.pointerEvents = "none";
+
     label.style.zIndex = "30";
+
     label.style.padding = "4px 7px";
+
     label.style.borderRadius = "4px";
+
     label.style.background = background;
+
     label.style.border = `1px solid ${borderColor}`;
+
     label.style.color = textColor;
+
     label.style.fontSize = "11px";
+
     label.style.fontWeight = "600";
+
     label.style.lineHeight = "14px";
+
     label.style.whiteSpace = "nowrap";
+
     label.style.boxShadow = "0 1px 4px rgba(0,0,0,0.25)";
+
     label.textContent = text;
 
     container.appendChild(label);
@@ -571,8 +1163,11 @@ function PositionInfoLabel({
 
     const update = () => {
       const chart = chartRef.current;
+
       const series = seriesRef.current;
+
       const element = labelRef.current;
+
       const currentContainer = containerRef.current;
 
       if (!chart || !series || !element || !currentContainer) {
@@ -585,10 +1180,12 @@ function PositionInfoLabel({
 
       if (x === null || y === null) {
         element.style.display = "none";
+
         return;
       }
 
       const containerWidth = currentContainer.clientWidth;
+
       const labelWidth = element.offsetWidth;
 
       let left = x + 8;
@@ -602,8 +1199,11 @@ function PositionInfoLabel({
       }
 
       element.style.display = "block";
+
       element.style.left = `${left}px`;
+
       element.style.top = `${y}px`;
+
       element.style.transform = "translateY(-50%)";
     };
 
@@ -616,6 +1216,7 @@ function PositionInfoLabel({
     };
 
     timeScale?.subscribeVisibleLogicalRangeChange(handleRangeChange);
+
     timeScale?.subscribeVisibleTimeRangeChange(handleRangeChange);
 
     const resizeObserver = new ResizeObserver(handleRangeChange);
@@ -638,6 +1239,7 @@ function PositionInfoLabel({
       cancelAnimationFrame(animationFrame);
 
       timeScale?.unsubscribeVisibleLogicalRangeChange(handleRangeChange);
+
       timeScale?.unsubscribeVisibleTimeRangeChange(handleRangeChange);
 
       resizeObserver.disconnect();
@@ -681,10 +1283,6 @@ export function TradingChart({
 
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
 
-  const markersRef = useRef<ReturnType<
-    typeof createSeriesMarkers<Time>
-  > | null>(null);
-
   const lineSeriesRefs = useRef<ISeriesApi<"Line">[]>([]);
 
   const requestIdRef = useRef(0);
@@ -710,7 +1308,7 @@ export function TradingChart({
   const loading = externalLoading !== undefined ? externalLoading : false;
 
   /* =======================================================
-     THEME DETECTION
+     THEME
   ======================================================= */
 
   useEffect(() => {
@@ -726,9 +1324,7 @@ export function TradingChart({
 
     updateTheme();
 
-    const observer = new MutationObserver(() => {
-      updateTheme();
-    });
+    const observer = new MutationObserver(updateTheme);
 
     observer.observe(root, {
       attributes: true,
@@ -752,11 +1348,33 @@ export function TradingChart({
   );
 
   /* =======================================================
+     TRADE SIGNATURE
+  ======================================================= */
+
+  const tradeSignature = useMemo(() => {
+    return JSON.stringify(
+      trades.map((trade) => ({
+        id: trade.id,
+        symbol: trade.symbol,
+        type: trade.type,
+        entry_price: trade.entry_price,
+        exit_price: trade.exit_price,
+        stop_loss: trade.stop_loss,
+        take_profit: trade.take_profit,
+        lot_size: trade.lot_size,
+        profit: trade.profit,
+        open_time: trade.open_time,
+        close_time: trade.close_time,
+      })),
+    );
+  }, [trades]);
+
+  /* =======================================================
      LATEST TRADE
   ======================================================= */
 
   const getLatestTrade = (): Trade | null => {
-    if (!trades || trades.length === 0) {
+    if (trades.length === 0) {
       return null;
     }
 
@@ -799,6 +1417,7 @@ export function TradingChart({
     }
 
     const openTime = new Date(trade.open_time);
+
     const closeTime = new Date(trade.close_time);
 
     if (
@@ -812,17 +1431,23 @@ export function TradingChart({
 
     return {
       id: trade.id,
+
       symbol: trade.symbol,
+
       entryPrice,
+
       exitPrice: Number(trade.exit_price) || 0,
+
       stopLoss,
+
       takeProfit,
+
       lotSize: Number(trade.lot_size) || 1,
+
       profit: Number(trade.profit) || 0,
 
-      // IMPORTANT:
-      // Keep exact trade timestamps.
       openTime,
+
       closeTime,
 
       type: trade.type === "buy" ? "long" : "short",
@@ -830,84 +1455,13 @@ export function TradingChart({
   };
 
   /* =======================================================
-     FETCH HISTORICAL CANDLES
+     MAP API CANDLES
   ======================================================= */
 
-  const fetchHistoricalCandles = async (
-    position: TradePosition,
-    signal: AbortSignal,
-  ): Promise<CandlestickData[]> => {
-    const interval = timeframeConfig.seconds;
-
-    /*
-     * EXACT TRADE TIME
-     *
-     * These are never used as the actual position
-     * coordinates after this point.
-     */
-    const entryTime = toTimestampSeconds(position.openTime);
-
-    const closeTime = toTimestampSeconds(position.closeTime);
-
-    /*
-     * Candle alignment is ONLY for requesting enough
-     * historical candle data.
-     */
-    const alignedEntry = alignTimestamp(entryTime, interval);
-
-    const alignedClose = alignTimestamp(closeTime, interval);
-
-    const startTime = alignedEntry - CANDLES_BEFORE_ENTRY * interval;
-
-    const endTime = alignedClose + CANDLES_AFTER_CLOSE * interval;
-
-    const params = new URLSearchParams({
-      symbol: position.symbol.toUpperCase(),
-      timeframe,
-      startTime: String(startTime * 1000),
-      endTime: String(endTime * 1000),
-    });
-
-    const url = `${HISTORICAL_CANDLES_URL}?${params.toString()}`;
-
-    const response = await fetch(url, {
-      method: "GET",
-      signal,
-
-      headers: {
-        Accept: "application/json",
-      },
-
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      let message = `Historical data request failed (${response.status})`;
-
-      try {
-        const errorBody = (await response.json()) as HistoricalApiResponse;
-
-        if (errorBody.error) {
-          message = errorBody.error;
-        }
-      } catch {
-        // ignore JSON parsing error
-      }
-
-      throw new Error(message);
-    }
-
-    const json = (await response.json()) as HistoricalApiResponse;
-
-    if (!json.success) {
-      throw new Error(json.error || "Historical data request failed");
-    }
-
-    if (!Array.isArray(json.candles)) {
-      throw new Error("Historical API returned invalid candle data");
-    }
-
-    const sorted = [...json.candles]
+  const mapHistoricalCandles = (
+    candles: HistoricalCandleResponse[],
+  ): CandlestickData[] => {
+    return candles
       .map((candle) => ({
         time: Math.floor(Number(candle.timestamp) / 1000) as UTCTimestamp,
 
@@ -921,17 +1475,25 @@ export function TradingChart({
       }))
       .filter(
         (candle) =>
-          Number.isFinite(candle.time) &&
+          Number.isFinite(Number(candle.time)) &&
           Number.isFinite(candle.open) &&
           Number.isFinite(candle.high) &&
           Number.isFinite(candle.low) &&
           Number.isFinite(candle.close),
       )
       .sort((a, b) => Number(a.time) - Number(b.time));
+  };
 
+  /* =======================================================
+     REMOVE DUPLICATES
+  ======================================================= */
+
+  const removeDuplicateCandles = (
+    candles: CandlestickData[],
+  ): CandlestickData[] => {
     const unique: CandlestickData[] = [];
 
-    for (const candle of sorted) {
+    for (const candle of candles) {
       const last = unique[unique.length - 1];
 
       if (last && Number(last.time) === Number(candle.time)) {
@@ -944,6 +1506,409 @@ export function TradingChart({
     }
 
     return unique;
+  };
+
+  /* =======================================================
+     FETCH HISTORICAL
+  ======================================================= */
+
+  const fetchHistoricalCandles = async (
+    position: TradePosition,
+    signal: AbortSignal,
+    requestId: number,
+  ): Promise<CandlestickData[]> => {
+    const interval = timeframeConfig.seconds;
+
+    const entryTime = toTimestampSeconds(position.openTime);
+
+    const closeTime = toTimestampSeconds(position.closeTime);
+
+    const alignedEntry = alignTimestamp(entryTime, interval);
+
+    const alignedClose = alignTimestamp(closeTime, interval);
+
+    /*
+     * Base range remains exactly the same as before.
+     */
+    const baseStartTime = alignedEntry - CANDLES_BEFORE_ENTRY * interval;
+
+    const baseEndTime = alignedClose + CANDLES_AFTER_CLOSE * interval;
+
+    let bestCandles: CandlestickData[] = [];
+
+    let bestCoverage: HistoricalCoverageResult | null = null;
+
+    let bestContinuity: CandleContinuityResult | null = null;
+
+    for (
+      let attempt = 0;
+      attempt < RANGE_RETRY_EXTRA_CANDLES.length;
+      attempt++
+    ) {
+      if (signal.aborted || requestId !== requestIdRef.current) {
+        throw new DOMException("Stale historical request", "AbortError");
+      }
+
+      const extraCandles = RANGE_RETRY_EXTRA_CANDLES[attempt];
+
+      let requestStartTime = baseStartTime;
+
+      let requestEndTime = baseEndTime;
+
+      /*
+       * Expand both sides on retry.
+       *
+       * This is intentionally conservative.
+       * The API still receives the same native timeframe.
+       */
+      if (attempt > 0) {
+        const extraSeconds = extraCandles * interval;
+
+        requestStartTime = baseStartTime - extraSeconds;
+
+        requestEndTime = baseEndTime + extraSeconds;
+      }
+
+      console.groupCollapsed(
+        `%c[HISTORICAL REQUEST] #${requestId} | ${timeframe} | ${position.symbol} | attempt ${
+          attempt + 1
+        }`,
+        "font-weight:700;color:#f59e0b;",
+      );
+
+      console.log({
+        requestId,
+
+        attempt: attempt + 1,
+
+        symbol: position.symbol.toUpperCase(),
+
+        applicationTimeframe: timeframe,
+
+        nativeTimeframe: timeframeConfig.dukascopyTimeframe,
+
+        exactTradeOpenUTC: new Date(entryTime * 1000).toISOString(),
+
+        exactTradeCloseUTC: new Date(closeTime * 1000).toISOString(),
+
+        requestStartUTC: new Date(requestStartTime * 1000).toISOString(),
+
+        requestEndUTC: new Date(requestEndTime * 1000).toISOString(),
+
+        requestDurationHours: (requestEndTime - requestStartTime) / 3600,
+
+        candlesBeforeEntry: CANDLES_BEFORE_ENTRY,
+
+        candlesAfterClose: CANDLES_AFTER_CLOSE,
+
+        retryExtraCandles: extraCandles,
+
+        expectedIntervalSeconds: interval,
+      });
+
+      console.groupEnd();
+
+      const params = new URLSearchParams({
+        symbol: position.symbol.toUpperCase(),
+
+        timeframe,
+
+        startTime: String(requestStartTime * 1000),
+
+        endTime: String(requestEndTime * 1000),
+      });
+
+      const url = `${HISTORICAL_CANDLES_URL}?${params.toString()}`;
+
+      const response = await fetch(url, {
+        method: "GET",
+
+        signal,
+
+        headers: {
+          Accept: "application/json",
+        },
+
+        cache: "no-store",
+      });
+
+      if (signal.aborted || requestId !== requestIdRef.current) {
+        throw new DOMException("Stale historical request", "AbortError");
+      }
+
+      if (!response.ok) {
+        let message = `Historical data request failed (${response.status})`;
+
+        try {
+          const body = (await response.json()) as HistoricalApiResponse;
+
+          if (body.error) {
+            message = body.error;
+          }
+        } catch {}
+
+        throw new Error(message);
+      }
+
+      const json = (await response.json()) as HistoricalApiResponse;
+
+      if (signal.aborted || requestId !== requestIdRef.current) {
+        throw new DOMException("Stale historical request", "AbortError");
+      }
+
+      if (!json.success) {
+        throw new Error(json.error || "Historical data request failed");
+      }
+
+      if (!Array.isArray(json.candles)) {
+        throw new Error("Historical API returned invalid candle data");
+      }
+
+      /* ===================================================
+         VERIFY TIMEFRAME
+      =================================================== */
+
+      if (json.timeframe && json.timeframe.toUpperCase() !== timeframe) {
+        throw new Error(
+          `Historical API returned timeframe ${json.timeframe}, expected ${timeframe}.`,
+        );
+      }
+
+      const expectedNativeTimeframe = timeframeConfig.dukascopyTimeframe;
+
+      if (
+        json.dukascopyTimeframe &&
+        json.dukascopyTimeframe.toLowerCase() !==
+          expectedNativeTimeframe.toLowerCase()
+      ) {
+        throw new Error(
+          `Historical API returned native timeframe ${json.dukascopyTimeframe}, expected ${expectedNativeTimeframe}.`,
+        );
+      }
+
+      /* ===================================================
+         MAP CANDLES
+      =================================================== */
+
+      const mapped = mapHistoricalCandles(json.candles);
+
+      /*
+       * Continuity is checked BEFORE duplicate removal
+       * so duplicates remain visible in diagnostics.
+       */
+      const rawContinuity = validateForexCandleContinuity(mapped, interval);
+
+      /* ===================================================
+         REMOVE EXACT DUPLICATES
+      =================================================== */
+
+      const unique = removeDuplicateCandles(mapped);
+
+      const returnedStart = unique.length > 0 ? Number(unique[0].time) : null;
+
+      const returnedEnd =
+        unique.length > 0 ? Number(unique[unique.length - 1].time) : null;
+
+      /* ===================================================
+         WEEKEND-AWARE COVERAGE
+      =================================================== */
+
+      const coverage = validateHistoricalCoverage(
+        requestStartTime,
+        requestEndTime,
+        returnedStart,
+        returnedEnd,
+        interval,
+      );
+
+      const debugInfo: HistoricalDebugInfo = {
+        requestId,
+
+        attempt,
+
+        symbol: position.symbol.toUpperCase(),
+
+        timeframe,
+
+        nativeTimeframe: json.dukascopyTimeframe || expectedNativeTimeframe,
+
+        requestedStart: requestStartTime,
+
+        requestedEnd: requestEndTime,
+
+        returnedStart,
+
+        returnedEnd,
+
+        requestedDurationSeconds: requestEndTime - requestStartTime,
+
+        returnedDurationSeconds:
+          returnedStart !== null && returnedEnd !== null
+            ? returnedEnd - returnedStart
+            : 0,
+
+        candleCount: unique.length,
+
+        expectedIntervalSeconds: interval,
+
+        continuity: rawContinuity,
+
+        coverage,
+      };
+
+      logHistoricalDebug(debugInfo);
+
+      console.log(
+        `%c[LONG RANGE TEST] #${requestId} ${timeframe} attempt ${
+          attempt + 1
+        }: ${coverage.complete ? "PASS" : "CHECK"}`,
+        coverage.complete
+          ? "font-weight:700;color:#16a34a;"
+          : "font-weight:700;color:#f59e0b;",
+      );
+
+      if (coverage.startWeekendAdjusted) {
+        console.log(
+          `[LONG RANGE TEST] ${timeframe}: start boundary is Forex-weekend adjusted.`,
+          {
+            requestedStart: formatUtcTimestamp(requestStartTime),
+
+            expectedFirstCandle: formatUtcTimestamp(
+              coverage.expectedFirstCandle,
+            ),
+
+            returnedStart: formatUtcTimestamp(returnedStart),
+          },
+        );
+      }
+
+      if (coverage.endWeekendAdjusted) {
+        console.log(
+          `[LONG RANGE TEST] ${timeframe}: end boundary is Forex-weekend adjusted.`,
+          {
+            requestedEnd: formatUtcTimestamp(requestEndTime),
+
+            expectedLastCandle: formatUtcTimestamp(coverage.expectedLastCandle),
+
+            returnedEnd: formatUtcTimestamp(returnedEnd),
+          },
+        );
+      }
+
+      if (!coverage.complete) {
+        console.warn(
+          "[LONG RANGE TEST] Historical range is still incomplete.",
+          {
+            requestedStart: formatUtcTimestamp(requestStartTime),
+
+            requestedEnd: formatUtcTimestamp(requestEndTime),
+
+            expectedFirstCandle: formatUtcTimestamp(
+              coverage.expectedFirstCandle,
+            ),
+
+            expectedLastCandle: formatUtcTimestamp(coverage.expectedLastCandle),
+
+            returnedStart: formatUtcTimestamp(returnedStart),
+
+            returnedEnd: formatUtcTimestamp(returnedEnd),
+
+            missingBeforeSeconds: coverage.missingBeforeSeconds,
+
+            missingAfterSeconds: coverage.missingAfterSeconds,
+
+            missingBeforeHours: coverage.missingBeforeSeconds / 3600,
+
+            missingAfterHours: coverage.missingAfterSeconds / 3600,
+          },
+        );
+      }
+
+      bestCandles = unique;
+
+      bestCoverage = coverage;
+
+      bestContinuity = rawContinuity;
+
+      /*
+       * If coverage is complete, there is no reason to
+       * hit Dukascopy/API again.
+       */
+      if (coverage.complete) {
+        console.log(
+          `%c[HISTORICAL RANGE COMPLETE] ${timeframe} on attempt ${
+            attempt + 1
+          }`,
+          "font-weight:700;color:#16a34a;",
+        );
+
+        /*
+         * If continuity also passes, this is the ideal case.
+         */
+        if (rawContinuity.complete) {
+          console.log(
+            `%c[HISTORICAL DATA VALID] ${timeframe}`,
+            "font-weight:700;color:#16a34a;",
+          );
+        }
+
+        break;
+      }
+
+      /*
+       * If this is not the final attempt, retry with
+       * a larger request.
+       */
+      if (attempt < RANGE_RETRY_EXTRA_CANDLES.length - 1) {
+        console.warn(
+          `[HISTORICAL RANGE RETRY] ${timeframe}: expanding request because coverage is incomplete.`,
+          {
+            nextAttempt: attempt + 2,
+
+            currentMissingBeforeHours: coverage.missingBeforeSeconds / 3600,
+
+            currentMissingAfterHours: coverage.missingAfterSeconds / 3600,
+          },
+        );
+      }
+    }
+
+    /*
+     * Final diagnostics after all retries.
+     */
+    if (bestCoverage && !bestCoverage.complete) {
+      console.error(
+        `%c[HISTORICAL RANGE FINAL FAIL] ${timeframe}`,
+        "font-weight:700;color:#dc2626;",
+        {
+          expectedFirstCandle: formatUtcTimestamp(
+            bestCoverage.expectedFirstCandle,
+          ),
+
+          expectedLastCandle: formatUtcTimestamp(
+            bestCoverage.expectedLastCandle,
+          ),
+
+          returnedStart: formatUtcTimestamp(bestCoverage.returnedStart),
+
+          returnedEnd: formatUtcTimestamp(bestCoverage.returnedEnd),
+
+          missingBeforeHours: bestCoverage.missingBeforeSeconds / 3600,
+
+          missingAfterHours: bestCoverage.missingAfterSeconds / 3600,
+        },
+      );
+    }
+
+    if (bestContinuity && !bestContinuity.complete) {
+      console.error(
+        `%c[CANDLE CONTINUITY FINAL FAIL] ${timeframe}`,
+        "font-weight:700;color:#dc2626;",
+        bestContinuity,
+      );
+    }
+
+    return bestCandles;
   };
 
   /* =======================================================
@@ -969,20 +1934,10 @@ export function TradingChart({
 
     const interval = timeframeConfig.seconds;
 
-    /*
-     * IMPORTANT:
-     *
-     * These are the EXACT trade timestamps.
-     * DO NOT align them to candle boundaries.
-     */
     const entryTime = toTimestampSeconds(trade.openTime);
 
     const closeTime = toTimestampSeconds(trade.closeTime);
 
-    /*
-     * Alignment is used ONLY to determine the outer
-     * chart range.
-     */
     const alignedEntry = alignTimestamp(entryTime, interval);
 
     const alignedClose = alignTimestamp(closeTime, interval);
@@ -991,17 +1946,10 @@ export function TradingChart({
 
     const chartEndTime = alignedClose + CANDLES_AFTER_CLOSE * interval;
 
-    /* ===================================================
-       RECTANGLES
-    =================================================== */
-
     setRectangles([
       {
         type: "risk",
 
-        /*
-         * EXACT trade open → close.
-         */
         startTime: entryTime,
 
         endTime: closeTime,
@@ -1014,9 +1962,6 @@ export function TradingChart({
       {
         type: "reward",
 
-        /*
-         * EXACT trade open → close.
-         */
         startTime: entryTime,
 
         endTime: closeTime,
@@ -1027,8 +1972,6 @@ export function TradingChart({
       },
     ]);
 
-    const lineSeries: ISeriesApi<"Line">[] = [];
-
     const priceFormat = {
       type: "price" as const,
 
@@ -1037,8 +1980,10 @@ export function TradingChart({
       minMove: getMinMove(trade.symbol),
     };
 
+    const lineSeries: ISeriesApi<"Line">[] = [];
+
     /* ===================================================
-       ENTRY
+       ENTRY LINE
     =================================================== */
 
     const entryLine = chart.addSeries(LineSeries, {
@@ -1065,18 +2010,12 @@ export function TradingChart({
           value: entryPrice,
         },
 
-        /*
-         * EXACT open time.
-         */
         {
           time: entryTime,
 
           value: entryPrice,
         },
 
-        /*
-         * EXACT close time.
-         */
         {
           time: closeTime,
 
@@ -1094,7 +2033,7 @@ export function TradingChart({
     lineSeries.push(entryLine);
 
     /* ===================================================
-       SL
+       SL LINE
     =================================================== */
 
     const slLine = chart.addSeries(LineSeries, {
@@ -1144,7 +2083,7 @@ export function TradingChart({
     lineSeries.push(slLine);
 
     /* ===================================================
-       TP
+       TP LINE
     =================================================== */
 
     const tpLine = chart.addSeries(LineSeries, {
@@ -1197,18 +2136,15 @@ export function TradingChart({
 
     return {
       chartStartTime,
+
       chartEndTime,
 
-      /*
-       * EXACT trade timestamps.
-       */
       entryTime,
+
       closeTime,
 
-      /*
-       * Keep these for candle range calculations.
-       */
       alignedEntry,
+
       alignedClose,
 
       rr,
@@ -1228,6 +2164,16 @@ export function TradingChart({
 
     const abortController = new AbortController();
 
+    console.log(
+      `%c[CHART REQUEST START] #${currentRequestId}`,
+      "font-weight:700;color:#7c3aed;",
+      {
+        timeframe,
+
+        selectedTradeId: selectedTradeId || null,
+      },
+    );
+
     /* ===================================================
        CLEAN OLD CHART
     =================================================== */
@@ -1235,16 +2181,12 @@ export function TradingChart({
     if (chartRef.current) {
       try {
         chartRef.current.remove();
-      } catch {
-        // ignore
-      }
+      } catch {}
 
       chartRef.current = null;
     }
 
     seriesRef.current = null;
-
-    markersRef.current = null;
 
     lineSeriesRefs.current = [];
 
@@ -1294,17 +2236,33 @@ export function TradingChart({
           },
         },
 
+        /*
+         * IMPORTANT:
+         *
+         * Explicitly enable the right price scale.
+         *
+         * This is especially important for M5/M15 where
+         * the chart is recreated frequently.
+         */
         rightPriceScale: {
           borderColor: currentTheme.border,
+
+          autoScale: true,
 
           scaleMargins: {
             top: 0.08,
 
             bottom: 0.08,
           },
+
+          alignLabels: true,
+
+          entireTextOnly: false,
         },
 
         timeScale: {
+          tickMarkFormatter: formatChartUtcTime,
+
           timeVisible: true,
 
           secondsVisible: false,
@@ -1313,9 +2271,15 @@ export function TradingChart({
 
           barSpacing: isMobile ? 6 : 8,
 
-          minBarSpacing: 3,
+          minBarSpacing: 0.1,
+
+          maxBarSpacing: 50,
 
           borderColor: currentTheme.border,
+        },
+
+        localization: {
+          timeFormatter: formatChartUtcTime,
         },
 
         crosshair: {
@@ -1338,10 +2302,27 @@ export function TradingChart({
           mouseWheel: true,
 
           pressedMouseMove: true,
+
+          horzTouchDrag: true,
+
+          vertTouchDrag: true,
         },
 
+        /*
+         * IMPORTANT:
+         *
+         * Price-axis vertical scaling is explicitly enabled.
+         *
+         * Drag the right price axis vertically to expand/
+         * compress the price scale.
+         *
+         * Time-axis scaling remains enabled as well.
+         */
         handleScale: {
-          axisPressedMouseMove: true,
+          axisPressedMouseMove: {
+            time: true,
+            price: true,
+          },
 
           mouseWheel: true,
 
@@ -1352,7 +2333,7 @@ export function TradingChart({
       chartRef.current = chart;
 
       /* =================================================
-         TRADE
+         SELECT TRADE
       ================================================= */
 
       const selectedTradeFromList = getSelectedTrade();
@@ -1366,8 +2347,6 @@ export function TradingChart({
       }
 
       if (!latestTrade.close_time) {
-        console.error("Trade close_time is required.");
-
         setSelectedTrade(null);
 
         return;
@@ -1394,6 +2373,8 @@ export function TradingChart({
 
         wickDownColor: currentTheme.bearish,
 
+        priceScaleId: "right",
+
         priceFormat: {
           type: "price",
 
@@ -1406,13 +2387,7 @@ export function TradingChart({
       seriesRef.current = candlestickSeries;
 
       /* =================================================
-         MARKERS
-      ================================================= */
-
-      markersRef.current = createSeriesMarkers(candlestickSeries);
-
-      /* =================================================
-         FETCH HISTORICAL DATA
+         LOAD HISTORICAL
       ================================================= */
 
       const loadHistoricalData = async () => {
@@ -1424,6 +2399,7 @@ export function TradingChart({
           const candleData = await fetchHistoricalCandles(
             position,
             abortController.signal,
+            currentRequestId,
           );
 
           if (
@@ -1441,59 +2417,85 @@ export function TradingChart({
 
           candlestickSeries.setData(candleData);
 
-          /* =========================================
+          /*
+           * Force price scale back to automatic mode
+           * after data is applied.
+           *
+           * This is particularly useful when changing
+           * M5 <-> M15 because the entire chart instance
+           * is recreated.
+           */
+          chart.priceScale("right").applyOptions({
+            autoScale: true,
+
+            scaleMargins: {
+              top: 0.08,
+
+              bottom: 0.08,
+            },
+          });
+
+          console.log(
+            `%c[CHART DATA APPLIED] #${currentRequestId}`,
+            "font-weight:700;color:#16a34a;",
+            {
+              timeframe,
+
+              nativeTimeframe: timeframeConfig.dukascopyTimeframe,
+
+              candleCount: candleData.length,
+
+              firstCandleUTC: formatUtcTimestamp(Number(candleData[0].time)),
+
+              lastCandleUTC: formatUtcTimestamp(
+                Number(candleData[candleData.length - 1].time),
+              ),
+            },
+          );
+
+          /* ===========================================
                POSITION LINES
-            ========================================= */
+            =========================================== */
 
           const range = drawPositionLines(chart, position, currentTheme);
 
-          /* =========================================
+          /*
+           * After lines are added, keep auto scale enabled.
+           */
+          chart.priceScale("right").applyOptions({
+            autoScale: true,
+
+            scaleMargins: {
+              top: 0.08,
+
+              bottom: 0.08,
+            },
+          });
+
+          /* ===========================================
                VISIBLE RANGE
-            ========================================= */
+            =========================================== */
 
           if (range) {
-            /*
-             * Use candle-aligned timestamps
-             * ONLY for finding candle indexes.
-             */
-
-            const entryIndex = candleData.findIndex(
-              (candle) => Number(candle.time) >= range.alignedEntry,
-            );
-
-            const closeIndex = candleData.findIndex(
-              (candle) => Number(candle.time) > range.alignedClose,
-            );
-
-            const safeEntryIndex =
-              entryIndex >= 0 ? entryIndex : CANDLES_BEFORE_ENTRY;
-
-            const safeCloseIndex =
-              closeIndex >= 0
-                ? closeIndex
-                : Math.max(
-                    safeEntryIndex + 1,
-                    candleData.length - CANDLES_AFTER_CLOSE,
-                  );
-
-            const visibleFrom = Math.max(
-              0,
-              safeEntryIndex - CANDLES_BEFORE_ENTRY,
-            );
-
-            const visibleTo = Math.min(
-              candleData.length - 1,
-              safeCloseIndex + CANDLES_AFTER_CLOSE,
-            );
-
-            chart.timeScale().setVisibleLogicalRange({
-              from: visibleFrom - 0.5,
-
-              to: visibleTo + 0.5,
+            chart.timeScale().setVisibleRange({
+              from: range.chartStartTime as UTCTimestamp,
+              to: range.chartEndTime as UTCTimestamp,
             });
           }
+
+          /*
+           * Re-apply autoScale after visible logical range
+           * has been changed.
+           */
+          chart.priceScale("right").applyOptions({
+            autoScale: true,
+          });
         } catch (error) {
           if (abortController.signal.aborted) {
+            return;
+          }
+
+          if (currentRequestId !== requestIdRef.current) {
             return;
           }
 
@@ -1527,23 +2529,32 @@ export function TradingChart({
 
         const newWidth = chartContainerRef.current.clientWidth;
 
-        if (newWidth > 0) {
-          const mobile = window.innerWidth < 640;
-
-          chartRef.current.applyOptions({
-            width: newWidth,
-
-            height: isFullscreen
-              ? Math.max(300, window.innerHeight - 110)
-              : mobile
-                ? 330
-                : 400,
-
-            timeScale: {
-              barSpacing: mobile ? 6 : 8,
-            },
-          });
+        if (newWidth <= 0) {
+          return;
         }
+
+        const mobile = window.innerWidth < 640;
+
+        chartRef.current.applyOptions({
+          width: newWidth,
+
+          height: isFullscreen
+            ? Math.max(300, window.innerHeight - 110)
+            : mobile
+              ? 360
+              : 450,
+
+          timeScale: {
+            barSpacing: mobile ? 6 : 8,
+          },
+
+          /*
+           * Keep the price scale interactive after resize.
+           */
+          rightPriceScale: {
+            autoScale: true,
+          },
+        });
       };
 
       const resizeObserver = new ResizeObserver(handleResize);
@@ -1555,26 +2566,19 @@ export function TradingChart({
       return () => {
         abortController.abort();
 
+        console.log(
+          `%c[CHART REQUEST CLEANUP] #${currentRequestId}`,
+          "font-weight:700;color:#64748b;",
+        );
+
         window.removeEventListener("resize", handleResize);
 
         resizeObserver.disconnect();
 
-        if (markersRef.current) {
-          try {
-            markersRef.current.detach();
-          } catch {
-            // ignore
-          }
-
-          markersRef.current = null;
-        }
-
         if (chartRef.current) {
           try {
             chartRef.current.remove();
-          } catch {
-            // ignore
-          }
+          } catch {}
 
           chartRef.current = null;
         }
@@ -1584,15 +2588,26 @@ export function TradingChart({
         lineSeriesRefs.current = [];
 
         setRectangles([]);
+
+        setHistoricalLoading(false);
       };
     } catch (error) {
       console.error("Error creating chart:", error);
 
-      setHistoricalError(
-        error instanceof Error ? error.message : "Failed to create chart.",
-      );
+      if (currentRequestId === requestIdRef.current) {
+        setHistoricalError(
+          error instanceof Error ? error.message : "Failed to create chart.",
+        );
+      }
     }
-  }, [trades, loading, timeframe, isDarkMode, isFullscreen, selectedTradeId]);
+  }, [
+    tradeSignature,
+    loading,
+    timeframe,
+    isDarkMode,
+    isFullscreen,
+    selectedTradeId,
+  ]);
 
   /* =======================================================
      LABEL DATA
@@ -1627,29 +2642,17 @@ export function TradingChart({
       selectedTrade.lotSize,
     );
 
-    /*
-     * IMPORTANT:
-     *
-     * Labels use EXACT trade timestamps.
-     * No candle alignment here.
-     */
     const entryTime = toTimestampSeconds(selectedTrade.openTime);
 
     const closeTime = toTimestampSeconds(selectedTrade.closeTime);
 
     return {
       rr,
-
       slPips,
-
       tpPips,
-
       slAmount,
-
       tpAmount,
-
       entryTime,
-
       closeTime,
     };
   }, [selectedTrade]);
@@ -1696,7 +2699,7 @@ export function TradingChart({
       ].join(" ")}
     >
       {/* ===================================================
-          FULL SCREEN CLOSE BUTTON
+          FULLSCREEN CLOSE
       =================================================== */}
 
       {isFullscreen && (
@@ -1749,7 +2752,7 @@ export function TradingChart({
             <polyline points="9 3 9 9 3 9" />
             <polyline points="15 3 15 9 21 9" />
             <polyline points="9 21 9 15 3 15" />
-            <polyline points="15 21 15 15 21 21" />
+            <polyline points="15 21 15 15 21 15" />
           </svg>
         </button>
       )}
@@ -1989,12 +2992,10 @@ export function TradingChart({
 
           height: isFullscreen ? "calc(100vh - 110px)" : undefined,
 
-          minHeight: isFullscreen ? undefined : "330px",
+          minHeight: isFullscreen ? undefined : "380px",
         }}
       >
-        {/* =================================================
-            HISTORICAL LOADING
-        ================================================= */}
+        {/* HISTORICAL LOADING */}
 
         {historicalLoading && (
           <div
@@ -2024,9 +3025,7 @@ export function TradingChart({
           </div>
         )}
 
-        {/* =================================================
-            HISTORICAL ERROR
-        ================================================= */}
+        {/* HISTORICAL ERROR */}
 
         {historicalError && (
           <div
@@ -2063,9 +3062,7 @@ export function TradingChart({
           </div>
         )}
 
-        {/* =================================================
-            RISK / REWARD RECTANGLES
-        ================================================= */}
+        {/* RISK / REWARD */}
 
         {rectangles.map((rectangle, index) => {
           if (rectangle.type === "risk") {
@@ -2101,9 +3098,7 @@ export function TradingChart({
           );
         })}
 
-        {/* =================================================
-            ENTRY LABEL
-        ================================================= */}
+        {/* ENTRY INFO */}
 
         {selectedTrade && labelData && (
           <PositionInfoLabel
@@ -2121,9 +3116,7 @@ export function TradingChart({
           />
         )}
 
-        {/* =================================================
-            SL LABEL
-        ================================================= */}
+        {/* SL INFO */}
 
         {selectedTrade && labelData && (
           <PositionInfoLabel
@@ -2141,9 +3134,7 @@ export function TradingChart({
           />
         )}
 
-        {/* =================================================
-            TP LABEL
-        ================================================= */}
+        {/* TP INFO */}
 
         {selectedTrade && labelData && (
           <PositionInfoLabel

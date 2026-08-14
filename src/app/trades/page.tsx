@@ -189,18 +189,104 @@ export default function TradesPage() {
 
           <button
             onClick={() => setShowChart(!showChart)}
-            className="px-3 py-1.5 text-sm rounded-lg transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
+            className="
+                        px-3 py-1.5
+                        text-sm
+                        rounded-lg
+                        transition-colors
+                        flex items-center gap-1.5
+
+                        bg-gray-100
+                        hover:bg-gray-200
+                        text-gray-700
+                        border border-gray-300
+
+                        dark:bg-gray-700
+                        dark:hover:bg-gray-600
+                        dark:text-gray-200
+                        dark:border-gray-600
+                      "
           >
-            {showChart ? "📈 Chart нуух" : "📈 Chart харуулах"}
+            {showChart ? (
+              <>
+                {/* Eye open */}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </>
+            ) : (
+              <>
+                {/* Eye closed */}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m3 3 18 18" />
+                  <path d="M10.58 10.58a2 2 0 0 0 2.83 2.83" />
+                  <path d="M9.88 4.24A10.75 10.75 0 0 1 21.94 11.65a1 1 0 0 1 0 .7 10.75 10.75 0 0 1-4.12 5.14" />
+                  <path d="M6.61 6.61A10.75 10.75 0 0 0 2.06 11.65a1 1 0 0 0 0 .7 10.75 10.75 0 0 0 5.28 5.07A10.75 10.75 0 0 0 12 18c.91 0 1.8-.11 2.65-.32" />
+                </svg>
+              </>
+            )}
           </button>
 
           {/* Refresh Button */}
 
           <button
             onClick={refresh}
-            className="px-3 py-1.5 text-sm rounded-lg transition-colors bg-blue-700 hover:bg-blue-600 text-gray-200 border border-blue-600"
+            className="
+                        px-3 py-1.5
+                        text-sm
+                        rounded-lg
+                        transition-colors
+                        flex items-center gap-1.5
+
+                        bg-gray-100
+                        hover:bg-gray-200
+                        text-gray-700
+                        border border-gray-300
+
+                        dark:bg-gray-700
+                        dark:hover:bg-gray-600
+                        dark:text-gray-200
+                        dark:border-gray-600
+                      "
           >
-            🔄 Refresh
+            {/* Refresh */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 12a9 9 0 0 0-15.3-6.4L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M3 12a9 9 0 0 0 15.3 6.4L21 16" />
+              <path d="M21 21v-5h-5" />
+            </svg>
           </button>
         </div>
 
