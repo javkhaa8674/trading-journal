@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-
 import {
   createChart,
   IChartApi,
@@ -14,7 +13,7 @@ import {
   CandlestickSeries,
   LineSeries,
 } from "lightweight-charts";
-
+import { DrawingPlugin } from "lwc-plugin-drawing-tools";
 import { Trade } from "@/types/trade";
 
 /* =========================================================
@@ -100,6 +99,11 @@ interface ChartTheme {
   tpLabelBackground: string;
 
   tooltipBackground: string;
+
+  drawingColor: string;
+  drawingToolbarBackground: string;
+  drawingToolbarBorder: string;
+  drawingToolbarText: string;
 }
 
 interface CandleContinuityGap {
@@ -136,23 +140,17 @@ interface HistoricalCoverageResult {
 
 interface HistoricalDebugInfo {
   requestId: number;
-
   symbol: string;
-
   timeframe: Timeframe;
-
   nativeTimeframe: string;
 
   requestedStart: number;
-
   requestedEnd: number;
 
   returnedStart: number | null;
-
   returnedEnd: number | null;
 
   requestedDurationSeconds: number;
-
   returnedDurationSeconds: number;
 
   candleCount: number;
@@ -160,7 +158,6 @@ interface HistoricalDebugInfo {
   expectedIntervalSeconds: number;
 
   continuity: CandleContinuityResult;
-
   coverage: HistoricalCoverageResult;
 
   attempt?: number;
@@ -201,24 +198,6 @@ const TIMEFRAMES: TimeframeConfig[] = [
 const CANDLES_BEFORE_ENTRY = 100;
 const CANDLES_AFTER_CLOSE = 100;
 
-/*
- * If the first request does not contain the expected
- * historical boundary, expand the request progressively.
- *
- * This is intentionally client-side only.
- *
- * Attempt 0:
- *   normal range
- *
- * Attempt 1:
- *   +64 candles on the missing side
- *
- * Attempt 2:
- *   +128 candles
- *
- * Attempt 3:
- *   +256 candles
- */
 const RANGE_RETRY_EXTRA_CANDLES = [0, 64, 128, 256];
 
 const HISTORICAL_CANDLES_URL =
@@ -226,7 +205,7 @@ const HISTORICAL_CANDLES_URL =
   "https://gethistoricalcandles-nn3pu4motq-uc.a.run.app";
 
 /* =========================================================
-   THEME
+   THEMES
 ========================================================= */
 
 const DARK_THEME: ChartTheme = {
@@ -250,6 +229,11 @@ const DARK_THEME: ChartTheme = {
   tpLabelBackground: "rgba(35, 150, 95, 0.94)",
 
   tooltipBackground: "#1e222d",
+
+  drawingColor: "#60a5fa",
+  drawingToolbarBackground: "#161922",
+  drawingToolbarBorder: "#2b2b43",
+  drawingToolbarText: "#d1d4dc",
 };
 
 const LIGHT_THEME: ChartTheme = {
@@ -273,23 +257,22 @@ const LIGHT_THEME: ChartTheme = {
   tpLabelBackground: "rgba(22, 163, 74, 0.94)",
 
   tooltipBackground: "#ffffff",
+
+  drawingColor: "#2563eb",
+  drawingToolbarBackground: "#ffffff",
+  drawingToolbarBorder: "#e5e7eb",
+  drawingToolbarText: "#374151",
 };
 
 /* =========================================================
    THEME HELPERS
 ========================================================= */
 
-function getCurrentTheme(): ChartTheme {
-  if (typeof document === "undefined") {
-    return DARK_THEME;
-  }
-
-  return document.documentElement.classList.contains("dark")
-    ? DARK_THEME
-    : LIGHT_THEME;
+function getTheme(isDark: boolean): ChartTheme {
+  return isDark ? DARK_THEME : LIGHT_THEME;
 }
 
-function hexToRgba(hex: string, opacity: number) {
+function hexToRgba(hex: string, opacity: number): string {
   const clean = hex.replace("#", "");
 
   const bigint = parseInt(clean, 16);
@@ -302,7 +285,7 @@ function hexToRgba(hex: string, opacity: number) {
 }
 
 /* =========================================================
-   UTC TIME HELPERS
+   UTC HELPERS
 ========================================================= */
 
 function toTimestampSeconds(value: string | Date): number {
@@ -316,11 +299,14 @@ function toTimestampSeconds(value: string | Date): number {
   return Math.floor(milliseconds / 1000);
 }
 
-function alignTimestamp(timestampSeconds: number, intervalSeconds: number) {
+function alignTimestamp(
+  timestampSeconds: number,
+  intervalSeconds: number,
+): number {
   return Math.floor(timestampSeconds / intervalSeconds) * intervalSeconds;
 }
 
-function formatUtcTimestamp(timestampSeconds: number | null) {
+function formatUtcTimestamp(timestampSeconds: number | null): string | null {
   if (timestampSeconds === null) {
     return null;
   }
@@ -346,35 +332,18 @@ function formatChartUtcTime(time: Time): string {
   const date = new Date(timestampSeconds * 1000);
 
   const year = date.getUTCFullYear();
-
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-
   const day = String(date.getUTCDate()).padStart(2, "0");
 
   const hours = String(date.getUTCHours()).padStart(2, "0");
-
   const minutes = String(date.getUTCMinutes()).padStart(2, "0");
 
   return `${year}-${month}-${day} ${hours}:${minutes} UTC`;
 }
 
 /* =========================================================
-   FOREX MARKET WEEKEND
+   FOREX WEEKEND
 ========================================================= */
-
-/**
- * Dukascopy / Forex weekend boundary.
- *
- * This is intentionally UTC-only.
- *
- * Friday 22:00 UTC -> Sunday 22:00 UTC
- *
- * IMPORTANT:
- * Continuity does NOT simply compare Friday -> Monday.
- * Instead, it checks every expected candle timestamp inside
- * the gap. Therefore a real missing candle cannot be hidden
- * by the weekend rule.
- */
 
 function isForexWeekendClosed(timestampSeconds: number): boolean {
   const date = new Date(timestampSeconds * 1000);
@@ -382,15 +351,12 @@ function isForexWeekendClosed(timestampSeconds: number): boolean {
   const day = date.getUTCDay();
 
   const hour = date.getUTCHours();
-
   const minute = date.getUTCMinutes();
-
   const second = date.getUTCSeconds();
 
   const totalSeconds = hour * 3600 + minute * 60 + second;
 
   const fridayClose = 22 * 3600;
-
   const sundayOpen = 22 * 3600;
 
   if (day === 6) {
@@ -408,9 +374,6 @@ function isForexWeekendClosed(timestampSeconds: number): boolean {
   return false;
 }
 
-/**
- * Returns the next valid Forex candle timestamp.
- */
 function getNextForexOpenTimestamp(
   timestampSeconds: number,
   intervalSeconds: number,
@@ -428,12 +391,6 @@ function getNextForexOpenTimestamp(
   return current;
 }
 
-/**
- * Returns the last valid Forex candle timestamp before
- * requestedEnd.
- *
- * requestedEnd is exclusive.
- */
 function getLastForexCandleTimestamp(
   requestedEnd: number,
   intervalSeconds: number,
@@ -452,24 +409,9 @@ function getLastForexCandleTimestamp(
 }
 
 /* =========================================================
-   WEEKEND GAP DETECTION
+   WEEKEND GAP
 ========================================================= */
 
-/**
- * IMPORTANT:
- *
- * We do NOT simply say:
- *
- *   Friday -> Monday = weekend
- *
- * because that could hide a real missing Friday candle.
- *
- * Instead we walk through every expected candle timestamp.
- *
- * A gap is considered a legitimate weekend gap ONLY when
- * every expected timestamp between previous and current is
- * inside the Forex closed period.
- */
 function isPureForexWeekendGap(
   previousTimestamp: number,
   currentTimestamp: number,
@@ -495,16 +437,8 @@ function isPureForexWeekendGap(
     }
 
     expectedTimestamp += intervalSeconds;
-
     checked++;
 
-    /*
-     * Safety guard.
-     *
-     * A normal weekend is tiny compared with this limit.
-     * If something enormous happens, do not classify it as
-     * a weekend gap automatically.
-     */
     if (checked > 10000) {
       return false;
     }
@@ -514,7 +448,7 @@ function isPureForexWeekendGap(
 }
 
 /* =========================================================
-   COVERAGE VALIDATION
+   COVERAGE
 ========================================================= */
 
 function validateHistoricalCoverage(
@@ -560,15 +494,6 @@ function validateHistoricalCoverage(
   const endWeekendAdjusted =
     expectedLastCandle < requestedEnd - intervalSeconds;
 
-  /*
-   * No tolerance is used here.
-   *
-   * If the API returned one whole candle later than the
-   * expected first candle, that is a real missing candle.
-   *
-   * If it returned earlier than expected, that is acceptable
-   * because the server may align the requested boundary.
-   */
   const missingBeforeSeconds = Math.max(0, returnedStart - expectedFirstCandle);
 
   const missingAfterSeconds = Math.max(0, expectedLastCandle - returnedEnd);
@@ -597,7 +522,7 @@ function validateHistoricalCoverage(
 }
 
 /* =========================================================
-   CANDLE CONTINUITY
+   CONTINUITY
 ========================================================= */
 
 function validateForexCandleContinuity(
@@ -605,7 +530,6 @@ function validateForexCandleContinuity(
   expectedIntervalSeconds: number,
 ): CandleContinuityResult {
   const gaps: CandleContinuityGap[] = [];
-
   const duplicates: number[] = [];
 
   for (let i = 1; i < candles.length; i++) {
@@ -617,22 +541,13 @@ function validateForexCandleContinuity(
 
     if (diff === 0) {
       duplicates.push(current);
-
       continue;
     }
 
-    /*
-     * Normal adjacent candles.
-     */
     if (diff === expectedIntervalSeconds) {
       continue;
     }
 
-    /*
-     * A larger interval is acceptable only if EVERY expected
-     * timestamp between the two candles is Forex-weekend
-     * closed.
-     */
     if (
       diff > expectedIntervalSeconds &&
       isPureForexWeekendGap(previous, current, expectedIntervalSeconds)
@@ -640,9 +555,6 @@ function validateForexCandleContinuity(
       continue;
     }
 
-    /*
-     * Anything else is a real continuity problem.
-     */
     gaps.push({
       previous,
       current,
@@ -660,10 +572,10 @@ function validateForexCandleContinuity(
 }
 
 /* =========================================================
-   HISTORICAL DEBUG
+   DEBUG
 ========================================================= */
 
-function logHistoricalDebug(info: HistoricalDebugInfo) {
+function logHistoricalDebug(info: HistoricalDebugInfo): void {
   console.groupCollapsed(
     `%c[HISTORICAL TEST] ${info.timeframe} | ${info.symbol} | request #${info.requestId}${
       typeof info.attempt === "number" ? ` | attempt ${info.attempt + 1}` : ""
@@ -677,9 +589,7 @@ function logHistoricalDebug(info: HistoricalDebugInfo) {
     attempt: typeof info.attempt === "number" ? info.attempt + 1 : undefined,
 
     symbol: info.symbol,
-
     timeframe: info.timeframe,
-
     nativeTimeframe: info.nativeTimeframe,
 
     requestedStart: formatUtcTimestamp(info.requestedStart),
@@ -767,20 +677,12 @@ function logHistoricalDebug(info: HistoricalDebugInfo) {
   }
 
   if (info.coverage.complete) {
-    if (
-      info.coverage.startWeekendAdjusted ||
-      info.coverage.endWeekendAdjusted
-    ) {
-      console.log(
-        "%cHISTORICAL COVERAGE: PASS (WEEKEND-ADJUSTED)",
-        "font-weight:700;color:#16a34a;",
-      );
-    } else {
-      console.log(
-        "%cHISTORICAL COVERAGE: PASS",
-        "font-weight:700;color:#16a34a;",
-      );
-    }
+    console.log(
+      info.coverage.startWeekendAdjusted || info.coverage.endWeekendAdjusted
+        ? "%cHISTORICAL COVERAGE: PASS (WEEKEND-ADJUSTED)"
+        : "%cHISTORICAL COVERAGE: PASS",
+      "font-weight:700;color:#16a34a;",
+    );
   } else {
     console.error(
       "%cHISTORICAL COVERAGE: FAIL",
@@ -818,7 +720,6 @@ function createLineData(
 
     if (last && Number(last.time) === Number(time)) {
       last.value = point.value;
-
       continue;
     }
 
@@ -832,10 +733,10 @@ function createLineData(
 }
 
 /* =========================================================
-   PRICE PRECISION
+   PRICE
 ========================================================= */
 
-function getPricePrecision(symbol: string) {
+function getPricePrecision(symbol: string): number {
   const upper = symbol.toUpperCase();
 
   if (upper.includes("JPY")) {
@@ -849,17 +750,17 @@ function getPricePrecision(symbol: string) {
   return 5;
 }
 
-function getMinMove(symbol: string) {
+function getMinMove(symbol: string): number {
   const precision = getPricePrecision(symbol);
 
   return 1 / Math.pow(10, precision);
 }
 
 /* =========================================================
-   PIP
+   PIPS
 ========================================================= */
 
-function getPipSize(symbol: string) {
+function getPipSize(symbol: string): number {
   const upper = symbol.toUpperCase();
 
   if (upper.includes("JPY")) {
@@ -873,7 +774,7 @@ function getPipSize(symbol: string) {
   return 0.0001;
 }
 
-function calculatePips(symbol: string, distance: number) {
+function calculatePips(symbol: string, distance: number): number {
   const pipSize = getPipSize(symbol);
 
   if (pipSize <= 0) {
@@ -884,14 +785,14 @@ function calculatePips(symbol: string, distance: number) {
 }
 
 /* =========================================================
-   MONEY VALUE
+   MONEY
 ========================================================= */
 
 function calculateMoneyValue(
   symbol: string,
   distance: number,
   lotSize: number,
-) {
+): number {
   const upper = symbol.toUpperCase();
 
   const pips = calculatePips(symbol, distance);
@@ -937,9 +838,7 @@ function PositionRectangle({
   rectangle: RectangleData;
 
   color: string;
-
   fillOpacity: number;
-
   borderColor: string;
 }) {
   const rectangleRef = useRef<HTMLDivElement | null>(null);
@@ -954,13 +853,9 @@ function PositionRectangle({
     const element = document.createElement("div");
 
     element.style.position = "absolute";
-
     element.style.pointerEvents = "none";
-
     element.style.zIndex = "5";
-
     element.style.boxSizing = "border-box";
-
     element.style.background = hexToRgba(color, fillOpacity);
 
     element.style.border = `1px solid ${borderColor}`;
@@ -1042,19 +937,7 @@ function PositionRectangle({
 
     window.addEventListener("resize", handleRangeChange);
 
-    let animationFrame = 0;
-
-    const continuousUpdate = () => {
-      updateRectangle();
-
-      animationFrame = requestAnimationFrame(continuousUpdate);
-    };
-
-    animationFrame = requestAnimationFrame(continuousUpdate);
-
     return () => {
-      cancelAnimationFrame(animationFrame);
-
       timeScale?.unsubscribeVisibleLogicalRangeChange(handleRangeChange);
 
       timeScale?.unsubscribeVisibleTimeRangeChange(handleRangeChange);
@@ -1107,15 +990,11 @@ function PositionInfoLabel({
   chartRef: React.RefObject<IChartApi | null>;
 
   time: number;
-
   price: number;
-
   text: string;
 
   background: string;
-
   borderColor: string;
-
   textColor: string;
 }) {
   const labelRef = useRef<HTMLDivElement | null>(null);
@@ -1225,19 +1104,7 @@ function PositionInfoLabel({
 
     window.addEventListener("resize", handleRangeChange);
 
-    let animationFrame = 0;
-
-    const continuousUpdate = () => {
-      update();
-
-      animationFrame = requestAnimationFrame(continuousUpdate);
-    };
-
-    animationFrame = requestAnimationFrame(continuousUpdate);
-
     return () => {
-      cancelAnimationFrame(animationFrame);
-
       timeScale?.unsubscribeVisibleLogicalRangeChange(handleRangeChange);
 
       timeScale?.unsubscribeVisibleTimeRangeChange(handleRangeChange);
@@ -1285,6 +1152,8 @@ export function TradingChart({
 
   const lineSeriesRefs = useRef<ISeriesApi<"Line">[]>([]);
 
+  const drawingPluginRef = useRef<DrawingPlugin | null>(null);
+
   const requestIdRef = useRef(0);
 
   const [selectedTrade, setSelectedTrade] = useState<TradePosition | null>(
@@ -1308,7 +1177,7 @@ export function TradingChart({
   const loading = externalLoading !== undefined ? externalLoading : false;
 
   /* =======================================================
-     THEME
+     THEME OBSERVER
   ======================================================= */
 
   useEffect(() => {
@@ -1336,7 +1205,7 @@ export function TradingChart({
     };
   }, []);
 
-  const theme = isDarkMode ? DARK_THEME : LIGHT_THEME;
+  const theme = useMemo(() => getTheme(isDarkMode), [isDarkMode]);
 
   /* =======================================================
      TIMEFRAME
@@ -1357,20 +1226,28 @@ export function TradingChart({
         id: trade.id,
         symbol: trade.symbol,
         type: trade.type,
+
         entry_price: trade.entry_price,
+
         exit_price: trade.exit_price,
+
         stop_loss: trade.stop_loss,
+
         take_profit: trade.take_profit,
+
         lot_size: trade.lot_size,
+
         profit: trade.profit,
+
         open_time: trade.open_time,
+
         close_time: trade.close_time,
       })),
     );
   }, [trades]);
 
   /* =======================================================
-     LATEST TRADE
+     TRADE HELPERS
   ======================================================= */
 
   const getLatestTrade = (): Trade | null => {
@@ -1389,10 +1266,6 @@ export function TradingChart({
     return sorted[0];
   };
 
-  /* =======================================================
-     SELECTED TRADE
-  ======================================================= */
-
   const getSelectedTrade = (): Trade | null => {
     if (!selectedTradeId) {
       return null;
@@ -1400,10 +1273,6 @@ export function TradingChart({
 
     return trades.find((trade) => trade.id === selectedTradeId) || null;
   };
-
-  /* =======================================================
-     CREATE POSITION
-  ======================================================= */
 
   const createTradePosition = (trade: Trade): TradePosition => {
     const entryPrice = Number(trade.entry_price) || 0;
@@ -1439,7 +1308,6 @@ export function TradingChart({
       exitPrice: Number(trade.exit_price) || 0,
 
       stopLoss,
-
       takeProfit,
 
       lotSize: Number(trade.lot_size) || 1,
@@ -1447,7 +1315,6 @@ export function TradingChart({
       profit: Number(trade.profit) || 0,
 
       openTime,
-
       closeTime,
 
       type: trade.type === "buy" ? "long" : "short",
@@ -1455,7 +1322,7 @@ export function TradingChart({
   };
 
   /* =======================================================
-     MAP API CANDLES
+     CANDLE MAPPING
   ======================================================= */
 
   const mapHistoricalCandles = (
@@ -1509,7 +1376,7 @@ export function TradingChart({
   };
 
   /* =======================================================
-     FETCH HISTORICAL
+     HISTORICAL FETCH
   ======================================================= */
 
   const fetchHistoricalCandles = async (
@@ -1527,9 +1394,6 @@ export function TradingChart({
 
     const alignedClose = alignTimestamp(closeTime, interval);
 
-    /*
-     * Base range remains exactly the same as before.
-     */
     const baseStartTime = alignedEntry - CANDLES_BEFORE_ENTRY * interval;
 
     const baseEndTime = alignedClose + CANDLES_AFTER_CLOSE * interval;
@@ -1555,12 +1419,6 @@ export function TradingChart({
 
       let requestEndTime = baseEndTime;
 
-      /*
-       * Expand both sides on retry.
-       *
-       * This is intentionally conservative.
-       * The API still receives the same native timeframe.
-       */
       if (attempt > 0) {
         const extraSeconds = extraCandles * interval;
 
@@ -1578,7 +1436,6 @@ export function TradingChart({
 
       console.log({
         requestId,
-
         attempt: attempt + 1,
 
         symbol: position.symbol.toUpperCase(),
@@ -1622,7 +1479,6 @@ export function TradingChart({
 
       const response = await fetch(url, {
         method: "GET",
-
         signal,
 
         headers: {
@@ -1664,10 +1520,6 @@ export function TradingChart({
         throw new Error("Historical API returned invalid candle data");
       }
 
-      /* ===================================================
-         VERIFY TIMEFRAME
-      =================================================== */
-
       if (json.timeframe && json.timeframe.toUpperCase() !== timeframe) {
         throw new Error(
           `Historical API returned timeframe ${json.timeframe}, expected ${timeframe}.`,
@@ -1686,21 +1538,9 @@ export function TradingChart({
         );
       }
 
-      /* ===================================================
-         MAP CANDLES
-      =================================================== */
-
       const mapped = mapHistoricalCandles(json.candles);
 
-      /*
-       * Continuity is checked BEFORE duplicate removal
-       * so duplicates remain visible in diagnostics.
-       */
       const rawContinuity = validateForexCandleContinuity(mapped, interval);
-
-      /* ===================================================
-         REMOVE EXACT DUPLICATES
-      =================================================== */
 
       const unique = removeDuplicateCandles(mapped);
 
@@ -1708,10 +1548,6 @@ export function TradingChart({
 
       const returnedEnd =
         unique.length > 0 ? Number(unique[unique.length - 1].time) : null;
-
-      /* ===================================================
-         WEEKEND-AWARE COVERAGE
-      =================================================== */
 
       const coverage = validateHistoricalCoverage(
         requestStartTime,
@@ -1723,7 +1559,6 @@ export function TradingChart({
 
       const debugInfo: HistoricalDebugInfo = {
         requestId,
-
         attempt,
 
         symbol: position.symbol.toUpperCase(),
@@ -1758,93 +1593,13 @@ export function TradingChart({
 
       logHistoricalDebug(debugInfo);
 
-      console.log(
-        `%c[LONG RANGE TEST] #${requestId} ${timeframe} attempt ${
-          attempt + 1
-        }: ${coverage.complete ? "PASS" : "CHECK"}`,
-        coverage.complete
-          ? "font-weight:700;color:#16a34a;"
-          : "font-weight:700;color:#f59e0b;",
-      );
-
-      if (coverage.startWeekendAdjusted) {
-        console.log(
-          `[LONG RANGE TEST] ${timeframe}: start boundary is Forex-weekend adjusted.`,
-          {
-            requestedStart: formatUtcTimestamp(requestStartTime),
-
-            expectedFirstCandle: formatUtcTimestamp(
-              coverage.expectedFirstCandle,
-            ),
-
-            returnedStart: formatUtcTimestamp(returnedStart),
-          },
-        );
-      }
-
-      if (coverage.endWeekendAdjusted) {
-        console.log(
-          `[LONG RANGE TEST] ${timeframe}: end boundary is Forex-weekend adjusted.`,
-          {
-            requestedEnd: formatUtcTimestamp(requestEndTime),
-
-            expectedLastCandle: formatUtcTimestamp(coverage.expectedLastCandle),
-
-            returnedEnd: formatUtcTimestamp(returnedEnd),
-          },
-        );
-      }
-
-      if (!coverage.complete) {
-        console.warn(
-          "[LONG RANGE TEST] Historical range is still incomplete.",
-          {
-            requestedStart: formatUtcTimestamp(requestStartTime),
-
-            requestedEnd: formatUtcTimestamp(requestEndTime),
-
-            expectedFirstCandle: formatUtcTimestamp(
-              coverage.expectedFirstCandle,
-            ),
-
-            expectedLastCandle: formatUtcTimestamp(coverage.expectedLastCandle),
-
-            returnedStart: formatUtcTimestamp(returnedStart),
-
-            returnedEnd: formatUtcTimestamp(returnedEnd),
-
-            missingBeforeSeconds: coverage.missingBeforeSeconds,
-
-            missingAfterSeconds: coverage.missingAfterSeconds,
-
-            missingBeforeHours: coverage.missingBeforeSeconds / 3600,
-
-            missingAfterHours: coverage.missingAfterSeconds / 3600,
-          },
-        );
-      }
-
       bestCandles = unique;
 
       bestCoverage = coverage;
 
       bestContinuity = rawContinuity;
 
-      /*
-       * If coverage is complete, there is no reason to
-       * hit Dukascopy/API again.
-       */
       if (coverage.complete) {
-        console.log(
-          `%c[HISTORICAL RANGE COMPLETE] ${timeframe} on attempt ${
-            attempt + 1
-          }`,
-          "font-weight:700;color:#16a34a;",
-        );
-
-        /*
-         * If continuity also passes, this is the ideal case.
-         */
         if (rawContinuity.complete) {
           console.log(
             `%c[HISTORICAL DATA VALID] ${timeframe}`,
@@ -1855,13 +1610,9 @@ export function TradingChart({
         break;
       }
 
-      /*
-       * If this is not the final attempt, retry with
-       * a larger request.
-       */
       if (attempt < RANGE_RETRY_EXTRA_CANDLES.length - 1) {
         console.warn(
-          `[HISTORICAL RANGE RETRY] ${timeframe}: expanding request because coverage is incomplete.`,
+          `[HISTORICAL RANGE RETRY] ${timeframe}: expanding request`,
           {
             nextAttempt: attempt + 2,
 
@@ -1873,30 +1624,11 @@ export function TradingChart({
       }
     }
 
-    /*
-     * Final diagnostics after all retries.
-     */
     if (bestCoverage && !bestCoverage.complete) {
       console.error(
         `%c[HISTORICAL RANGE FINAL FAIL] ${timeframe}`,
         "font-weight:700;color:#dc2626;",
-        {
-          expectedFirstCandle: formatUtcTimestamp(
-            bestCoverage.expectedFirstCandle,
-          ),
-
-          expectedLastCandle: formatUtcTimestamp(
-            bestCoverage.expectedLastCandle,
-          ),
-
-          returnedStart: formatUtcTimestamp(bestCoverage.returnedStart),
-
-          returnedEnd: formatUtcTimestamp(bestCoverage.returnedEnd),
-
-          missingBeforeHours: bestCoverage.missingBeforeSeconds / 3600,
-
-          missingAfterHours: bestCoverage.missingAfterSeconds / 3600,
-        },
+        bestCoverage,
       );
     }
 
@@ -1912,7 +1644,7 @@ export function TradingChart({
   };
 
   /* =======================================================
-     DRAW POSITION LINES
+     POSITION LINES
   ======================================================= */
 
   const drawPositionLines = (
@@ -1982,10 +1714,6 @@ export function TradingChart({
 
     const lineSeries: ISeriesApi<"Line">[] = [];
 
-    /* ===================================================
-       ENTRY LINE
-    =================================================== */
-
     const entryLine = chart.addSeries(LineSeries, {
       color: currentTheme.entry,
 
@@ -2006,35 +1734,27 @@ export function TradingChart({
       createLineData([
         {
           time: chartStartTime,
-
           value: entryPrice,
         },
 
         {
           time: entryTime,
-
           value: entryPrice,
         },
 
         {
           time: closeTime,
-
           value: entryPrice,
         },
 
         {
           time: chartEndTime,
-
           value: entryPrice,
         },
       ]),
     );
 
     lineSeries.push(entryLine);
-
-    /* ===================================================
-       SL LINE
-    =================================================== */
 
     const slLine = chart.addSeries(LineSeries, {
       color: currentTheme.sl,
@@ -2056,35 +1776,27 @@ export function TradingChart({
       createLineData([
         {
           time: chartStartTime,
-
           value: sl,
         },
 
         {
           time: entryTime,
-
           value: sl,
         },
 
         {
           time: closeTime,
-
           value: sl,
         },
 
         {
           time: chartEndTime,
-
           value: sl,
         },
       ]),
     );
 
     lineSeries.push(slLine);
-
-    /* ===================================================
-       TP LINE
-    =================================================== */
 
     const tpLine = chart.addSeries(LineSeries, {
       color: currentTheme.tp,
@@ -2106,25 +1818,21 @@ export function TradingChart({
       createLineData([
         {
           time: chartStartTime,
-
           value: tp,
         },
 
         {
           time: entryTime,
-
           value: tp,
         },
 
         {
           time: closeTime,
-
           value: tp,
         },
 
         {
           time: chartEndTime,
-
           value: tp,
         },
       ]),
@@ -2136,17 +1844,11 @@ export function TradingChart({
 
     return {
       chartStartTime,
-
       chartEndTime,
-
       entryTime,
-
       closeTime,
-
       alignedEntry,
-
       alignedClose,
-
       rr,
     };
   };
@@ -2164,18 +1866,10 @@ export function TradingChart({
 
     const abortController = new AbortController();
 
-    console.log(
-      `%c[CHART REQUEST START] #${currentRequestId}`,
-      "font-weight:700;color:#7c3aed;",
-      {
-        timeframe,
-
-        selectedTradeId: selectedTradeId || null,
-      },
-    );
+    const container = chartContainerRef.current;
 
     /* ===================================================
-       CLEAN OLD CHART
+       CLEAN OLD
     =================================================== */
 
     if (chartRef.current) {
@@ -2190,6 +1884,8 @@ export function TradingChart({
 
     lineSeriesRefs.current = [];
 
+    drawingPluginRef.current = null;
+
     setRectangles([]);
 
     setHistoricalError(null);
@@ -2199,8 +1895,6 @@ export function TradingChart({
     =================================================== */
 
     try {
-      const container = chartContainerRef.current;
-
       const width = container.clientWidth || 900;
 
       const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
@@ -2208,22 +1902,19 @@ export function TradingChart({
       const height = isFullscreen
         ? Math.max(300, window.innerHeight - 110)
         : isMobile
-          ? 330
-          : 400;
-
-      const currentTheme = getCurrentTheme();
+          ? 360
+          : 450;
 
       const chart = createChart(container, {
         width,
-
         height,
 
         layout: {
           background: {
-            color: "transparent",
+            color: theme.background,
           },
 
-          textColor: currentTheme.text,
+          textColor: theme.text,
         },
 
         grid: {
@@ -2236,22 +1927,13 @@ export function TradingChart({
           },
         },
 
-        /*
-         * IMPORTANT:
-         *
-         * Explicitly enable the right price scale.
-         *
-         * This is especially important for M5/M15 where
-         * the chart is recreated frequently.
-         */
         rightPriceScale: {
-          borderColor: currentTheme.border,
+          borderColor: theme.border,
 
           autoScale: true,
 
           scaleMargins: {
             top: 0.08,
-
             bottom: 0.08,
           },
 
@@ -2275,7 +1957,7 @@ export function TradingChart({
 
           maxBarSpacing: 50,
 
-          borderColor: currentTheme.border,
+          borderColor: theme.border,
         },
 
         localization: {
@@ -2286,15 +1968,15 @@ export function TradingChart({
           mode: CrosshairMode.Normal,
 
           vertLine: {
-            color: currentTheme.crosshair,
+            color: theme.crosshair,
 
-            labelBackgroundColor: currentTheme.tooltipBackground,
+            labelBackgroundColor: theme.tooltipBackground,
           },
 
           horzLine: {
-            color: currentTheme.crosshair,
+            color: theme.crosshair,
 
-            labelBackgroundColor: currentTheme.tooltipBackground,
+            labelBackgroundColor: theme.tooltipBackground,
           },
         },
 
@@ -2308,19 +1990,10 @@ export function TradingChart({
           vertTouchDrag: true,
         },
 
-        /*
-         * IMPORTANT:
-         *
-         * Price-axis vertical scaling is explicitly enabled.
-         *
-         * Drag the right price axis vertically to expand/
-         * compress the price scale.
-         *
-         * Time-axis scaling remains enabled as well.
-         */
         handleScale: {
           axisPressedMouseMove: {
             time: true,
+
             price: true,
           },
 
@@ -2340,13 +2013,7 @@ export function TradingChart({
 
       const latestTrade = selectedTradeFromList || getLatestTrade();
 
-      if (!latestTrade) {
-        setSelectedTrade(null);
-
-        return;
-      }
-
-      if (!latestTrade.close_time) {
+      if (!latestTrade || !latestTrade.close_time) {
         setSelectedTrade(null);
 
         return;
@@ -2363,15 +2030,15 @@ export function TradingChart({
       const precision = getPricePrecision(position.symbol);
 
       const candlestickSeries = chart.addSeries(CandlestickSeries, {
-        upColor: currentTheme.bullish,
+        upColor: theme.bullish,
 
-        downColor: currentTheme.bearish,
+        downColor: theme.bearish,
 
         borderVisible: false,
 
-        wickUpColor: currentTheme.bullish,
+        wickUpColor: theme.bullish,
 
-        wickDownColor: currentTheme.bearish,
+        wickDownColor: theme.bearish,
 
         priceScaleId: "right",
 
@@ -2387,7 +2054,39 @@ export function TradingChart({
       seriesRef.current = candlestickSeries;
 
       /* =================================================
-         LOAD HISTORICAL
+         DRAWING PLUGIN
+         
+         IMPORTANT:
+         The series MUST exist before attachPrimitive().
+      ================================================= */
+
+      const drawingTools = new DrawingPlugin({
+        color: theme.drawingColor,
+
+        lineWidth: 2,
+
+        showEndpoints: true,
+
+        toolBoxOffset: {
+          x: 10,
+          y: 10,
+        },
+      });
+
+      candlestickSeries.attachPrimitive(drawingTools);
+
+      drawingPluginRef.current = drawingTools;
+
+      console.log(
+        `%c[DRAWING TOOLS] ${isDarkMode ? "DARK" : "LIGHT"} theme initialized`,
+        "font-weight:700;color:#2962ff;",
+        {
+          color: theme.drawingColor,
+        },
+      );
+
+      /* =================================================
+         HISTORICAL DATA
       ================================================= */
 
       const loadHistoricalData = async () => {
@@ -2417,20 +2116,11 @@ export function TradingChart({
 
           candlestickSeries.setData(candleData);
 
-          /*
-           * Force price scale back to automatic mode
-           * after data is applied.
-           *
-           * This is particularly useful when changing
-           * M5 <-> M15 because the entire chart instance
-           * is recreated.
-           */
           chart.priceScale("right").applyOptions({
             autoScale: true,
 
             scaleMargins: {
               top: 0.08,
-
               bottom: 0.08,
             },
           });
@@ -2453,40 +2143,33 @@ export function TradingChart({
             },
           );
 
-          /* ===========================================
-               POSITION LINES
-            =========================================== */
+          /* =========================================
+               POSITION
+            ========================================= */
 
-          const range = drawPositionLines(chart, position, currentTheme);
+          const range = drawPositionLines(chart, position, theme);
 
-          /*
-           * After lines are added, keep auto scale enabled.
-           */
           chart.priceScale("right").applyOptions({
             autoScale: true,
 
             scaleMargins: {
               top: 0.08,
-
               bottom: 0.08,
             },
           });
 
-          /* ===========================================
+          /* =========================================
                VISIBLE RANGE
-            =========================================== */
+            ========================================= */
 
           if (range) {
             chart.timeScale().setVisibleRange({
               from: range.chartStartTime as UTCTimestamp,
+
               to: range.chartEndTime as UTCTimestamp,
             });
           }
 
-          /*
-           * Re-apply autoScale after visible logical range
-           * has been changed.
-           */
           chart.priceScale("right").applyOptions({
             autoScale: true,
           });
@@ -2548,9 +2231,6 @@ export function TradingChart({
             barSpacing: mobile ? 6 : 8,
           },
 
-          /*
-           * Keep the price scale interactive after resize.
-           */
           rightPriceScale: {
             autoScale: true,
           },
@@ -2563,17 +2243,26 @@ export function TradingChart({
 
       window.addEventListener("resize", handleResize);
 
+      /* =================================================
+         CLEANUP
+      ================================================= */
+
       return () => {
         abortController.abort();
-
-        console.log(
-          `%c[CHART REQUEST CLEANUP] #${currentRequestId}`,
-          "font-weight:700;color:#64748b;",
-        );
 
         window.removeEventListener("resize", handleResize);
 
         resizeObserver.disconnect();
+
+        drawingPluginRef.current = null;
+
+        lineSeriesRefs.current = [];
+
+        seriesRef.current = null;
+
+        setRectangles([]);
+
+        setHistoricalLoading(false);
 
         if (chartRef.current) {
           try {
@@ -2582,14 +2271,6 @@ export function TradingChart({
 
           chartRef.current = null;
         }
-
-        seriesRef.current = null;
-
-        lineSeriesRefs.current = [];
-
-        setRectangles([]);
-
-        setHistoricalLoading(false);
       };
     } catch (error) {
       console.error("Error creating chart:", error);
@@ -2607,6 +2288,7 @@ export function TradingChart({
     isDarkMode,
     isFullscreen,
     selectedTradeId,
+    theme,
   ]);
 
   /* =======================================================
@@ -2698,9 +2380,9 @@ export function TradingChart({
           : ["p-2", "sm:p-4", "bg-white", "dark:bg-[#0f1117]"].join(" "),
       ].join(" ")}
     >
-      {/* ===================================================
+      {/* =================================================
           FULLSCREEN CLOSE
-      =================================================== */}
+      ================================================= */}
 
       {isFullscreen && (
         <button
@@ -2757,9 +2439,9 @@ export function TradingChart({
         </button>
       )}
 
-      {/* ===================================================
+      {/* =================================================
           HEADER
-      =================================================== */}
+      ================================================= */}
 
       <div className="flex flex-col gap-2 sm:gap-3 mb-2 sm:mb-3">
         <div className="flex items-center justify-between gap-2 sm:gap-4">
@@ -2972,9 +2654,9 @@ export function TradingChart({
         )}
       </div>
 
-      {/* ===================================================
+      {/* =================================================
           CHART
-      =================================================== */}
+      ================================================= */}
 
       <div
         ref={chartContainerRef}
@@ -3025,7 +2707,7 @@ export function TradingChart({
           </div>
         )}
 
-        {/* HISTORICAL ERROR */}
+        {/* ERROR */}
 
         {historicalError && (
           <div
@@ -3098,7 +2780,7 @@ export function TradingChart({
           );
         })}
 
-        {/* ENTRY INFO */}
+        {/* ENTRY LABEL */}
 
         {selectedTrade && labelData && (
           <PositionInfoLabel
@@ -3116,7 +2798,7 @@ export function TradingChart({
           />
         )}
 
-        {/* SL INFO */}
+        {/* SL LABEL */}
 
         {selectedTrade && labelData && (
           <PositionInfoLabel
@@ -3134,7 +2816,7 @@ export function TradingChart({
           />
         )}
 
-        {/* TP INFO */}
+        {/* TP LABEL */}
 
         {selectedTrade && labelData && (
           <PositionInfoLabel
