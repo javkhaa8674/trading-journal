@@ -817,6 +817,87 @@ function calculateMoneyValue(
 }
 
 /* =========================================================
+   CHART OVERLAY SYNC
+
+   Lightweight Charts exposes time-scale range events, but price-axis
+   dragging/scaling does not have a matching public change event.
+
+   The Position Tool is rendered as a DOM overlay, while
+   lwc-plugin-drawing-tools is rendered as a chart primitive. Therefore
+   the overlay must explicitly resync whenever chart interaction changes
+   either the time or price coordinate system.
+========================================================= */
+
+function createOverlaySync(
+  container: HTMLDivElement,
+  update: () => void,
+  chartRef: React.RefObject<IChartApi | null>,
+) {
+  let frame = 0;
+
+  const schedule = () => {
+    if (frame !== 0) {
+      cancelAnimationFrame(frame);
+    }
+
+    frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        update();
+        frame = 0;
+      });
+    });
+  };
+
+  const timeScale = chartRef.current?.timeScale();
+
+  timeScale?.subscribeVisibleLogicalRangeChange(schedule);
+  timeScale?.subscribeVisibleTimeRangeChange(schedule);
+
+  const resizeObserver = new ResizeObserver(schedule);
+  resizeObserver.observe(container);
+
+  /*
+   * IMPORTANT:
+   *
+   * Price-axis drag/scale changes the series' priceToCoordinate()
+   * mapping without necessarily emitting a timeScale event.
+   *
+   * Use capture-phase pointer/wheel/touch listeners so the sync still
+   * runs when DrawingPlugin handles the interaction on the chart canvas.
+   */
+  container.addEventListener("pointermove", schedule, true);
+  container.addEventListener("pointerdown", schedule, true);
+  container.addEventListener("wheel", schedule, true);
+  container.addEventListener("touchmove", schedule, true);
+  container.addEventListener("touchstart", schedule, true);
+
+  window.addEventListener("resize", schedule);
+
+  /* Initial sync after the chart has completed its current render pass. */
+  schedule();
+
+  return () => {
+    timeScale?.unsubscribeVisibleLogicalRangeChange(schedule);
+    timeScale?.unsubscribeVisibleTimeRangeChange(schedule);
+
+    resizeObserver.disconnect();
+
+    container.removeEventListener("pointermove", schedule, true);
+    container.removeEventListener("pointerdown", schedule, true);
+    container.removeEventListener("wheel", schedule, true);
+    container.removeEventListener("touchmove", schedule, true);
+    container.removeEventListener("touchstart", schedule, true);
+
+    window.removeEventListener("resize", schedule);
+
+    if (frame !== 0) {
+      cancelAnimationFrame(frame);
+      frame = 0;
+    }
+  };
+}
+
+/* =========================================================
    POSITION RECTANGLE
 ========================================================= */
 
@@ -830,13 +911,9 @@ function PositionRectangle({
   borderColor,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
-
   seriesRef: React.RefObject<ISeriesApi<"Candlestick"> | null>;
-
   chartRef: React.RefObject<IChartApi | null>;
-
   rectangle: RectangleData;
-
   color: string;
   fillOpacity: number;
   borderColor: string;
@@ -846,9 +923,7 @@ function PositionRectangle({
   useEffect(() => {
     const container = containerRef.current;
 
-    if (!container) {
-      return;
-    }
+    if (!container) return;
 
     const element = document.createElement("div");
 
@@ -857,36 +932,29 @@ function PositionRectangle({
     element.style.zIndex = "5";
     element.style.boxSizing = "border-box";
     element.style.background = hexToRgba(color, fillOpacity);
-
     element.style.border = `1px solid ${borderColor}`;
-
     element.style.borderRadius = "1px";
+    element.style.willChange = "left, top, width, height";
 
     container.appendChild(element);
-
     rectangleRef.current = element;
 
     const updateRectangle = () => {
       const chart = chartRef.current;
-
       const series = seriesRef.current;
-
       const target = rectangleRef.current;
 
-      if (!chart || !series || !target) {
-        return;
-      }
+      if (!chart || !series || !target) return;
 
-      const startX = chart
-        .timeScale()
-        .timeToCoordinate(rectangle.startTime as UTCTimestamp);
+      const timeScale = chart.timeScale();
 
-      const endX = chart
-        .timeScale()
-        .timeToCoordinate(rectangle.endTime as UTCTimestamp);
-
+      const startX = timeScale.timeToCoordinate(
+        rectangle.startTime as UTCTimestamp,
+      );
+      const endX = timeScale.timeToCoordinate(
+        rectangle.endTime as UTCTimestamp,
+      );
       const topY = series.priceToCoordinate(rectangle.topPrice);
-
       const bottomY = series.priceToCoordinate(rectangle.bottomPrice);
 
       if (
@@ -896,54 +964,54 @@ function PositionRectangle({
         bottomY === null
       ) {
         target.style.display = "none";
-
         return;
       }
 
       const left = Math.min(startX, endX);
-
       const right = Math.max(startX, endX);
-
       const top = Math.min(topY, bottomY);
-
       const bottom = Math.max(topY, bottomY);
 
       target.style.display = "block";
-
       target.style.left = `${left}px`;
-
       target.style.top = `${top}px`;
-
       target.style.width = `${Math.max(1, right - left)}px`;
-
       target.style.height = `${Math.max(1, bottom - top)}px`;
     };
 
     updateRectangle();
 
     const timeScale = chartRef.current?.timeScale();
-
     const handleRangeChange = () => {
-      requestAnimationFrame(updateRectangle);
+      updateRectangle();
     };
 
     timeScale?.subscribeVisibleLogicalRangeChange(handleRangeChange);
-
     timeScale?.subscribeVisibleTimeRangeChange(handleRangeChange);
 
     const resizeObserver = new ResizeObserver(handleRangeChange);
-
     resizeObserver.observe(container);
-
     window.addEventListener("resize", handleRangeChange);
 
-    return () => {
-      timeScale?.unsubscribeVisibleLogicalRangeChange(handleRangeChange);
+    // Keep the DOM overlay synchronized with the same render cadence as
+    // Lightweight Charts. Do not wait for pointer events: the price-axis
+    // scaler is handled internally by the chart and its coordinate mapping
+    // can change between pointer events.
+    let animationFrame = 0;
+    const continuousUpdate = () => {
+      updateRectangle();
+      animationFrame = requestAnimationFrame(continuousUpdate);
+    };
 
+    animationFrame = requestAnimationFrame(continuousUpdate);
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+
+      timeScale?.unsubscribeVisibleLogicalRangeChange(handleRangeChange);
       timeScale?.unsubscribeVisibleTimeRangeChange(handleRangeChange);
 
       resizeObserver.disconnect();
-
       window.removeEventListener("resize", handleRangeChange);
 
       if (element.parentNode) {
@@ -1009,44 +1077,27 @@ function PositionInfoLabel({
     const label = document.createElement("div");
 
     label.style.position = "absolute";
-
     label.style.pointerEvents = "none";
-
     label.style.zIndex = "30";
-
     label.style.padding = "4px 7px";
-
     label.style.borderRadius = "4px";
-
     label.style.background = background;
-
     label.style.border = `1px solid ${borderColor}`;
-
     label.style.color = textColor;
-
     label.style.fontSize = "11px";
-
     label.style.fontWeight = "600";
-
     label.style.lineHeight = "14px";
-
     label.style.whiteSpace = "nowrap";
-
     label.style.boxShadow = "0 1px 4px rgba(0,0,0,0.25)";
-
     label.textContent = text;
 
     container.appendChild(label);
-
     labelRef.current = label;
 
     const update = () => {
       const chart = chartRef.current;
-
       const series = seriesRef.current;
-
       const element = labelRef.current;
-
       const currentContainer = containerRef.current;
 
       if (!chart || !series || !element || !currentContainer) {
@@ -1054,17 +1105,14 @@ function PositionInfoLabel({
       }
 
       const x = chart.timeScale().timeToCoordinate(time as UTCTimestamp);
-
       const y = series.priceToCoordinate(price);
 
       if (x === null || y === null) {
         element.style.display = "none";
-
         return;
       }
 
       const containerWidth = currentContainer.clientWidth;
-
       const labelWidth = element.offsetWidth;
 
       let left = x + 8;
@@ -1078,40 +1126,15 @@ function PositionInfoLabel({
       }
 
       element.style.display = "block";
-
       element.style.left = `${left}px`;
-
       element.style.top = `${y}px`;
-
       element.style.transform = "translateY(-50%)";
     };
 
-    update();
-
-    const timeScale = chartRef.current?.timeScale();
-
-    const handleRangeChange = () => {
-      requestAnimationFrame(update);
-    };
-
-    timeScale?.subscribeVisibleLogicalRangeChange(handleRangeChange);
-
-    timeScale?.subscribeVisibleTimeRangeChange(handleRangeChange);
-
-    const resizeObserver = new ResizeObserver(handleRangeChange);
-
-    resizeObserver.observe(container);
-
-    window.addEventListener("resize", handleRangeChange);
+    const cleanupSync = createOverlaySync(container, update, chartRef);
 
     return () => {
-      timeScale?.unsubscribeVisibleLogicalRangeChange(handleRangeChange);
-
-      timeScale?.unsubscribeVisibleTimeRangeChange(handleRangeChange);
-
-      resizeObserver.disconnect();
-
-      window.removeEventListener("resize", handleRangeChange);
+      cleanupSync();
 
       if (label.parentNode) {
         label.parentNode.removeChild(label);
