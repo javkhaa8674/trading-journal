@@ -2083,13 +2083,14 @@ export function TradingChart({
          The series MUST exist before attachPrimitive().
       ================================================= */
 
+      const drawingColor = isDarkMode
+        ? "rgba(32, 108, 237, 1)"
+        : "rgba(32, 108, 237, 1)";
+
       const drawingTools = new DrawingPlugin({
-        color: theme.drawingColor,
-
+        color: drawingColor,
         lineWidth: 2,
-
         showEndpoints: true,
-
         toolBoxOffset: {
           x: 10,
           y: 10,
@@ -2104,7 +2105,7 @@ export function TradingChart({
         `%c[DRAWING TOOLS] ${isDarkMode ? "DARK" : "LIGHT"} theme initialized`,
         "font-weight:700;color:#2962ff;",
         {
-          color: theme.drawingColor,
+          color: drawingColor,
         },
       );
 
