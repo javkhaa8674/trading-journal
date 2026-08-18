@@ -185,4 +185,4 @@ export const metricsHelp = {
     },
 };
 
-export type MetricKey = keyof typeof metricsHelp;
+type MetricKey = keyof typeof metricsHelp;

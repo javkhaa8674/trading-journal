@@ -13,7 +13,7 @@ export interface Account {
     last_trade_date?: string | null;
 }
 
-export interface AccountWithBroker extends Account {
+interface AccountWithBroker extends Account {
     broker_name?: string;
     broker_logo?: string;
     broker_leverage?: string;

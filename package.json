@@ -9,12 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@radix-ui/react-popover": "^1.1.17",
-    "@radix-ui/react-select": "^2.3.1",
-    "@radix-ui/react-tabs": "^1.1.15",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.3",
-    "@tailwindcss/forms": "^0.5.11",
     "@tanstack/react-query": "^5.100.9",
     "@tanstack/react-table": "^8.21.3",
     "@tiptap/extension-color": "^3.22.4",
@@ -25,28 +21,24 @@
     "@tiptap/extension-underline": "^3.22.4",
     "@tiptap/react": "^3.22.4",
     "@tiptap/starter-kit": "^3.22.4",
-    "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "lightweight-charts": "^5.2.1",
     "lwc-plugin-drawing-tools": "github:javkhaa8674/lwc-plugin-drawing-tools",
     "next": "16.2.4",
     "next-themes": "^0.4.6",
     "react": "19.2.4",
-    "react-calendar-heatmap": "^1.10.0",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
-    "tailwind-merge": "^3.6.0",
-    "tiptap-extension-font-size": "^1.2.0",
-    "tiptap-fontsize-extension": "^1.2.2"
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
-    "@types/react-calendar-heatmap": "^1.9.0",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "knip": "^6.32.2",
     "tailwindcss": "^4.3.1",
     "typescript": "^5"
   }

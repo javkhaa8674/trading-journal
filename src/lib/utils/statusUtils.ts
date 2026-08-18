@@ -1,6 +1,6 @@
 // lib/utils/statusUtils.ts
 
-export type AccountStatus = "active" | "archived" | "closed" | string;
+type AccountStatus = "active" | "archived" | "closed" | string;
 
 interface StatusConfig {
     color: string;
@@ -40,7 +40,7 @@ export const getStatusColor = (status: string): string => {
     return statusConfig[status]?.color || statusConfig.default.color;
 };
 
-export const getStatusBgColor = (status: string): string => {
+const getStatusBgColor = (status: string): string => {
     return statusConfig[status]?.bgColor || statusConfig.default.bgColor;
 };
 
@@ -48,26 +48,26 @@ export const getStatusIcon = (status: string): string => {
     return statusConfig[status]?.icon || statusConfig.default.icon;
 };
 
-export const getStatusLabel = (status: string): string => {
+const getStatusLabel = (status: string): string => {
     return statusConfig[status]?.label || statusConfig.default.label;
 };
 
-export const getStatusClass = (status: string): string => {
+const getStatusClass = (status: string): string => {
     return `${getStatusColor(status)} ${getStatusBgColor(status)}`;
 };
 
-export const getFullStatusInfo = (status: string): StatusConfig => {
+const getFullStatusInfo = (status: string): StatusConfig => {
     return statusConfig[status] || statusConfig.default;
 };
 
 // Status-ийн жагсаалт
-export const STATUS_LIST = {
+const STATUS_LIST = {
     ACTIVE: "active",
     ARCHIVED: "archived",
     CLOSED: "closed",
 } as const;
 
-export const STATUS_OPTIONS = [
+const STATUS_OPTIONS = [
     { value: "active", label: "🟢 Active", color: "text-green-800" },
     { value: "archived", label: "📦 Archived", color: "text-yellow-800" },
     { value: "closed", label: "🔴 Closed", color: "text-red-800" },

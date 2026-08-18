@@ -162,7 +162,7 @@ export function calculateAvgHoldingTime(trades: Trade[]): number {
 // 💰 REAL R (Execution Performance)
 // =========================
 
-export function calculateTradeRealR(
+function calculateTradeRealR(
     trade: Trade,
     balance: number
 ): number | null {
@@ -405,7 +405,7 @@ export function calculateAvgDrawdown(equity: number[]) {
  * =========================
  */
 
-export function buildMonthlyPerformance(trades: Trade[]) {
+function buildMonthlyPerformance(trades: Trade[]) {
     const result: Record<
         string,
         { profit: number; count: number }
@@ -443,7 +443,7 @@ export function buildMonthlyPerformance(trades: Trade[]) {
 // lib/analytics.ts
 
 
-export function calculateRiskLimits(trades: Trade[], startingBalance: number) {
+function calculateRiskLimits(trades: Trade[], startingBalance: number) {
     // Return default values if no trades
     if (!trades || trades.length === 0) {
         return {

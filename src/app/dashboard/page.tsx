@@ -40,6 +40,11 @@ export default function DashboardPage() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     null,
   );
+
+  const [selectedAccountTab, setSelectedAccountTab] = useState<
+    "active" | "achieved" | "closed"
+  >("active");
+
   const [dateRange, setDateRange] = useState<{
     from: string;
     to: string;
@@ -59,6 +64,7 @@ export default function DashboardPage() {
         .select("*")
         .eq("user_id", user.id)
         .order("status", { ascending: true });
+
       return data || [];
     },
   });
@@ -138,6 +144,41 @@ export default function DashboardPage() {
   const volumeAnalysisData = getInstrumentVolumeAnalysis(trades);
 
   // =========================
+  // 📊 ACCOUNT TABS
+  // =========================
+  const activeAccounts = accounts.filter(
+    (account) => account.status === "active",
+  );
+
+  const achievedAccounts = accounts.filter(
+    (account) => account.status === "achieved",
+  );
+
+  const closedAccounts = accounts.filter(
+    (account) => account.status === "closed",
+  );
+
+  const accountGroups = {
+    active: activeAccounts,
+    achieved: achievedAccounts,
+    closed: closedAccounts,
+  };
+
+  const selectedTabAccounts = accountGroups[selectedAccountTab];
+
+  const handleAccountTabChange = (tab: "active" | "achieved" | "closed") => {
+    setSelectedAccountTab(tab);
+
+    const tabAccounts = accountGroups[tab];
+
+    if (tabAccounts.length > 0) {
+      setSelectedAccountId(tabAccounts[0].id);
+    } else {
+      setSelectedAccountId(null);
+    }
+  };
+
+  // =========================
   // 🎯 UI
   // =========================
   return (
@@ -146,22 +187,81 @@ export default function DashboardPage() {
 
       {/* Account + Filters */}
       <div className="mb-4 space-y-3">
-        <select
-          className="w-full sm:w-auto rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white text-sm"
-          value={selectedAccountId || ""}
-          onChange={(e) => setSelectedAccountId(e.target.value || null)}
-        >
-          <option value="">Бүх данс</option>
-          {accounts.map((acc) => (
-            <option
-              key={acc.id}
-              value={acc.id}
-              className={getStatusColor(acc.status)}
+        {/* Account Tabs */}
+        <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+          <nav
+            className="-mb-px flex space-x-4 sm:space-x-8 min-w-max"
+            aria-label="Account tabs"
+          >
+            <button
+              type="button"
+              onClick={() => handleAccountTabChange("active")}
+              className={`whitespace-nowrap border-b-2 py-2 px-1 text-xs sm:text-sm font-medium transition-colors ${
+                selectedAccountTab === "active"
+                  ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
             >
-              {getStatusIcon(acc.status)} {acc.name}
-            </option>
-          ))}
-        </select>
+              Active
+              <span className="ml-1.5 sm:ml-2 rounded-full bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                {activeAccounts.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleAccountTabChange("achieved")}
+              className={`whitespace-nowrap border-b-2 py-2 px-1 text-xs sm:text-sm font-medium transition-colors ${
+                selectedAccountTab === "achieved"
+                  ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
+            >
+              Achieved
+              <span className="ml-1.5 sm:ml-2 rounded-full bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                {achievedAccounts.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleAccountTabChange("closed")}
+              className={`whitespace-nowrap border-b-2 py-2 px-1 text-xs sm:text-sm font-medium transition-colors ${
+                selectedAccountTab === "closed"
+                  ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
+            >
+              Closed
+              <span className="ml-1.5 sm:ml-2 rounded-full bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                {closedAccounts.length}
+              </span>
+            </button>
+          </nav>
+        </div>
+
+        {/* Account Selector */}
+        <div>
+          <select
+            className="w-full sm:w-auto rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white text-sm"
+            value={selectedAccountId || ""}
+            onChange={(e) => setSelectedAccountId(e.target.value || null)}
+          >
+            {selectedTabAccounts.length === 0 ? (
+              <option value="">Данс байхгүй</option>
+            ) : (
+              selectedTabAccounts.map((acc) => (
+                <option
+                  key={acc.id}
+                  value={acc.id}
+                  className={getStatusColor(acc.status)}
+                >
+                  {getStatusIcon(acc.status)} {acc.name}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
 
         <DateRangeFilter onRangeChange={setDateRange} trades={trades} />
 
@@ -175,7 +275,9 @@ export default function DashboardPage() {
         trades={trades}
         balance={isValidBalance ? balance : 5000}
       />
+
       <EquityCurveChart data={chartData} />
+
       <EquityDrawdownChart
         trades={trades}
         balance={isValidBalance ? balance : 5000}
@@ -191,6 +293,7 @@ export default function DashboardPage() {
       </div>
 
       <DailySummaryCalendar data={dailySummary} />
+
       <TradeDurationPnL data={durationData} />
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -199,7 +302,9 @@ export default function DashboardPage() {
       </div>
 
       <StreakRiskTool trades={trades} />
+
       <MonteCarloEquityChart trades={trades} />
+
       <RiskOfRuinCalculator
         trades={trades}
         initialBalance={isValidBalance ? balance : 5000}

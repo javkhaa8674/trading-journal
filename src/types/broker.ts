@@ -12,7 +12,7 @@ export interface Broker {
     updated_at: string;
 }
 
-export interface BrokerWithStats extends Broker {
+interface BrokerWithStats extends Broker {
     account_count: number;
     total_balance: number;
 }

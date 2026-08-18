@@ -1,5 +1,5 @@
 // lib/utils/dateUtils.ts
-export const getSafeDate = (date: string | Date | null | undefined): Date | null => {
+const getSafeDate = (date: string | Date | null | undefined): Date | null => {
     if (!date) return null;
     try {
         const d = new Date(date);

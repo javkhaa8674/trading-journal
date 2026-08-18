@@ -1,5 +1,5 @@
 // types/deposit.ts
-export type Deposit = {
+type Deposit = {
     id: string;
     user_id: string;
     account_id: string;
