@@ -461,19 +461,14 @@ function validateHistoricalCoverage(
   if (returnedStart === null || returnedEnd === null) {
     return {
       complete: false,
-
       requestedStart,
       requestedEnd,
-
       returnedStart,
       returnedEnd,
-
       expectedFirstCandle: null,
       expectedLastCandle: null,
-
       missingBeforeSeconds: 0,
       missingAfterSeconds: 0,
-
       startWeekendAdjusted: false,
       endWeekendAdjusted: false,
     };
@@ -484,15 +479,28 @@ function validateHistoricalCoverage(
     intervalSeconds,
   );
 
-  const expectedLastCandle = getLastForexCandleTimestamp(
+  // Одоогийн хамгийн сүүлийн боломжтой candle
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const latestAvailableCandle = getLastForexCandleTimestamp(
+    nowSeconds,
+    intervalSeconds,
+  );
+
+  // Ирээдүйн candle-уудыг coverage-д шаардахгүй
+  const effectiveRequestedEnd = Math.min(
     requestedEnd,
+    latestAvailableCandle + intervalSeconds,
+  );
+
+  const expectedLastCandle = getLastForexCandleTimestamp(
+    effectiveRequestedEnd,
     intervalSeconds,
   );
 
   const startWeekendAdjusted = expectedFirstCandle > requestedStart;
 
   const endWeekendAdjusted =
-    expectedLastCandle < requestedEnd - intervalSeconds;
+    expectedLastCandle < effectiveRequestedEnd - intervalSeconds;
 
   const missingBeforeSeconds = Math.max(0, returnedStart - expectedFirstCandle);
 
@@ -503,19 +511,14 @@ function validateHistoricalCoverage(
 
   return {
     complete,
-
     requestedStart,
     requestedEnd,
-
     returnedStart,
     returnedEnd,
-
     expectedFirstCandle,
     expectedLastCandle,
-
     missingBeforeSeconds,
     missingAfterSeconds,
-
     startWeekendAdjusted,
     endWeekendAdjusted,
   };
@@ -1157,6 +1160,104 @@ function PositionInfoLabel({
   return null;
 }
 
+function PositionExitMark({
+  containerRef,
+  seriesRef,
+  chartRef,
+  time,
+  price,
+  color,
+  textColor,
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  seriesRef: React.RefObject<ISeriesApi<"Candlestick"> | null>;
+  chartRef: React.RefObject<IChartApi | null>;
+  time: number;
+  price: number;
+  color: string;
+  textColor: string;
+}) {
+  const markRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+
+    if (!container || !Number.isFinite(time) || !Number.isFinite(price)) {
+      return;
+    }
+
+    const mark = document.createElement("div");
+
+    mark.style.position = "absolute";
+    mark.style.pointerEvents = "none";
+    mark.style.zIndex = "35";
+    mark.style.display = "none";
+    mark.style.alignItems = "center";
+    mark.style.gap = "5px";
+    mark.style.transform = "translate(-50%, -50%)";
+    mark.style.whiteSpace = "nowrap";
+
+    const label = document.createElement("div");
+
+    label.style.padding = "3px 6px";
+    label.style.borderRadius = "4px";
+    label.style.background = color;
+    label.style.color = textColor;
+    label.style.fontSize = "10px";
+    label.style.fontWeight = "600";
+    label.style.lineHeight = "13px";
+    label.style.boxShadow = "0 1px 4px rgba(0,0,0,0.25)";
+    label.textContent = "x";
+
+    mark.appendChild(label);
+
+    container.appendChild(mark);
+    markRef.current = mark;
+
+    const update = () => {
+      const chart = chartRef.current;
+      const series = seriesRef.current;
+      const element = markRef.current;
+
+      if (!chart || !series || !element) {
+        return;
+      }
+
+      // closeTime нь Unix timestamp seconds байх ёстой.
+      const timestamp = Math.floor(time);
+
+      const x = chart.timeScale().timeToCoordinate(timestamp as UTCTimestamp);
+
+      const y = series.priceToCoordinate(price);
+
+      if (x === null || y === null) {
+        element.style.display = "none";
+        return;
+      }
+
+      element.style.display = "flex";
+      element.style.left = `${x}px`;
+      element.style.top = `${y}px`;
+    };
+
+    const cleanupSync = createOverlaySync(container, update, chartRef);
+
+    update();
+
+    return () => {
+      cleanupSync();
+
+      if (mark.parentNode) {
+        mark.parentNode.removeChild(mark);
+      }
+
+      markRef.current = null;
+    };
+  }, [containerRef, seriesRef, chartRef, time, price, color, textColor]);
+
+  return null;
+}
+
 /* =========================================================
    MAIN COMPONENT
 ========================================================= */
@@ -1563,9 +1664,36 @@ export function TradingChart({
 
       const mapped = mapHistoricalCandles(json.candles);
 
-      const rawContinuity = validateForexCandleContinuity(mapped, interval);
-
+      /*
+       * IMPORTANT:
+       *
+       * Historical API заримдаа ижил timestamp-тэй candle
+       * давхар буцааж болох тул continuity-г duplicate устгасны
+       * дараа шалгана.
+       *
+       * Өмнө нь:
+       *
+       * mapped
+       *   ↓
+       * continuity check
+       *   ↓
+       * remove duplicates
+       *
+       * байсан.
+       *
+       * Одоо:
+       *
+       * mapped
+       *   ↓
+       * remove duplicates
+       *   ↓
+       * continuity check
+       *
+       * болж байна.
+       */
       const unique = removeDuplicateCandles(mapped);
+
+      const continuity = validateForexCandleContinuity(unique, interval);
 
       const returnedStart = unique.length > 0 ? Number(unique[0].time) : null;
 
@@ -1609,7 +1737,7 @@ export function TradingChart({
 
         expectedIntervalSeconds: interval,
 
-        continuity: rawContinuity,
+        continuity,
 
         coverage,
       };
@@ -1620,10 +1748,10 @@ export function TradingChart({
 
       bestCoverage = coverage;
 
-      bestContinuity = rawContinuity;
+      bestContinuity = continuity;
 
       if (coverage.complete) {
-        if (rawContinuity.complete) {
+        if (continuity.complete) {
           console.log(
             `%c[HISTORICAL DATA VALID] ${timeframe}`,
             "font-weight:700;color:#16a34a;",
@@ -1680,6 +1808,8 @@ export function TradingChart({
     const sl = trade.stopLoss;
 
     const tp = trade.takeProfit;
+
+    const exitPrice = trade.exitPrice;
 
     const risk = Math.abs(entryPrice - sl);
 
@@ -2380,7 +2510,11 @@ export function TradingChart({
   /* =======================================================
      RENDER
   ======================================================= */
-
+  console.log("labelData.closeTime RAW:", labelData?.closeTime);
+  console.log(
+    "labelData.closeTime DATE:",
+    labelData?.closeTime ? new Date(labelData.closeTime * 1000) : undefined,
+  );
   return (
     <div
       className={[
@@ -2854,6 +2988,23 @@ export function TradingChart({
             )} • ${labelData.tpPips.toFixed(1)} pips`}
             background={theme.tpLabelBackground}
             borderColor={theme.tp}
+            textColor="#ffffff"
+          />
+        )}
+
+        {/* EXIT MARK */}
+        {selectedTrade && labelData && selectedTrade.exitPrice != null && (
+          <PositionExitMark
+            containerRef={chartContainerRef}
+            seriesRef={seriesRef}
+            chartRef={chartRef}
+            time={labelData.closeTime}
+            price={selectedTrade.exitPrice}
+            color={
+              selectedTrade.profit >= 0
+                ? theme.tpLabelBackground
+                : theme.slLabelBackground
+            }
             textColor="#ffffff"
           />
         )}
