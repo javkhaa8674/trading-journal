@@ -120,8 +120,9 @@ export default function DashboardPage() {
   // =========================
   // 📊 ACCOUNT
   // =========================
-  const selectedAccount =
-    accounts.find((a) => a.id === selectedAccountId) ?? accounts[0];
+  const selectedAccount = selectedAccountId
+    ? (accounts.find((a) => a.id === selectedAccountId) ?? null)
+    : null;
 
   const balance = selectedAccount?.start_balance;
   const isValidBalance = typeof balance === "number" && balance > 0;
@@ -168,14 +169,7 @@ export default function DashboardPage() {
 
   const handleAccountTabChange = (tab: "active" | "achieved" | "closed") => {
     setSelectedAccountTab(tab);
-
-    const tabAccounts = accountGroups[tab];
-
-    if (tabAccounts.length > 0) {
-      setSelectedAccountId(tabAccounts[0].id);
-    } else {
-      setSelectedAccountId(null);
-    }
+    setSelectedAccountId(null);
   };
 
   // =========================
@@ -244,21 +238,31 @@ export default function DashboardPage() {
         <div>
           <select
             className="w-full sm:w-auto rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white text-sm"
-            value={selectedAccountId || ""}
-            onChange={(e) => setSelectedAccountId(e.target.value || null)}
+            value={selectedAccountId ?? ""}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSelectedAccountId(value === "" ? null : value);
+            }}
           >
-            {selectedTabAccounts.length === 0 ? (
-              <option value="">Данс байхгүй</option>
-            ) : (
-              selectedTabAccounts.map((acc) => (
-                <option
-                  key={acc.id}
-                  value={acc.id}
-                  className={getStatusColor(acc.status)}
-                >
-                  {getStatusIcon(acc.status)} {acc.name}
-                </option>
-              ))
+            {/* Default: No account selected */}
+            <option value="">Бүх данс</option>
+
+            {/* Accounts in selected tab */}
+            {selectedTabAccounts.map((acc) => (
+              <option
+                key={acc.id}
+                value={acc.id}
+                className={getStatusColor(acc.status)}
+              >
+                {getStatusIcon(acc.status)} {acc.name}
+              </option>
+            ))}
+
+            {/* Empty tab */}
+            {selectedTabAccounts.length === 0 && (
+              <option value="" disabled>
+                Энэ ангилалд данс байхгүй
+              </option>
             )}
           </select>
         </div>
