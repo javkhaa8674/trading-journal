@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { supabase } from "@/lib/supabaseClient";
+import { useTrades } from "@/lib/hooks/useTrades";
 import { useAccounts } from "@/lib/hooks/useAccounts";
 import { useRouter } from "next/navigation";
-import { getCurrentUser } from "@/lib/getCurrentUser";
 import { getStatusIcon } from "@/lib/utils/statusUtils";
 
 type ParsedTrade = {
@@ -30,6 +29,7 @@ type ValidationError = {
 export default function TradeForm() {
   const accounts = useAccounts();
   const router = useRouter();
+  const { addTrade, bulkAddTrades } = useTrades();
 
   const [accountId, setAccountId] = useState("");
   const [symbol, setSymbol] = useState("");
@@ -274,11 +274,34 @@ export default function TradeForm() {
   // ============================================================
 
   const handleSubmit = async () => {
-    const user = await getCurrentUser();
+    if (!accountId) {
+      alert("Данс сонгоно уу");
+      return;
+    }
 
-    if (!user) return alert("Хэрэглэгч нэвтрээгүй байна");
-    if (!accountId) return alert("Данс сонгоно уу");
-    if (!symbol) return alert("Хослолын нэр оруулна уу");
+    if (!symbol) {
+      alert("Хослолын нэр оруулна уу");
+      return;
+    }
+
+    const entryPrice = parseFloat(entry);
+    const exitPrice = parseFloat(exit);
+    const profitValue = parseFloat(profit);
+
+    if (!Number.isFinite(entryPrice)) {
+      alert("Нээлтийн ханш оруулна уу");
+      return;
+    }
+
+    if (!Number.isFinite(exitPrice)) {
+      alert("Хаалтын ханш оруулна уу");
+      return;
+    }
+
+    if (!Number.isFinite(profitValue)) {
+      alert("Ашгийн утга оруулна уу");
+      return;
+    }
 
     let openTimeUTC: string;
     let closeTimeUTC: string;
@@ -297,26 +320,23 @@ export default function TradeForm() {
       return;
     }
 
-    const { error } = await supabase.from("trades").insert({
-      user_id: user.id,
+    const result = await addTrade({
       account_id: accountId,
       symbol,
-      type,
-      entry_price: parseFloat(entry),
-      exit_price: parseFloat(exit),
-      profit,
+      type: type as "buy" | "sell",
+      entry_price: entryPrice,
+      exit_price: exitPrice,
+      profit: profitValue,
       stop_loss: sl === "" ? 0 : parseFloat(sl),
       take_profit: tp === "" ? 0 : parseFloat(tp),
       lot_size: lot === "" ? 0.1 : parseFloat(lot),
-
-      // UTC ISO
       open_time: openTimeUTC,
       close_time: closeTimeUTC,
     });
 
-    if (error) {
-      console.log(error);
-      alert("Арилжаа хадгалах үед алдаа гарлаа");
+    if (result.error) {
+      console.error(result.error);
+      alert("Арилжаа хадгалах үед алдаа гарлаа: " + result.error);
       return;
     }
 
@@ -890,23 +910,15 @@ export default function TradeForm() {
       return;
     }
 
-    const user = await getCurrentUser();
-
-    if (!user) {
-      alert("Хэрэглэгч нэвтрээгүй байна");
-      return;
-    }
-
     if (!accountId) {
       alert("Данс сонгоно уу");
       return;
     }
 
     const formatted = parsedTrades.map((t) => ({
-      user_id: user.id,
       account_id: accountId,
       symbol: t.symbol,
-      type: t.type,
+      type: t.type as "buy" | "sell",
       entry_price: t.entry_price,
       exit_price: t.exit_price,
       profit: t.profit,
@@ -926,12 +938,12 @@ export default function TradeForm() {
         new Date(a.open_time).getTime() - new Date(b.open_time).getTime(),
     );
 
-    const { error } = await supabase.from("trades").insert(sortedFormatted);
+    const result = await bulkAddTrades(sortedFormatted);
 
-    if (error) {
-      console.log("error", error);
+    if (result.error) {
+      console.error("error", result.error);
 
-      alert("Булк хийхэд алдаа гарлаа: " + error.message);
+      alert("Булк хийхэд алдаа гарлаа: " + result.error);
 
       return;
     }

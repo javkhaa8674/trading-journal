@@ -1,31 +1,60 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Trade } from "@/types/trade";
+import { getCurrentUser } from "@/lib/getCurrentUser";
+import type { Trade } from "@/types/trade";
 
-export function useTrades(accountId?: string) {
+type TradeInput = Omit<Trade, "id" | "user_id">;
+
+type TradeUpdate = Partial<TradeInput>;
+
+function formatTradeForDatabase(trade: TradeInput) {
+  return {
+    ...trade,
+
+    open_time:
+      trade.open_time instanceof Date
+        ? trade.open_time.toISOString()
+        : trade.open_time,
+
+    close_time:
+      trade.close_time instanceof Date
+        ? trade.close_time.toISOString()
+        : trade.close_time,
+  };
+}
+
+function formatTradeFromDatabase(trade: any): Trade {
+  return {
+    ...trade,
+
+    open_time: trade.open_time ? new Date(trade.open_time) : new Date(),
+
+    close_time: trade.close_time ? new Date(trade.close_time) : undefined,
+  };
+}
+
+export function useTrades(accountId?: string | null) {
   const [trades, setTrades] = useState<Trade[]>([]);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTrades = async () => {
+  // =========================================================
+  // FETCH
+  // =========================================================
+
+  const fetchTrades = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError) {
-        throw new Error(userError.message);
-      }
+      const user = await getCurrentUser();
 
       if (!user) {
         setTrades([]);
-        setLoading(false);
         return;
       }
 
@@ -33,7 +62,9 @@ export function useTrades(accountId?: string) {
         .from("trades")
         .select("*")
         .eq("user_id", user.id)
-        .order("open_time", { ascending: false });
+        .order("open_time", {
+          ascending: false,
+        });
 
       if (accountId && accountId !== "all") {
         query = query.eq("account_id", accountId);
@@ -42,92 +73,61 @@ export function useTrades(accountId?: string) {
       const { data, error: fetchError } = await query;
 
       if (fetchError) {
-        throw new Error(fetchError.message);
+        throw fetchError;
       }
 
-      const formattedData =
-        data?.map((trade: any) => {
-          const openDate = trade.open_time
-            ? new Date(trade.open_time)
-            : new Date();
+      const formattedTrades = (data ?? []).map(formatTradeFromDatabase);
 
-          const closeDate = trade.close_time
-            ? new Date(trade.close_time)
-            : undefined;
-
-          return {
-            ...trade,
-            open_time: openDate,
-            close_time: closeDate,
-          };
-        }) || [];
-
-      setTrades(formattedData);
+      setTrades(formattedTrades);
     } catch (err) {
       console.error("Error fetching trades:", err);
 
-      setError(err instanceof Error ? err.message : "Failed to fetch trades");
+      const message =
+        err instanceof Error ? err.message : "Failed to fetch trades";
 
+      setError(message);
       setTrades([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [accountId]);
 
   useEffect(() => {
     fetchTrades();
-  }, [accountId]);
+  }, [fetchTrades]);
 
   // =========================================================
-  // ADD TRADE
+  // ADD SINGLE TRADE
   // =========================================================
-  const addTrade = async (trade: Omit<Trade, "id">) => {
+
+  const addTrade = useCallback(async (trade: TradeInput) => {
     try {
       setError(null);
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError) {
-        throw new Error(userError.message);
-      }
+      const user = await getCurrentUser();
 
       if (!user) {
         throw new Error("User not authenticated");
       }
 
-      const formattedTrade = {
-        ...trade,
-        user_id: user.id,
-        open_time:
-          trade.open_time instanceof Date
-            ? trade.open_time.toISOString()
-            : trade.open_time,
-        close_time:
-          trade.close_time instanceof Date
-            ? trade.close_time.toISOString()
-            : trade.close_time,
-      };
+      const formattedTrade = formatTradeForDatabase(trade);
 
       const { data, error: insertError } = await supabase
         .from("trades")
-        .insert([formattedTrade])
+        .insert({
+          ...formattedTrade,
+          user_id: user.id,
+        })
         .select()
         .single();
 
       if (insertError) {
-        throw new Error(insertError.message);
+        throw insertError;
       }
 
-      const newTrade = {
-        ...data,
-        open_time: data.open_time ? new Date(data.open_time) : new Date(),
-        close_time: data.close_time ? new Date(data.close_time) : undefined,
-      };
+      const newTrade = formatTradeFromDatabase(data);
 
-      setTrades((prev) => [newTrade, ...prev]);
+      setTrades((current) => [newTrade, ...current]);
 
       return {
         data: newTrade,
@@ -136,23 +136,91 @@ export function useTrades(accountId?: string) {
     } catch (err) {
       console.error("Error adding trade:", err);
 
-      setError(err instanceof Error ? err.message : "Failed to add trade");
+      const message =
+        err instanceof Error ? err.message : "Failed to add trade";
+
+      setError(message);
 
       return {
         data: null,
-        error: err instanceof Error ? err.message : "Failed to add trade",
+        error: message,
       };
     }
-  };
+  }, []);
 
   // =========================================================
-  // UPDATE TRADE
+  // BULK ADD
   // =========================================================
-  const updateTrade = async (id: string, updates: Partial<Trade>) => {
+
+  const bulkAddTrades = useCallback(async (tradesToAdd: TradeInput[]) => {
     try {
       setError(null);
 
-      const formattedUpdates: any = {
+      if (tradesToAdd.length === 0) {
+        return {
+          data: [],
+          error: null,
+        };
+      }
+
+      const user = await getCurrentUser();
+
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      const formattedTrades = tradesToAdd.map((trade) => ({
+        ...formatTradeForDatabase(trade),
+        user_id: user.id,
+      }));
+
+      const { data, error: insertError } = await supabase
+        .from("trades")
+        .insert(formattedTrades)
+        .select();
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      const newTrades = (data ?? []).map(formatTradeFromDatabase);
+
+      setTrades((current) => [...newTrades, ...current]);
+
+      return {
+        data: newTrades,
+        error: null,
+      };
+    } catch (err) {
+      console.error("Error bulk adding trades:", err);
+
+      const message =
+        err instanceof Error ? err.message : "Failed to bulk add trades";
+
+      setError(message);
+
+      return {
+        data: null,
+        error: message,
+      };
+    }
+  }, []);
+
+  // =========================================================
+  // UPDATE
+  // =========================================================
+
+  const updateTrade = useCallback(async (id: string, updates: TradeUpdate) => {
+    try {
+      setError(null);
+
+      const user = await getCurrentUser();
+
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      const formattedUpdates: Record<string, unknown> = {
         ...updates,
       };
 
@@ -164,24 +232,26 @@ export function useTrades(accountId?: string) {
         formattedUpdates.close_time = updates.close_time.toISOString();
       }
 
+      delete formattedUpdates.id;
+      delete formattedUpdates.user_id;
+
       const { data, error: updateError } = await supabase
         .from("trades")
         .update(formattedUpdates)
         .eq("id", id)
+        .eq("user_id", user.id)
         .select()
         .single();
 
       if (updateError) {
-        throw new Error(updateError.message);
+        throw updateError;
       }
 
-      const updatedTrade = {
-        ...data,
-        open_time: data.open_time ? new Date(data.open_time) : new Date(),
-        close_time: data.close_time ? new Date(data.close_time) : undefined,
-      };
+      const updatedTrade = formatTradeFromDatabase(data);
 
-      setTrades((prev) => prev.map((t) => (t.id === id ? updatedTrade : t)));
+      setTrades((current) =>
+        current.map((trade) => (trade.id === id ? updatedTrade : trade)),
+      );
 
       return {
         data: updatedTrade,
@@ -190,32 +260,43 @@ export function useTrades(accountId?: string) {
     } catch (err) {
       console.error("Error updating trade:", err);
 
-      setError(err instanceof Error ? err.message : "Failed to update trade");
+      const message =
+        err instanceof Error ? err.message : "Failed to update trade";
+
+      setError(message);
 
       return {
         data: null,
-        error: err instanceof Error ? err.message : "Failed to update trade",
+        error: message,
       };
     }
-  };
+  }, []);
 
   // =========================================================
-  // DELETE TRADE
+  // DELETE
   // =========================================================
-  const deleteTrade = async (id: string) => {
+
+  const deleteTrade = useCallback(async (id: string) => {
     try {
       setError(null);
+
+      const user = await getCurrentUser();
+
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
 
       const { error: deleteError } = await supabase
         .from("trades")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .eq("user_id", user.id);
 
       if (deleteError) {
-        throw new Error(deleteError.message);
+        throw deleteError;
       }
 
-      setTrades((prev) => prev.filter((t) => t.id !== id));
+      setTrades((current) => current.filter((trade) => trade.id !== id));
 
       return {
         error: null,
@@ -223,98 +304,89 @@ export function useTrades(accountId?: string) {
     } catch (err) {
       console.error("Error deleting trade:", err);
 
-      setError(err instanceof Error ? err.message : "Failed to delete trade");
+      const message =
+        err instanceof Error ? err.message : "Failed to delete trade";
+
+      setError(message);
 
       return {
-        error: err instanceof Error ? err.message : "Failed to delete trade",
+        error: message,
       };
     }
-  };
+  }, []);
 
   // =========================================================
-  // BULK ADD TRADES
+  // BULK DELETE
   // =========================================================
-  const bulkAddTrades = async (trades: Omit<Trade, "id">[]) => {
+
+  const bulkDeleteTrades = useCallback(async (ids: string[]) => {
     try {
       setError(null);
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError) {
-        throw new Error(userError.message);
+      if (ids.length === 0) {
+        return {
+          error: null,
+        };
       }
+
+      const user = await getCurrentUser();
 
       if (!user) {
         throw new Error("User not authenticated");
       }
 
-      const formattedTrades = trades.map((trade) => ({
-        ...trade,
-        user_id: user.id,
-        open_time:
-          trade.open_time instanceof Date
-            ? trade.open_time.toISOString()
-            : trade.open_time,
-        close_time:
-          trade.close_time instanceof Date
-            ? trade.close_time.toISOString()
-            : trade.close_time,
-      }));
-
-      const { data, error: insertError } = await supabase
+      const { error: deleteError } = await supabase
         .from("trades")
-        .insert(formattedTrades)
-        .select();
+        .delete()
+        .in("id", ids)
+        .eq("user_id", user.id);
 
-      if (insertError) {
-        throw new Error(insertError.message);
+      if (deleteError) {
+        throw deleteError;
       }
 
-      const newTrades =
-        data?.map((trade: any) => ({
-          ...trade,
-          open_time: trade.open_time ? new Date(trade.open_time) : new Date(),
-          close_time: trade.close_time ? new Date(trade.close_time) : undefined,
-        })) || [];
+      const idSet = new Set(ids);
 
-      setTrades((prev) => [...newTrades, ...prev]);
+      setTrades((current) => current.filter((trade) => !idSet.has(trade.id)));
 
       return {
-        data: newTrades,
         error: null,
       };
     } catch (err) {
-      console.error("Error bulk adding trades:", err);
+      console.error("Error bulk deleting trades:", err);
 
-      setError(
-        err instanceof Error ? err.message : "Failed to bulk add trades",
-      );
+      const message =
+        err instanceof Error ? err.message : "Failed to bulk delete trades";
+
+      setError(message);
 
       return {
-        data: null,
-        error: err instanceof Error ? err.message : "Failed to bulk add trades",
+        error: message,
       };
     }
-  };
+  }, []);
 
   // =========================================================
   // REFRESH
   // =========================================================
-  const refresh = () => {
-    fetchTrades();
-  };
+
+  const refresh = useCallback(async () => {
+    await fetchTrades();
+  }, [fetchTrades]);
 
   return {
     trades,
     loading,
     error,
+
     addTrade,
-    updateTrade,
-    deleteTrade,
     bulkAddTrades,
+
+    updateTrade,
+
+    deleteTrade,
+    bulkDeleteTrades,
+
     refresh,
   };
 }
