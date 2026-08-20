@@ -15,18 +15,27 @@ type ChecklistItem = {
   input_type: string;
 };
 
+type ResponseStatus =
+  | "met"
+  | "partially_met"
+  | "not_met"
+  | "not_applicable"
+  | null;
+
 type ChecklistResponse = {
   id: string;
   checklist_item_id: string;
   value: boolean | null;
   rating: number | null;
   text_value: string | null;
+  response_status: ResponseStatus;
 };
 
 type ResponseState = {
   value: boolean | null;
   rating: number | null;
   text_value: string | null;
+  response_status: ResponseStatus;
 };
 
 type Props = {
@@ -37,6 +46,7 @@ const emptyResponse = (): ResponseState => ({
   value: null,
   rating: null,
   text_value: null,
+  response_status: null,
 });
 
 export default function TradeChecklist({ tradeId }: Props) {
@@ -47,6 +57,12 @@ export default function TradeChecklist({ tradeId }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+
+  /*
+   * --------------------------------
+   * LOAD CHECKLIST
+   * --------------------------------
+   */
 
   useEffect(() => {
     let cancelled = false;
@@ -62,6 +78,7 @@ export default function TradeChecklist({ tradeId }: Props) {
           setError("Хэрэглэгч олдсонгүй.");
           setLoading(false);
         }
+
         return;
       }
 
@@ -94,7 +111,8 @@ export default function TradeChecklist({ tradeId }: Props) {
             checklist_item_id,
             value,
             rating,
-            text_value
+            text_value,
+            response_status
           `,
           )
           .eq("user_id", user.id)
@@ -106,6 +124,7 @@ export default function TradeChecklist({ tradeId }: Props) {
           setError(itemsResult.error.message);
           setLoading(false);
         }
+
         return;
       }
 
@@ -114,6 +133,7 @@ export default function TradeChecklist({ tradeId }: Props) {
           setError(responsesResult.error.message);
           setLoading(false);
         }
+
         return;
       }
 
@@ -125,6 +145,7 @@ export default function TradeChecklist({ tradeId }: Props) {
             value: response.value,
             rating: response.rating,
             text_value: response.text_value,
+            response_status: response.response_status,
           };
         },
       );
@@ -143,17 +164,31 @@ export default function TradeChecklist({ tradeId }: Props) {
     };
   }, [tradeId]);
 
+  /*
+   * --------------------------------
+   * GROUP BY CATEGORY
+   * --------------------------------
+   */
+
   const categories = useMemo(() => {
     const map = new Map<string, ChecklistItem[]>();
 
     for (const item of items) {
       const current = map.get(item.category) ?? [];
+
       current.push(item);
+
       map.set(item.category, current);
     }
 
     return Array.from(map.entries());
   }, [items]);
+
+  /*
+   * --------------------------------
+   * UPDATE RESPONSE
+   * --------------------------------
+   */
 
   const updateResponse = (itemId: string, response: ResponseState) => {
     setSaved(false);
@@ -164,6 +199,12 @@ export default function TradeChecklist({ tradeId }: Props) {
     }));
   };
 
+  /*
+   * --------------------------------
+   * ANSWERED
+   * --------------------------------
+   */
+
   const isAnswered = (item: ChecklistItem) => {
     const response = responses[item.id];
 
@@ -173,7 +214,7 @@ export default function TradeChecklist({ tradeId }: Props) {
 
     switch (item.input_type) {
       case "boolean":
-        return response.value !== null;
+        return response.response_status !== null;
 
       case "rating":
         return response.rating !== null;
@@ -186,13 +227,95 @@ export default function TradeChecklist({ tradeId }: Props) {
     }
   };
 
+  /*
+   * --------------------------------
+   * REQUIRED
+   * --------------------------------
+   */
+
   const requiredMissing = useMemo(() => {
     return items.filter((item) => item.is_required && !isAnswered(item));
   }, [items, responses]);
 
+  /*
+   * --------------------------------
+   * ANSWERED COUNT
+   * --------------------------------
+   */
+
   const answeredCount = useMemo(() => {
     return items.filter(isAnswered).length;
   }, [items, responses]);
+
+  /*
+   * --------------------------------
+   * SETUP VALIDATION RESULT
+   * --------------------------------
+   *
+   * Score rules:
+   *
+   * Met             = 1
+   * Partially Met   = 0.5
+   * Not Met         = 0
+   * Not Applicable  = excluded
+   * Unanswered      = incomplete
+   *
+   * Percentage denominator:
+   *
+   * total applicable items
+   */
+
+  const checklistResult = useMemo(() => {
+    const booleanItems = items.filter((item) => item.input_type === "boolean");
+
+    const metItems = booleanItems.filter(
+      (item) => responses[item.id]?.response_status === "met",
+    );
+
+    const partiallyMetItems = booleanItems.filter(
+      (item) => responses[item.id]?.response_status === "partially_met",
+    );
+
+    const notMetItems = booleanItems.filter(
+      (item) => responses[item.id]?.response_status === "not_met",
+    );
+
+    const notApplicableItems = booleanItems.filter(
+      (item) => responses[item.id]?.response_status === "not_applicable",
+    );
+
+    const unansweredItems = booleanItems.filter(
+      (item) =>
+        responses[item.id]?.response_status === null || !responses[item.id],
+    );
+
+    const totalBooleanItems = booleanItems.length;
+
+    const totalApplicable = totalBooleanItems - notApplicableItems.length;
+
+    const score = metItems.length + partiallyMetItems.length * 0.5;
+
+    const percentage =
+      totalApplicable > 0 ? Math.round((score / totalApplicable) * 100) : 0;
+
+    return {
+      metCount: metItems.length,
+      partiallyMetCount: partiallyMetItems.length,
+      notMetCount: notMetItems.length,
+      notApplicableCount: notApplicableItems.length,
+      unansweredCount: unansweredItems.length,
+      totalBooleanItems,
+      totalApplicable,
+      score,
+      percentage,
+    };
+  }, [items, responses]);
+
+  /*
+   * --------------------------------
+   * SAVE
+   * --------------------------------
+   */
 
   async function save() {
     setSaving(true);
@@ -221,7 +344,7 @@ export default function TradeChecklist({ tradeId }: Props) {
 
         /*
          * --------------------------------
-         * 1. trade_checklist_responses
+         * 1. RESPONSE
          * --------------------------------
          */
 
@@ -229,9 +352,16 @@ export default function TradeChecklist({ tradeId }: Props) {
           user_id: user.id,
           trade_id: tradeId,
           checklist_item_id: item.id,
+
           value: item.input_type === "boolean" ? response.value : null,
+
           rating: item.input_type === "rating" ? response.rating : null,
+
           text_value: item.input_type === "text" ? response.text_value : null,
+
+          response_status:
+            item.input_type === "boolean" ? response.response_status : null,
+
           updated_at: new Date().toISOString(),
         };
 
@@ -270,19 +400,20 @@ export default function TradeChecklist({ tradeId }: Props) {
 
         /*
          * --------------------------------
-         * 2. trade_checklist_results
+         * 2. NORMALIZED RESULT
          * --------------------------------
-         *
-         * Response-ийг normalized хэлбэрээр
-         * results table-д хадгална.
          */
 
         const resultPayload = {
           trade_id: tradeId,
           checklist_item_id: item.id,
+
           value_boolean: item.input_type === "boolean" ? response.value : null,
+
           value_number: item.input_type === "rating" ? response.rating : null,
+
           value_text: item.input_type === "text" ? response.text_value : null,
+
           updated_at: new Date().toISOString(),
         };
 
@@ -329,6 +460,12 @@ export default function TradeChecklist({ tradeId }: Props) {
     }
   }
 
+  /*
+   * --------------------------------
+   * LOADING
+   * --------------------------------
+   */
+
   if (loading) {
     return (
       <div className="rounded-xl border bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
@@ -336,6 +473,12 @@ export default function TradeChecklist({ tradeId }: Props) {
       </div>
     );
   }
+
+  /*
+   * --------------------------------
+   * EMPTY
+   * --------------------------------
+   */
 
   if (items.length === 0) {
     return (
@@ -349,21 +492,117 @@ export default function TradeChecklist({ tradeId }: Props) {
     );
   }
 
+  /*
+   * --------------------------------
+   * UI
+   * --------------------------------
+   */
+
   return (
     <section className="rounded-xl border bg-white dark:border-gray-800 dark:bg-gray-900">
       {/* HEADER */}
 
-      <div className="flex items-center justify-between border-b p-5 dark:border-gray-800">
-        <div>
-          <h2 className="text-lg font-semibold">Trade Checklist</h2>
+      <div className="border-b p-5 dark:border-gray-800">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Trade Checklist</h2>
 
-          <p className="mt-1 text-sm text-gray-500">
-            {answeredCount} / {items.length} бөглөгдсөн
-          </p>
+            <p className="mt-1 text-sm text-gray-500">
+              {answeredCount} / {items.length} бөглөгдсөн
+            </p>
+          </div>
+
+          <div className="text-sm text-gray-500">
+            Required: {requiredMissing.length}
+          </div>
         </div>
 
-        <div className="text-sm text-gray-500">
-          Required: {requiredMissing.length}
+        {/* RESULT */}
+
+        <div className="mt-5 rounded-xl border bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                Setup Validation
+              </p>
+
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-bold">
+                  {checklistResult.score % 1 === 0
+                    ? checklistResult.score
+                    : checklistResult.score.toFixed(1)}{" "}
+                  / {checklistResult.totalApplicable}
+                </span>
+
+                <span className="text-sm text-gray-500">
+                  {checklistResult.percentage}%
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4 text-sm">
+              <div>
+                <span className="text-gray-500">Met</span>
+
+                <span className="ml-2 font-semibold text-green-600 dark:text-green-400">
+                  {checklistResult.metCount}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-gray-500">Partial</span>
+
+                <span className="ml-2 font-semibold text-yellow-600 dark:text-yellow-400">
+                  {checklistResult.partiallyMetCount}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-gray-500">Not Met</span>
+
+                <span className="ml-2 font-semibold text-red-600 dark:text-red-400">
+                  {checklistResult.notMetCount}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-gray-500">N/A</span>
+
+                <span className="ml-2 font-semibold text-gray-500">
+                  {checklistResult.notApplicableCount}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* PROGRESS */}
+
+          <div className="mt-4">
+            <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+              <div
+                className="h-full rounded-full bg-green-500 transition-all"
+                style={{
+                  width: `${checklistResult.percentage}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* UNANSWERED */}
+
+          {checklistResult.unansweredCount > 0 && (
+            <p className="mt-3 text-xs text-gray-500">
+              {checklistResult.unansweredCount} setup item бөглөгдөөгүй байна.
+            </p>
+          )}
+
+          {/* NO APPLICABLE ITEMS */}
+
+          {checklistResult.totalApplicable === 0 && (
+            <p className="mt-3 text-xs text-gray-500">
+              Setup Validation score тооцох applicable item алга байна.
+            </p>
+          )}
         </div>
       </div>
 
@@ -385,7 +624,7 @@ export default function TradeChecklist({ tradeId }: Props) {
                     key={item.id}
                     className="rounded-lg border p-4 dark:border-gray-700"
                   >
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div className="flex flex-col gap-4">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{item.title}</span>
@@ -407,7 +646,7 @@ export default function TradeChecklist({ tradeId }: Props) {
                       {/* BOOLEAN */}
 
                       {item.input_type === "boolean" && (
-                        <div className="flex shrink-0 gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
                             onClick={() =>
@@ -415,15 +654,35 @@ export default function TradeChecklist({ tradeId }: Props) {
                                 value: true,
                                 rating: null,
                                 text_value: null,
+                                response_status: "met",
                               })
                             }
-                            className={`rounded-lg border px-5 py-2 text-sm ${
-                              response.value === true
+                            className={`rounded-lg border px-4 py-2 text-sm ${
+                              response.response_status === "met"
                                 ? "border-green-500 bg-green-500 text-white"
                                 : "dark:border-gray-600"
                             }`}
                           >
-                            Yes
+                            Met
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateResponse(item.id, {
+                                value: null,
+                                rating: null,
+                                text_value: null,
+                                response_status: "partially_met",
+                              })
+                            }
+                            className={`rounded-lg border px-4 py-2 text-sm ${
+                              response.response_status === "partially_met"
+                                ? "border-yellow-500 bg-yellow-500 text-white"
+                                : "dark:border-gray-600"
+                            }`}
+                          >
+                            Partially Met
                           </button>
 
                           <button
@@ -433,15 +692,35 @@ export default function TradeChecklist({ tradeId }: Props) {
                                 value: false,
                                 rating: null,
                                 text_value: null,
+                                response_status: "not_met",
                               })
                             }
-                            className={`rounded-lg border px-5 py-2 text-sm ${
-                              response.value === false
+                            className={`rounded-lg border px-4 py-2 text-sm ${
+                              response.response_status === "not_met"
                                 ? "border-red-500 bg-red-500 text-white"
                                 : "dark:border-gray-600"
                             }`}
                           >
-                            No
+                            Not Met
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateResponse(item.id, {
+                                value: null,
+                                rating: null,
+                                text_value: null,
+                                response_status: "not_applicable",
+                              })
+                            }
+                            className={`rounded-lg border px-4 py-2 text-sm ${
+                              response.response_status === "not_applicable"
+                                ? "border-gray-500 bg-gray-500 text-white"
+                                : "dark:border-gray-600"
+                            }`}
+                          >
+                            N/A
                           </button>
                         </div>
                       )}
@@ -459,9 +738,10 @@ export default function TradeChecklist({ tradeId }: Props) {
                                   ? null
                                   : Number(event.target.value),
                               text_value: null,
+                              response_status: null,
                             })
                           }
-                          className="rounded-lg border bg-white px-4 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
+                          className="w-full rounded-lg border bg-white px-4 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 md:max-w-xs"
                         >
                           <option value="">Select rating</option>
 
@@ -483,11 +763,12 @@ export default function TradeChecklist({ tradeId }: Props) {
                               value: null,
                               rating: null,
                               text_value: event.target.value,
+                              response_status: null,
                             })
                           }
                           rows={3}
                           placeholder="Write your answer..."
-                          className="w-full rounded-lg border bg-white p-3 text-sm md:max-w-md dark:border-gray-600 dark:bg-gray-800"
+                          className="w-full rounded-lg border bg-white p-3 text-sm dark:border-gray-600 dark:bg-gray-800"
                         />
                       )}
                     </div>

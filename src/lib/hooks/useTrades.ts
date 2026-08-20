@@ -12,16 +12,8 @@ type TradeUpdate = Partial<TradeInput>;
 function formatTradeForDatabase(trade: TradeInput) {
   return {
     ...trade,
-
-    open_time:
-      trade.open_time instanceof Date
-        ? trade.open_time.toISOString()
-        : trade.open_time,
-
-    close_time:
-      trade.close_time instanceof Date
-        ? trade.close_time.toISOString()
-        : trade.close_time,
+    open_time: trade.open_time,
+    close_time: trade.close_time,
   };
 }
 
@@ -224,12 +216,12 @@ export function useTrades(accountId?: string | null) {
         ...updates,
       };
 
-      if (updates.open_time instanceof Date) {
-        formattedUpdates.open_time = updates.open_time.toISOString();
+      if (updates.open_time) {
+        formattedUpdates.open_time = updates.open_time;
       }
 
-      if (updates.close_time instanceof Date) {
-        formattedUpdates.close_time = updates.close_time.toISOString();
+      if (updates.close_time) {
+        formattedUpdates.close_time = updates.close_time;
       }
 
       delete formattedUpdates.id;
