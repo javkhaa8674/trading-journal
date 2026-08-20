@@ -32,6 +32,7 @@ type Props = {
   onDelete: (ids: string[]) => void;
   onEdit: (id: string) => void;
   onChart: (id: string) => void;
+  onReview: (id: string) => void;
 };
 
 /* =====================================================
@@ -90,6 +91,7 @@ export default function TradeList({
   onDelete,
   onEdit,
   onChart,
+  onReview,
 }: Props) {
   const router = useRouter();
 
@@ -341,17 +343,41 @@ export default function TradeList({
               type="button"
               onClick={() => onChart(tradeId)}
               className="
-                rounded
-                bg-green-600
-                px-3
-                py-1
-                text-xs
-                text-white
-                hover:bg-green-700
-                transition-colors
-              "
+                            group
+                            relative
+                            rounded
+                            bg-green-500
+                            px-3
+                            py-1
+                            text-xs
+                            text-white
+                            hover:bg-green-600
+                            transition-colors
+                          "
             >
-              📈 Chart
+              📈{/* Tooltip */}
+              <span
+                className="
+                            pointer-events-none 
+                            absolute 
+                            bottom-full 
+                            left-1/2 
+                            mb-2 
+                            -translate-x-1/2 
+                            whitespace-nowrap 
+                            rounded 
+                            bg-gray-800 
+                            px-2 
+                            py-1 
+                            text-[10px] 
+                            text-white 
+                            opacity-0 
+                            transition-opacity 
+                            group-hover:opacity-100
+                          "
+              >
+                Чарт
+              </span>
             </button>
 
             {/* EDIT */}
@@ -360,17 +386,82 @@ export default function TradeList({
               type="button"
               onClick={() => onEdit(tradeId)}
               className="
-                rounded
-                bg-blue-500
-                px-3
-                py-1
-                text-xs
-                text-white
-                hover:bg-blue-600
-                transition-colors
-              "
+                            group
+                            relative
+                            rounded
+                            bg-blue-500
+                            px-3
+                            py-1
+                            text-xs
+                            text-white
+                            hover:bg-blue-600
+                            transition-colors
+                          "
             >
-              Засах
+              ✎{/* Tooltip */}
+              <span
+                className="
+                            pointer-events-none 
+                            absolute 
+                            bottom-full 
+                            left-1/2 
+                            mb-2 
+                            -translate-x-1/2 
+                            whitespace-nowrap 
+                            rounded 
+                            bg-gray-800 
+                            px-2 
+                            py-1 
+                            text-[10px] 
+                            text-white 
+                            opacity-0 
+                            transition-opacity 
+                            group-hover:opacity-100
+                          "
+              >
+                Засварлах
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onReview(tradeId)}
+              className="
+                            group
+                            relative
+                            rounded
+                            bg-red-500
+                            px-3
+                            py-1
+                            text-xs
+                            text-white
+                            hover:bg-red-600
+                            transition-colors
+                          "
+            >
+              🧠{/* Tooltip */}
+              <span
+                className="
+                            pointer-events-none 
+                            absolute 
+                            bottom-full 
+                            left-1/2 
+                            mb-2 
+                            -translate-x-1/2 
+                            whitespace-nowrap 
+                            rounded 
+                            bg-gray-800 
+                            px-2 
+                            py-1 
+                            text-[10px] 
+                            text-white 
+                            opacity-0 
+                            transition-opacity 
+                            group-hover:opacity-100
+                          "
+              >
+                Сэтгэл зүй
+              </span>
             </button>
           </div>
         );
@@ -378,7 +469,7 @@ export default function TradeList({
     });
 
     return cols;
-  }, [isSelectMode, onEdit, onChart]);
+  }, [isSelectMode, onEdit, onChart, onReview]);
 
   /* =====================================================
      TABLE

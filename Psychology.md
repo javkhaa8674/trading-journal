@@ -333,3 +333,43 @@ AI / Insights
 10. Analytics
     ↓
 11. Insights
+
+# Trading Journal — Session Summary
+
+## Session date
+
+2026-08-20
+
+---
+
+# 1. Гол зорилго
+
+Trade хэсгийн **Edit** үйлдэл болон **Trade Review** үйлдлийг тусгаарлах.
+
+Шийдсэн UX:
+
+- `Edit` → зөвхөн Trade-ийн үндсэн мэдээллийг засна.
+- `Review` → тухайн Trade-ийн:
+  - Trade Checklist
+  - Trade Psychology
+    мэдээллийг оруулж/засна.
+
+Trade Edit page-ийг Checklist + Psychology-оор дүүргэхгүй.
+
+---
+
+# 2. Гол navigation
+
+## Trades page
+
+Файл:
+
+`src/app/trades/page.tsx`
+
+Trade table дээр тусдаа Review button байна.
+
+Үйлдлүүд:
+
+```text
+[Chart] [Review] [Edit] [Delete]
+```

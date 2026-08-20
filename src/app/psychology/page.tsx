@@ -7,6 +7,28 @@ import { getCurrentUser } from "@/lib/getCurrentUser";
 import { analyzePsychology, generateSummary } from "@/lib/psychologyAnalytics";
 import { PsychologyEntry, Mistake } from "@/types/psychology";
 
+type TradePsychologyWithTrade = {
+  id: string;
+  trade_id: string;
+  mood: string | null;
+  confidence_level: number | null;
+  anxiety_level: number | null;
+  trading_urge_level: number | null;
+  plan_followed: boolean | null;
+  emotional_interference: boolean | null;
+  execution_quality: number | null;
+  created_at: string;
+
+  trades: {
+    id: string;
+    symbol: string;
+    side: string;
+    open_time: string | null;
+    close_time: string | null;
+    profit_loss: number | null;
+  } | null;
+};
+
 const moodIcons = {
   calm: {
     icon: "😌",
@@ -329,6 +351,13 @@ export default function PsychologyPage() {
             Арилжаа хийж байхдаа сэтгэл санаа, алдаа, сэтгэл зүйн байдлаа хянах
           </p>
         </div>
+        <button
+          onClick={() => router.push("/trades")}
+          className="flex items-center gap-1.5 rounded-lg border border-blue-200 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 sm:px-4 sm:py-2 sm:text-base dark:border-blue-900 dark:text-blue-400 dark:hover:bg-blue-950/30"
+        >
+          <span>🧠</span>
+          <span>Trade Review</span>
+        </button>
         <button
           onClick={() => router.push("/psychology/new")}
           className="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base text-white hover:bg-blue-600"

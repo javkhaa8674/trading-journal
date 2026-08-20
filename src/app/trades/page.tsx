@@ -270,6 +270,10 @@ export default function TradesPage() {
     router.push(`/trades/${tradeId}`);
   };
 
+  const reviewTrade = (tradeId: string) => {
+    router.push(`/trades/${tradeId}/review`);
+  };
+
   /* =====================================================
      LOADING
   ===================================================== */
@@ -664,6 +668,7 @@ export default function TradesPage() {
           onDelete={handleDeleteTrades}
           onEdit={editTrade}
           onChart={handleChartTrade}
+          onReview={reviewTrade}
         />
       )}
     </div>
