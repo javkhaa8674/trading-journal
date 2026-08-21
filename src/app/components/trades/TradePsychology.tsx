@@ -6,16 +6,24 @@ import { getCurrentUser } from "@/lib/getCurrentUser";
 
 type TradePsychologyData = {
   id?: string;
-  mood: string;
-  confidence_level: number | null;
+
+  // Emotional State
+  calmness_level: number | null;
   anxiety_level: number | null;
-  trading_urge_level: number | null;
-  plan_followed: boolean | null;
-  emotional_interference: boolean | null;
-  execution_quality: number | null;
-  mistakes: string[];
-  lesson_learned: string;
-  notes: string;
+  fear_level: number | null;
+  greed_level: number | null;
+  frustration_level: number | null;
+  confidence_level: number | null;
+
+  // Cognitive State
+  focus_level: number | null;
+  patience_level: number | null;
+  decision_clarity_level: number | null;
+  decision_pressure_level: number | null;
+
+  rushed_decision: boolean | null;
+  fomo: boolean | null;
+  emotional_carryover: boolean | null;
 };
 
 type Props = {
@@ -23,22 +31,25 @@ type Props = {
 };
 
 const initialState: TradePsychologyData = {
-  mood: "",
-  confidence_level: null,
+  calmness_level: null,
   anxiety_level: null,
-  trading_urge_level: null,
-  plan_followed: null,
-  emotional_interference: null,
-  execution_quality: null,
-  mistakes: [],
-  lesson_learned: "",
-  notes: "",
+  fear_level: null,
+  greed_level: null,
+  frustration_level: null,
+  confidence_level: null,
+
+  focus_level: null,
+  patience_level: null,
+  decision_clarity_level: null,
+  decision_pressure_level: null,
+
+  rushed_decision: null,
+  fomo: null,
+  emotional_carryover: null,
 };
 
 export default function TradePsychology({ tradeId }: Props) {
   const [form, setForm] = useState<TradePsychologyData>(initialState);
-
-  const [mistakeInput, setMistakeInput] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -63,16 +74,19 @@ export default function TradePsychology({ tradeId }: Props) {
         .select(
           `
           id,
-          mood,
-          confidence_level,
+          calmness_level,
           anxiety_level,
-          trading_urge_level,
-          plan_followed,
-          emotional_interference,
-          execution_quality,
-          mistakes,
-          lesson_learned,
-          notes
+          fear_level,
+          greed_level,
+          frustration_level,
+          confidence_level,
+          focus_level,
+          patience_level,
+          decision_clarity_level,
+          decision_pressure_level,
+          rushed_decision,
+          fomo,
+          emotional_carryover
         `,
         )
         .eq("trade_id", tradeId)
@@ -88,16 +102,22 @@ export default function TradePsychology({ tradeId }: Props) {
       if (data) {
         setForm({
           id: data.id,
-          mood: data.mood ?? "",
-          confidence_level: data.confidence_level,
+
+          calmness_level: data.calmness_level,
           anxiety_level: data.anxiety_level,
-          trading_urge_level: data.trading_urge_level,
-          plan_followed: data.plan_followed,
-          emotional_interference: data.emotional_interference,
-          execution_quality: data.execution_quality,
-          mistakes: data.mistakes ?? [],
-          lesson_learned: data.lesson_learned ?? "",
-          notes: data.notes ?? "",
+          fear_level: data.fear_level,
+          greed_level: data.greed_level,
+          frustration_level: data.frustration_level,
+          confidence_level: data.confidence_level,
+
+          focus_level: data.focus_level,
+          patience_level: data.patience_level,
+          decision_clarity_level: data.decision_clarity_level,
+          decision_pressure_level: data.decision_pressure_level,
+
+          rushed_decision: data.rushed_decision,
+          fomo: data.fomo,
+          emotional_carryover: data.emotional_carryover,
         });
       }
 
@@ -119,27 +139,6 @@ export default function TradePsychology({ tradeId }: Props) {
     }));
   }
 
-  function addMistake() {
-    const value = mistakeInput.trim();
-
-    if (!value) return;
-
-    if (form.mistakes.includes(value)) {
-      setMistakeInput("");
-      return;
-    }
-
-    update("mistakes", [...form.mistakes, value]);
-    setMistakeInput("");
-  }
-
-  function removeMistake(index: number) {
-    update(
-      "mistakes",
-      form.mistakes.filter((_, i) => i !== index),
-    );
-  }
-
   async function save() {
     setSaving(true);
     setSaved(false);
@@ -155,16 +154,23 @@ export default function TradePsychology({ tradeId }: Props) {
       const payload = {
         trade_id: tradeId,
         user_id: user.id,
-        mood: form.mood || null,
-        confidence_level: form.confidence_level,
+
+        calmness_level: form.calmness_level,
         anxiety_level: form.anxiety_level,
-        trading_urge_level: form.trading_urge_level,
-        plan_followed: form.plan_followed,
-        emotional_interference: form.emotional_interference,
-        execution_quality: form.execution_quality,
-        mistakes: form.mistakes,
-        lesson_learned: form.lesson_learned.trim() || null,
-        notes: form.notes.trim() || null,
+        fear_level: form.fear_level,
+        greed_level: form.greed_level,
+        frustration_level: form.frustration_level,
+        confidence_level: form.confidence_level,
+
+        focus_level: form.focus_level,
+        patience_level: form.patience_level,
+        decision_clarity_level: form.decision_clarity_level,
+        decision_pressure_level: form.decision_pressure_level,
+
+        rushed_decision: form.rushed_decision,
+        fomo: form.fomo,
+        emotional_carryover: form.emotional_carryover,
+
         updated_at: new Date().toISOString(),
       };
 
@@ -176,7 +182,9 @@ export default function TradePsychology({ tradeId }: Props) {
           .eq("trade_id", tradeId)
           .eq("user_id", user.id);
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
       } else {
         const { data, error } = await supabase
           .from("trade_psychology")
@@ -184,7 +192,9 @@ export default function TradePsychology({ tradeId }: Props) {
           .select("id")
           .single();
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         setForm((current) => ({
           ...current,
@@ -197,7 +207,7 @@ export default function TradePsychology({ tradeId }: Props) {
       setError(
         err instanceof Error
           ? err.message
-          : "Psychology хадгалахад алдаа гарлаа.",
+          : "Pre-Trade Psychology хадгалахад алдаа гарлаа.",
       );
     } finally {
       setSaving(false);
@@ -207,7 +217,9 @@ export default function TradePsychology({ tradeId }: Props) {
   if (loading) {
     return (
       <section className="rounded-xl border bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <p className="text-sm text-gray-500">Psychology ачааллаж байна...</p>
+        <p className="text-sm text-gray-500">
+          Pre-Trade Psychology ачааллаж байна...
+        </p>
       </section>
     );
   }
@@ -217,164 +229,135 @@ export default function TradePsychology({ tradeId }: Props) {
       {/* HEADER */}
 
       <div className="border-b p-5 dark:border-gray-800">
-        <h2 className="text-lg font-semibold">🧠 Trade Psychology</h2>
+        <h2 className="text-lg font-semibold">🧠 Pre-Trade Psychology</h2>
 
         <p className="mt-1 text-sm text-gray-500">
-          Энэ trade-ийн сэтгэл зүй болон execution-ээ бүртгэнэ.
+          Trade хийхийн өмнөх сэтгэл зүй болон танин мэдэхүйн төлөвөө бүртгэнэ.
         </p>
       </div>
 
-      <div className="space-y-6 p-5">
-        {/* MOOD */}
+      <div className="space-y-8 p-5">
+        {/* EMOTIONAL STATE */}
 
         <div>
-          <label className="mb-2 block text-sm font-medium">Mood</label>
+          <div className="mb-4">
+            <h3 className="text-base font-semibold">Emotional State</h3>
 
-          <input
-            type="text"
-            value={form.mood}
-            onChange={(e) => update("mood", e.target.value)}
-            placeholder="Жишээ: Calm, Excited, Fearful..."
-            className="w-full rounded-lg border bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
-          />
-        </div>
-
-        {/* LEVELS */}
-
-        <div className="grid gap-5 md:grid-cols-3">
-          <LevelInput
-            label="Confidence"
-            value={form.confidence_level}
-            onChange={(value) => update("confidence_level", value)}
-          />
-
-          <LevelInput
-            label="Anxiety"
-            value={form.anxiety_level}
-            onChange={(value) => update("anxiety_level", value)}
-          />
-
-          <LevelInput
-            label="Trading Urge"
-            value={form.trading_urge_level}
-            onChange={(value) => update("trading_urge_level", value)}
-          />
-        </div>
-
-        {/* BOOLEAN QUESTIONS */}
-
-        <div className="grid gap-5 md:grid-cols-2">
-          <BooleanInput
-            label="Plan followed?"
-            value={form.plan_followed}
-            onChange={(value) => update("plan_followed", value)}
-          />
-
-          <BooleanInput
-            label="Emotional interference?"
-            value={form.emotional_interference}
-            onChange={(value) => update("emotional_interference", value)}
-          />
-        </div>
-
-        {/* EXECUTION */}
-
-        <div>
-          <label className="mb-2 block text-sm font-medium">
-            Execution Quality
-          </label>
-
-          <div className="flex gap-2">
-            {[1, 2, 3, 4, 5].map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => update("execution_quality", value)}
-                className={`h-10 w-10 rounded-lg border text-sm ${
-                  form.execution_quality === value
-                    ? "border-blue-500 bg-blue-500 text-white"
-                    : "dark:border-gray-600"
-                }`}
-              >
-                {value}
-              </button>
-            ))}
+            <p className="mt-1 text-xs text-gray-500">
+              Trade хийхийн өмнөх тухайн үеийн сэтгэл хөдлөлийн төлөв.
+            </p>
           </div>
-        </div>
 
-        {/* MISTAKES */}
-
-        <div>
-          <label className="mb-2 block text-sm font-medium">Mistakes</label>
-
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={mistakeInput}
-              onChange={(e) => setMistakeInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addMistake();
-                }
-              }}
-              placeholder="Mistake нэмэх..."
-              className="flex-1 rounded-lg border bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <LevelInput
+              label="Calmness"
+              value={form.calmness_level}
+              onChange={(value) => update("calmness_level", value)}
             />
 
-            <button
-              type="button"
-              onClick={addMistake}
-              className="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800"
-            >
-              Add
-            </button>
+            <LevelInput
+              label="Anxiety"
+              value={form.anxiety_level}
+              onChange={(value) => update("anxiety_level", value)}
+            />
+
+            <LevelInput
+              label="Fear"
+              value={form.fear_level}
+              onChange={(value) => update("fear_level", value)}
+            />
+
+            <LevelInput
+              label="Greed"
+              value={form.greed_level}
+              onChange={(value) => update("greed_level", value)}
+            />
+
+            <LevelInput
+              label="Frustration"
+              value={form.frustration_level}
+              onChange={(value) => update("frustration_level", value)}
+            />
+
+            <LevelInput
+              label="Confidence"
+              value={form.confidence_level}
+              onChange={(value) => update("confidence_level", value)}
+            />
+          </div>
+        </div>
+
+        {/* COGNITIVE STATE */}
+
+        <div>
+          <div className="mb-4">
+            <h3 className="text-base font-semibold">Cognitive State</h3>
+
+            <p className="mt-1 text-xs text-gray-500">
+              Trade хийхийн өмнөх анхаарал, шийдвэр гаргалт болон сэтгэлзүйн
+              дарамтын төлөв.
+            </p>
           </div>
 
-          {form.mistakes.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {form.mistakes.map((mistake, index) => (
-                <button
-                  key={`${mistake}-${index}`}
-                  type="button"
-                  onClick={() => removeMistake(index)}
-                  className="rounded-full bg-red-50 px-3 py-1 text-xs text-red-600 dark:bg-red-950/30"
-                >
-                  {mistake} ×
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <LevelInput
+              label="Focus"
+              value={form.focus_level}
+              onChange={(value) => update("focus_level", value)}
+            />
+
+            <LevelInput
+              label="Patience"
+              value={form.patience_level}
+              onChange={(value) => update("patience_level", value)}
+            />
+
+            <LevelInput
+              label="Decision Clarity"
+              value={form.decision_clarity_level}
+              onChange={(value) => update("decision_clarity_level", value)}
+            />
+
+            <LevelInput
+              label="Decision Pressure"
+              value={form.decision_pressure_level}
+              onChange={(value) => update("decision_pressure_level", value)}
+            />
+          </div>
         </div>
 
-        {/* LESSON */}
+        {/* COGNITIVE FLAGS */}
 
         <div>
-          <label className="mb-2 block text-sm font-medium">
-            Lesson Learned
-          </label>
+          <div className="mb-4">
+            <h3 className="text-base font-semibold">
+              Decision & Emotional Flags
+            </h3>
 
-          <textarea
-            value={form.lesson_learned}
-            onChange={(e) => update("lesson_learned", e.target.value)}
-            rows={4}
-            placeholder="Энэ trade-ээс юу сурсан бэ?"
-            className="w-full rounded-lg border bg-white p-3 text-sm dark:border-gray-600 dark:bg-gray-800"
-          />
-        </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Тухайн trade хийхийн өмнө эдгээр нөхцөл байсан эсэх.
+            </p>
+          </div>
 
-        {/* NOTES */}
+          <div className="grid gap-5 md:grid-cols-3">
+            <BooleanInput
+              label="Rushed Decision?"
+              value={form.rushed_decision}
+              onChange={(value) => update("rushed_decision", value)}
+            />
 
-        <div>
-          <label className="mb-2 block text-sm font-medium">Notes</label>
+            <BooleanInput
+              label="FOMO?"
+              value={form.fomo}
+              onChange={(value) => update("fomo", value)}
+            />
 
-          <textarea
-            value={form.notes}
-            onChange={(e) => update("notes", e.target.value)}
-            rows={4}
-            placeholder="Нэмэлт тэмдэглэл..."
-            className="w-full rounded-lg border bg-white p-3 text-sm dark:border-gray-600 dark:bg-gray-800"
-          />
+            <BooleanInput
+              label="Emotional Carryover?"
+              value={form.emotional_carryover}
+              onChange={(value) => update("emotional_carryover", value)}
+            />
+          </div>
         </div>
       </div>
 
@@ -385,7 +368,9 @@ export default function TradePsychology({ tradeId }: Props) {
           {error && <p className="text-sm text-red-500">{error}</p>}
 
           {saved && !error && (
-            <p className="text-sm text-green-500">Psychology хадгалагдлаа.</p>
+            <p className="text-sm text-green-500">
+              Pre-Trade Psychology хадгалагдлаа.
+            </p>
           )}
         </div>
 

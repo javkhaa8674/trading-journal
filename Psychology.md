@@ -20,7 +20,7 @@ Trade
 
 Day нь үндсэн journal entity биш болно. Харин дараа нь trade-үүдийг нэгтгэн харах aggregation/context болно.
 
-PHASE 1 — Trade-based Psychology руу шилжих
+PHASE 1 — Trade-based Psychology
 Зорилго
 
 Өмнөх day-based Psychology-г trade-based болгох.
@@ -35,7 +35,7 @@ Trade #123
 ├── Pre-Trade Psychology
 ├── Trade Behavior
 └── Post-Trade Review
-Database status
+Database
 
 🟢 DONE
 
@@ -45,14 +45,14 @@ trade_checklist_items
 trade_checklist_responses
 trade_checklist_results
 
-мөн холбогдох SQL / relationship-ийн суурь ажил хийгдсэн.
+Мөн холбогдох SQL / relationship-ийн суурь ажил хийгдсэн.
 
 PHASE 2 — Dynamic Setup Validation
 Гол architecture
 
-Энд Strategy-г тусдаа database entity болгохгүй.
+Strategy-г тусдаа database entity болгохгүй.
 
-Одоогийн системд хэрэглэгчийн strategy нь:
+Одоогийн системд хэрэглэгчийн strategy:
 
 trading_plans
 
@@ -66,7 +66,7 @@ trading_plans.strategy нь хэрэглэгч өөрийн арилжааны �
 
 Энэ текстээс runtime үед checklist автоматаар үүсгэхгүй.
 
-Trading Plan ба Setup Checklist-ийн үүрэг
+Trading Plan ба Setup Checklist
 Trading Plan
 
 Хэрэглэгчийн өөрийн дүрэм, аргачлалын documentation:
@@ -135,7 +135,7 @@ SMC-style Setup Checklist
 ├── FVG
 └── Entry Confirmation
 
-өөр хэрэглэгч:
+Өөр хэрэглэгч:
 
 EMA Pullback Checklist
 
@@ -144,13 +144,11 @@ EMA Pullback Checklist
 ├── RSI
 └── Candle Confirmation
 
-Энд SMC Setup, EMA Pullback нь заавал strategies table-ийн entity байх албагүй.
+SMC Setup, EMA Pullback нь заавал strategies table-ийн entity байх албагүй.
 
 Checklist configuration нь өөрөө тухайн хэрэглэгчийн setup validation criteria-г тодорхойлно.
 
 Phase 2 — Response Architecture
-
-Энэ session дээр checklist response architecture-г өргөтгөсөн.
 
 Өмнө нь:
 
@@ -166,7 +164,7 @@ response_status
 
 нэмэгдсэн.
 
-Response status
+Response Status
 Met
 Partially Met
 Not Met
@@ -178,11 +176,18 @@ response_status = null
 
 нь Unanswered гэсэн төлөвийг илэрхийлнэ.
 
-Ингэснээр Not Applicable болон Unanswered хоёрыг хооронд нь зөв ялгах боломжтой болсон.
+Ингэснээр:
+
+Not Applicable
+
+болон
+
+Unanswered
+
+хоёрыг зөв ялгах боломжтой болсон.
 
 Database
 trade_checklist_responses
-
 ├── id
 ├── user_id
 ├── trade_id
@@ -190,11 +195,11 @@ trade_checklist_responses
 ├── value
 ├── rating
 ├── text_value
-├── response_status ← NEW
+├── response_status
 ├── created_at
 └── updated_at
 
-response_status-ийн зөвшөөрөгдөх утгууд:
+response_status:
 
 met
 partially_met
@@ -202,9 +207,8 @@ not_met
 not_applicable
 Setup Validation Result Calculation
 
-Checklist result calculation одоо UI/application logic дээр ажилладаг болсон.
+Application logic дээр:
 
-Score
 Met = 1
 Partially Met = 0.5
 Not Met = 0
@@ -219,11 +223,10 @@ MSS Partially Met 0.5
 FVG Not Met 0
 Entry N/A -
 
-Тэгвэл:
+Үр дүн:
 
 2.5 / 4
 62.5%
-Result UI
 
 Trade Review дээр:
 
@@ -241,12 +244,11 @@ Score
 
 гэх мэтээр харуулах боломжтой.
 
-Not Applicable нь score-ийн denominator-оос хасагдана.
-
 Phase 2 — UI + Application Logic
+
 🟢 DONE
 
-Одоогоор дараах бүх хэсэг хийгдсэн:
+Хийгдсэн:
 
 Existing Checklist Configuration
 ↓
@@ -259,14 +261,12 @@ Response хадгалах
 Result calculation
 Checklist UI
 
-Boolean checklist дээр:
+Boolean checklist:
 
 [Met]
 [Partially Met]
 [Not Met]
 [N/A]
-
-сонголтуудтай болсон.
 
 Rating:
 
@@ -279,7 +279,7 @@ Rating:
 Text:
 
 Write your answer...
-Response хадгалалт
+Response Save
 
 trade_checklist_responses рүү:
 
@@ -290,88 +290,241 @@ response_status
 
 зөв төрлөөр хадгална.
 
-Result хадгалалт
+Result Save
 
-trade_checklist_results нь normalized result/value мэдээллээ хадгалсан хэвээр байна.
-
-trade_checklist_results
+trade_checklist_results:
 
 ├── trade_id
 ├── checklist_item_id
 ├── value_boolean
 ├── value_number
 └── value_text
-PHASE 2 — Одоогийн бодит status
+
+normalized result/value мэдээллээ хадгалсан хэвээр байна.
+
+Phase 2 — Одоогийн бодит Status
 
 🟢 DB / SQL — DONE
-
 🟢 Trade Review Page — DONE
-
 🟢 Checklist UI — DONE
-
 🟢 Response Save — DONE
-
 🟢 Existing Response Load — DONE
-
 🟢 Result Calculation — DONE
-
 🟢 Met / Partially Met / Not Met / N/A — DONE
-
 🟢 Required Item Validation — DONE
-
 🟢 Build / TypeScript errors — FIXED
 
-Тиймээс Phase 2 одоо:
+Phase 2
 
 🟢 DONE
 
-гэж үзэж болно.
-
 Build / TypeScript Cleanup
 
-Энэ session-ийн явцад Checklist өөрчлөлт оруулсны дараа npm run build хийхэд илэрсэн TypeScript асуудлуудыг мөн зассан.
+Checklist өөрчлөлтийн дараа илэрсэн TypeScript асуудлууд засагдсан.
 
 src/lib/equity.ts
 
-close_time нь:
+close_time:
 
 string | null
 
 байхад toTimestamp() руу шууд дамжуулснаас үүссэн type error засагдсан.
 
-validTrades дээр close_time !== null гэдгийг TypeScript-д зөв type narrowing хийсэн.
+validTrades дээр:
+
+close_time !== null
+
+гэсэн type narrowing зөв хийгдсэн.
 
 src/lib/hooks/useTrades.ts
 
-Supabase timestamp-ууд frontend дээр string хэлбэртэй байхад:
+Supabase timestamp-ууд frontend дээр string хэлбэртэй байхад ашигласан:
 
 instanceof Date
 
-ашигласан хэсгүүд байсан.
+хэсгүүд арилсан.
 
-Үүнийг арилгаж timestamp-ийг database-аас ирж байгаа хэлбэрээр нь ашиглахаар зассан.
+Database-аас ирж буй timestamp-ийг шууд ашигладаг болсон.
 
 Жишээ:
 
 open_time: trade.open_time
 
-мөн update үед:
+Update үед:
 
 if (updates.open_time !== undefined) {
 formattedUpdates.open_time = updates.open_time;
 }
-
-гэх мэтээр зассан.
-
-Build status
+Build
 
 🟢 npm run build — амжилттай
 
+PHASE 3 — Trade Psychology Foundation
+Одоогийн implementation
+
+Энэ phase-ийн суурь Trade Psychology component аль хэдийн хийгдсэн.
+
+Trade Review page:
+
+src/app/.../trade/[id]/page.tsx
+
+дотор:
+
+<TradePsychology tradeId={tradeId} />
+
+холбогдсон.
+
+Trade Psychology Database
+trade_psychology
+
+Одоогийн schema:
+
+trade_psychology
+
+├── id
+├── trade_id
+├── user_id
+├── mood
+├── confidence_level
+├── anxiety_level
+├── trading_urge_level
+├── plan_followed
+├── emotional_interference
+├── execution_quality
+├── mistakes
+├── lesson_learned
+├── notes
+├── created_at
+└── updated_at
+
+Constraints:
+
+trade_id UNIQUE
+trade_id → trades(id)
+user_id → auth.users(id)
+
+Мөн trade устахад psychology автоматаар устах:
+
+ON DELETE CASCADE
+Psychology Level Constraints
+
+Database дээр:
+
+confidence_level 1–10
+anxiety_level 1–10
+trading_urge_level 1–10
+execution_quality 1–10
+
+гэсэн range constraint байна.
+
+NULL зөвшөөрөгдөнө.
+
+TradePsychology UI
+
+🟢 IMPLEMENTED
+
+Одоогоор Trade Review дээр дараах мэдээллийг оруулах боломжтой.
+
+Mood
+Mood
+
+Free-text хэлбэрээр.
+
+Psychology Levels
+Confidence
+Anxiety
+Trading Urge
+
+Одоогийн UI:
+
+Select
+1 / 5
+2 / 5
+3 / 5
+4 / 5
+5 / 5
+
+Architecture note: Database одоо 1–10 range дэмждэг боловч UI одоогоор 1–5 сонголттой байна. Дараагийн implementation дээр Phase 3-ийн эцсийн scale-тэй нийцүүлж шийднэ.
+
+Boolean
+Plan followed?
+Yes / No / Clear
+
+Emotional interference?
+Yes / No / Clear
+Execution Quality
+1
+2
+3
+4
+5
+Mistakes
+
+Dynamic tag хэлбэрээр:
+
+Mistake нэмэх...
+
+[Revenge trading ×]
+[FOMO ×]
+[Early entry ×]
+
+Давхардсан mistake нэмэхээс хамгаалсан.
+
+Lesson Learned
+
+Free-text textarea.
+
+Notes
+
+Free-text textarea.
+
+Trade Psychology Save / Load
+
+🟢 DONE
+
+Component:
+
+TradePsychology
+
+дараах ажиллагаатай болсон.
+
+Existing psychology load
+trade_id
+
+- user_id
+  ↓
+  trade_psychology
+  ↓
+  maybeSingle()
+  ↓
+  form populate
+  Existing record байгаа бол
+  UPDATE
+  Байхгүй бол
+  INSERT
+
+дараа нь үүссэн:
+
+id
+
+form state-д хадгалагдана.
+
+Security filtering
+
+Save / Update үед:
+
+trade_id
+user_id
+
+хоёуланг нь ашиглаж байна.
+
 PHASE 3 — Pre-Trade Psychology
 
-🔵 NEXT
+🟡 FOUNDATION IMPLEMENTED / NEEDS REFINEMENT
 
 Энд хэрэглэгчээс trade хийхээс өмнөх бодит төлөвийг авна.
+
+Roadmap-ийн зорилтот architecture:
 
 Emotional State
 Calmness
@@ -391,15 +544,54 @@ Decision Pressure
 Rushed Decision
 FOMO
 Emotional Carryover
-Чухал
+
+Чухал зарчим:
 
 Бүгдийг заавал бөглүүлэхгүй.
 
-Analytics-д үнэ цэнтэй, trade бүр дээр бодитоор хариулж болох асуултуудыг л үлдээнэ.
+Trade бүр дээр бодитоор хариулж болох, analytics-д үнэ цэнтэй асуултуудыг л үлдээнэ.
 
-⚪ NOT IMPLEMENTED
+Одоогийн зөрүү
+
+Одоогийн trade_psychology schema болон component нь:
+
+mood
+confidence
+anxiety
+trading urge
+plan followed
+emotional interference
+execution quality
+mistakes
+lesson
+notes
+
+гэсэн анхны psychology foundation-ийг хэрэгжүүлсэн.
+
+Харин roadmap-ийн бүрэн Phase 3-д:
+
+Focus
+Patience
+Decision Clarity
+Decision Pressure
+Rushed Decision
+FOMO
+Emotional Carryover
+Fear
+Greed
+Frustration
+
+зэрэг pre-trade variables-ийг тусад нь structured data болгох эсэхийг эцэслэх шаардлагатай.
+
+Иймээс Phase 3-ийг одоогоор:
+
+🟡 IN PROGRESS / FOUNDATION DONE
+
+гэж үзнэ.
 
 PHASE 4 — Trade Behavior
+
+🔵 NEXT AFTER PHASE 3
 
 Энд:
 
@@ -435,7 +627,9 @@ Early Exit
 
 PHASE 5 — Post-Trade Review
 
-Энэ хэсэгт trades table-д байгаа мэдээллийг дахин асуухгүй.
+🔵 NOT IMPLEMENTED
+
+Trades table-д байгаа мэдээллийг дахин асуухгүй.
 
 Автоматаар харуулах
 Entry
@@ -459,14 +653,12 @@ Would Take Again?
 Үгүй
 Reflection / Lesson
 
-Free-text хэсэг.
+Free-text.
 
 ⚪ NOT IMPLEMENTED
 
-PHASE 6 — Бүх Review-г нэг Trade Review болгон нэгтгэх
-
-Эцсийн UX:
-
+PHASE 6 — Unified Trade Review
+Эцсийн UX
 Trade #123 — Review
 
 ┌──────────────────────────────┐
@@ -512,19 +704,26 @@ Trade #123 — Review
 │ Reflection: ... │
 └──────────────────────────────┘
 
-Ингэснээр Trade Review нь нэг бүхэл систем болно.
+Одоогийн:
 
 🟡 PARTIALLY READY
 
-Trade Review page болон Setup Validation бэлэн.
+Бэлэн:
 
-Pre-Trade Psychology, Trade Behavior, Post-Trade Review нэмэгдсэний дараа бүрэн дуусна.
+Trade Information
+Setup Validation
+Trade Psychology foundation
 
+Үлдсэн:
+
+Pre-Trade Psychology refinement
+Trade Behavior
+Post-Trade Review
 PHASE 7 — Psychology Analytics
 
-Энэ хэсгийг trade review хангалттай хэмжээгээр хуримтлагдсаны дараа хийнэ.
-
 🔴 FUTURE
+
+Trade Review хангалттай хэмжээгээр хуримтлагдсаны дараа.
 
 Setup → Result
 Setup fully met
@@ -537,12 +736,10 @@ Anxiety
 ↓
 Win Rate
 Average R
-
 FOMO
 ↓
 Win Rate
 Average R
-
 Confidence
 ↓
 Win Rate
@@ -551,11 +748,9 @@ Behavior → Result
 Moved SL
 ↓
 Average R
-
 Early Exit
 ↓
 Average R
-
 Plan Violation
 ↓
 Win Rate
@@ -569,32 +764,32 @@ Average R
 
 PHASE 8 — Insight / Coaching Layer
 
-Analytics дээр хангалттай өгөгдөл бий болсны дараа.
-
 🔴 FUTURE
+
+Analytics дээр хангалттай өгөгдөл бий болсны дараа.
 
 Жишээ:
 
 Таны гол асуудал:
 
 Сүүлийн 30 trade-ийн 9-д FOMO тэмдэглэгдсэн
-
 бөгөөд эдгээр trade-ийн дундаж үр дүн -0.91R байна.
-Setup асуудал:
 
-Setup-ийн шаардлагыг бүрэн хангаагүй trade-үүдийн
-average R -0.84R байна.
-Execution асуудал:
+Setup:
 
-Ашигтай trade-үүдийг төлөвлөсөн түвшинд хүрэхээс
-өмнө хаах хандлага байна.
+Setup-ийн шаардлагыг бүрэн хангаагүй
+trade-үүдийн average R -0.84R байна.
+
+Execution:
+
+Ашигтай trade-үүдийг төлөвлөсөн түвшинд
+хүрэхээс өмнө хаах хандлага байна.
+
 Дараагийн анхаарах зүйл:
 
-Дараагийн 10 trade дээр FOMO-той үед trade хийхгүй
-байх дүрмийг турш.
-
-Эцсийн логик:
-
+Дараагийн 10 trade дээр FOMO-той үед
+trade хийхгүй байх дүрмийг турш.
+Эцсийн логик
 Data
 ↓
 Pattern
@@ -603,70 +798,18 @@ Problem
 ↓
 Recommendation
 Одоогийн бодит Status
-PHASE 1
+Phase Status
+Phase 1 — Trade-based architecture 🟢 DONE
+Phase 2 — Dynamic Setup / Checklist 🟢 DONE
+Phase 3 — Pre-Trade Psychology 🟡 FOUNDATION DONE / REFINEMENT NEEDED
+Phase 4 — Trade Behavior ⚪ NOT IMPLEMENTED
+Phase 5 — Post-Trade Review ⚪ NOT IMPLEMENTED
+Phase 6 — Unified Trade Review 🟡 PARTIALLY READY
+Phase 7 — Psychology Analytics 🔴 FUTURE
+Phase 8 — AI / Insights 🔴 FUTURE
+Одоогийн Implementation дараалал
 
-Trade-based architecture
-
-🟢 DONE
-
-PHASE 2
-
-Dynamic Setup / Checklist
-
-🟢 DONE
-
-DB / SQL
-UI
-Response Save
-Response Load
-Result Calculation
-Required Validation
-Met
-Partially Met
-Not Met
-Not Applicable
-Build
-PHASE 3
-
-Pre-Trade Psychology
-
-⚪ NOT IMPLEMENTED
-
-PHASE 4
-
-Trade Behavior
-
-⚪ NOT IMPLEMENTED
-
-PHASE 5
-
-Post-Trade Review
-
-⚪ NOT IMPLEMENTED
-
-PHASE 6
-
-Unified Trade Review
-
-🟡 PARTIALLY READY
-
-Setup Validation хэсэг бэлэн. Үлдсэн Psychology / Behavior / Post-Trade хэсгүүдийг нэмнэ.
-
-PHASE 7
-
-Psychology Analytics
-
-🔴 FUTURE
-
-PHASE 8
-
-AI / Insights
-
-🔴 FUTURE
-
-Яг одоо хийх Implementation дараалал
-
-Phase 2 аль хэдийн дууссан тул хуучин дарааллыг өөрчилнө.
+Phase 2 аль хэдийн дууссан.
 
 1. Existing Checklist Configuration
    ↓
@@ -680,25 +823,22 @@ Phase 2 аль хэдийн дууссан тул хуучин дарааллы�
    ↓
    PHASE 2 COMPLETE
    ↓
-6. Pre-Trade Psychology
+6. Trade Psychology Foundation
    ↓
-7. Trade Behavior
+7. Pre-Trade Psychology refinement
    ↓
-8. Post-Trade Review
+8. Trade Behavior
    ↓
-9. Unified Trade Review
+9. Post-Trade Review
    ↓
-10. Full Review Testing
+10. Unified Trade Review
     ↓
-11. Psychology Analytics
+11. Full Review Testing
     ↓
-12. Insights
-
-Одоогийн яг дараагийн ажил:
-
-PHASE 3
-Pre-Trade Psychology
-Trading Plan-ийн үүрэг
+12. Psychology Analytics
+    ↓
+13. Insights
+    Trading Plan-ийн үүрэг
 
 Одоогийн trading_plans architecture-г өөрчлөхгүй.
 
@@ -714,7 +854,9 @@ Trade Review дээр шаардлагатай үед:
 
 📋 Trading Plan
 ↓
-Strategy / Risk Management / Key Processes
+Strategy
+Risk Management
+Key Processes
 
 гэж reference болгон харуулж болно.
 
@@ -736,20 +878,22 @@ Checklist Responses
 ↓
 Checklist Result
 
+болон:
+
+Trade
+↓
+Trade Psychology
+
 гэсэн structured review relationship ашиглана.
 
 Trading Journal — Session Summary
-Session date
+Гол зорилго
 
-2026-08-20
-
-1. Гол зорилго
-
-Trade хэсгийн Edit үйлдэл болон Trade Review үйлдлийг тусгаарлах.
+Trade-ийн үндсэн мэдээллийг засах Edit болон Trade-ийн сэтгэлзүйн/чанарын мэдээллийг засах Review үйлдлийг тусгаарласан.
 
 Edit
 
-Зөвхөн Trade-ийн үндсэн мэдээллийг засна.
+Зөвхөн:
 
 Entry
 SL
@@ -761,32 +905,8 @@ Account
 Symbol
 Direction
 ...
-Review
 
-Тухайн Trade-ийн:
-
-Trade Checklist
-Trade Psychology
-
-мэдээллийг оруулж / засна.
-
-Trade Edit page-ийг Checklist + Psychology-оор дүүргэхгүй.
-
-2. Гол Navigation
-   Trades page
-
-Файл:
-
-src/app/trades/page.tsx
-
-Trade table дээр тусдаа Review button байна.
-
-Үйлдлүүд:
-
-[Chart] [Review] [Edit] [Delete]
-Chart
-
-Тухайн trade-ийн chart / price action-ийг харах.
+зэрэг trade-ийн үндсэн мэдээлэл.
 
 Review
 
@@ -797,113 +917,123 @@ Pre-Trade Psychology
 Trade Behavior
 Post-Trade Review
 
-бүх review мэдээлэл рүү орно.
+мэдээлэл.
 
+Trade Navigation
+
+src/app/trades/page.tsx
+
+Trade table дээр:
+
+[Chart] [Review] [Edit] [Delete]
+Chart
+
+Тухайн trade-ийн chart / price action.
+
+Review
+
+Тухайн trade-ийн бүх review:
+
+Setup Validation
+Pre-Trade Psychology
+Trade Behavior
+Post-Trade Review
 Edit
 
-Зөвхөн trade-ийн үндсэн мэдээллийг засна.
+Зөвхөн trade-ийн үндсэн мэдээлэл.
 
 Delete
 
 Trade устгана.
 
-3. Энэ session дээр хийж дуусгасан зүйлс
-   Trade Review
+Энэ session-ийн нэмэлт өөрчлөлт
+Trade Psychology component
 
-🟢 Trade Review page аль хэдийн хийгдсэн байсан.
+Trade Review page-д:
 
-Setup Checklist
+<TradePsychology tradeId={tradeId} />
 
-🟢 Existing checklist items Trade Review дээр харагдана.
+холбогдсон.
 
-Response
+TradePsychology component нь одоо:
 
-🟢 Checklist response load/save ажиллана.
+🟢 Existing Psychology Load
+🟢 Form State
+🟢 Mood
+🟢 Confidence
+🟢 Anxiety
+🟢 Trading Urge
+🟢 Plan Followed
+🟢 Emotional Interference
+🟢 Execution Quality
+🟢 Mistakes
+🟢 Lesson Learned
+🟢 Notes
+🟢 Insert
+🟢 Update
+🟢 Save state
+🟢 Error handling
+🟢 User filtering
 
-Response Status
+зэрэг foundation-ийг хэрэгжүүлсэн.
 
-🟢 trade_checklist_responses дээр:
+Database
 
-response_status
+trade_psychology table:
 
-нэмсэн.
+trade_id UNIQUE
 
-Зөвшөөрөгдөх утга:
+тул:
 
-met
-partially_met
-not_met
-not_applicable
-Result Calculation
+1 Trade → 1 Psychology Review
 
-🟢 Setup Validation result одоо application logic дээр тооцогдоно.
+гэсэн relationship тогтсон.
 
-Met = 1
-Partially Met = 0.5
-Not Met = 0
-N/A = excluded
-Required Validation
+Яг одоо хийх ажил
+PHASE 3 — Pre-Trade Psychology
 
-🟢 Required checklist item бөглөгдөөгүй бол Save хийх боломжгүй.
+Одоогийн дараагийн бодит ажил:
 
-Build
-
-🟢 Checklist өөрчлөлтийн дараа илэрсэн TypeScript build errors-ийг зассан.
-
-Засагдсан:
-
-src/lib/equity.ts
-src/lib/hooks/useTrades.ts
-
-npm run build амжилттай болсон.
-
-4. Архитектурын үндсэн шийдвэр
-
-Тусдаа strategies entity үүсгэхгүй.
-
-Одоогийн:
-
-trading_plans.strategy
-
-нь хэрэглэгчийн strategy documentation хэвээр байна.
-
-Dynamic Setup Validation нь:
-
-Checklist Configuration
+Current TradePsychology
 ↓
-Trade
+Pre-Trade Psychology architecture
 ↓
-Trade Checklist Responses
+Structured fields-ийг эцэслэх
 ↓
-Trade Checklist Result
-
-архитектуртай байна.
-
-5. Одоогийн дараагийн алхам
-
-Phase 2 дууссан.
-
-Одоо:
-
-PHASE 3
-Pre-Trade Psychology
-
-руу шилжинэ.
-
-Дараа нь:
-
-Pre-Trade Psychology
+UI-г roadmap-той нийцүүлэх
 ↓
+DB schema update шаардлагатай эсэхийг шийдэх
+↓
+Save / Load
+↓
+Validation
+↓
+Build test
+
+Үүний дараа:
+
+PHASE 4
 Trade Behavior
 ↓
+PHASE 5
 Post-Trade Review
 ↓
+PHASE 6
 Unified Trade Review
-↓
-Testing
-↓
-Psychology Analytics
-↓
-Insights
 
-гэсэн дарааллаар явна.
+гэж үргэлжилнэ.
+
+Одоогийн хамгийн чухал архитектурын шийдвэр
+
+Trade Psychology-ийн foundation аль хэдийн хийгдсэн тул Phase 3-ийг шинээр эхнээс нь хийхгүй.
+
+Одоо байгаа:
+
+trade_psychology
+
+- TradePsychology.tsx
+- TradeReviewPage
+
+дээр тулгуурлан roadmap-ийн Pre-Trade Psychology шаардлагад нийцүүлж өргөтгөнө.
+
+Одоогийн дараагийн implementation: PHASE 3 — Pre-Trade Psychology.
