@@ -322,6 +322,7 @@ export default function TradeForm() {
 
     const result = await addTrade({
       account_id: accountId,
+      strategy_profile_id: null,
       symbol,
       type: type as "buy" | "sell",
       entry_price: entryPrice,
@@ -917,6 +918,7 @@ export default function TradeForm() {
 
     const formatted = parsedTrades.map((t) => ({
       account_id: accountId,
+      strategy_profile_id: null,
       symbol: t.symbol,
       type: t.type as "buy" | "sell",
       entry_price: t.entry_price,

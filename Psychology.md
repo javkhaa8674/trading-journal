@@ -1,193 +1,36 @@
-Psychology System — Final Roadmap
+Psychology System — Final Roadmap (UPDATED)
 Үндсэн зорилго
-
 Өдрийн тэмдэглэлээс Trade-based Psychology Review систем рүү шилжинэ.
 
-OLD
-Day
-
-├── Mood
-├── Today's trades
-├── Today's mistakes
-└── Today's notes
-NEW
-Trade
-
-├── Setup Validation
-├── Pre-Trade Psychology
-├── Trade Behavior
-└── Post-Trade Review
-
+OLD NEW
+Day Trade
+├── Mood ├── Setup Validation
+├── Today's trades ├── Pre-Trade Psychology
+├── Today's mistakes ├── Trade Behavior
+└── Today's notes └── Post-Trade Review
 Day нь үндсэн journal entity биш болно. Харин дараа нь trade-үүдийг нэгтгэн харах aggregation/context болно.
 
-PHASE 1 — Trade-based Psychology
-Зорилго
-
-Өмнөх day-based Psychology-г trade-based болгох.
-
-Үр дүн
-
-Нэг trade өөрийн гэсэн Psychology Review-тэй байна.
-
-Trade #123
-
-├── Setup Validation
-├── Pre-Trade Psychology
-├── Trade Behavior
-└── Post-Trade Review
+Phase Status
+Phase Status Description
+Phase 1 — Trade-based Psychology 🟢 DONE Trade-based architecture, database foundation
+Phase 2 — Dynamic Setup Validation 🟢 DONE Checklist UI, Response, Result Calculation
+Phase 3 — Pre-Trade Psychology 🟢 DONE Full implementation with 13 fields (1-5 scale)
+Phase 4 — Trade Behavior 🟢 DONE Plan Adherence, SL/TP Modification, Early Exit
+Phase 5 — Post-Trade Review 🟢 DONE Execution Quality, Would Take Again, Reflection
+Phase 6 — Unified Trade Review 🟢 DONE All components integrated into one page
+Phase 7 — Psychology Analytics 🔴 FUTURE Setup → Result, Psychology → Result, Behavior → Result
+Phase 8 — Insight / Coaching Layer 🔴 FUTURE Pattern detection, recommendations
+Phase 1 — Trade-based Psychology 🟢 DONE
 Database
+Table Status
+trade_checklist_items 🟢 Created
+trade_checklist_responses 🟢 Created
+trade_checklist_results 🟢 Created
+Phase 2 — Dynamic Setup Validation 🟢 DONE
+Response Architecture
+trade_checklist_responses:
 
-🟢 DONE
-
-Database foundation:
-
-trade_checklist_items
-trade_checklist_responses
-trade_checklist_results
-
-Мөн холбогдох SQL / relationship-ийн суурь ажил хийгдсэн.
-
-PHASE 2 — Dynamic Setup Validation
-Гол architecture
-
-Strategy-г тусдаа database entity болгохгүй.
-
-Одоогийн системд хэрэглэгчийн strategy:
-
-trading_plans
-
-├── strategy
-├── risk_management
-└── key_processes
-
-гэсэн Trading Plan-ийн rich-text documentation хэлбэрээр хадгалагдана.
-
-trading_plans.strategy нь хэрэглэгч өөрийн арилжааны аргачлал, дүрмээ унших болон засах зориулалттай.
-
-Энэ текстээс runtime үед checklist автоматаар үүсгэхгүй.
-
-Trading Plan ба Setup Checklist
-Trading Plan
-
-Хэрэглэгчийн өөрийн дүрэм, аргачлалын documentation:
-
-Trading Plan
-
-Strategy
-
-├── Market Structure & Trend
-├── POI
-├── Entry Setup
-└── SL & TP
-
-Risk Management
-
-└── ...
-
-Key Processes
-
-└── ...
-Setup Checklist
-
-Trade Review дээр analytics хийхэд зориулсан structured data:
-
-Setup Validation
-
-├── HTF Bias
-├── Valid POI
-├── Liquidity
-├── M5 CHoCH / MSS
-├── Entry Confirmation
-└── Risk / R:R
-
-Тиймээс:
-
-Trading Plan
-│
-│ reference / documentation
-↓
-Trade Review
-
-Trade
-│
-↓
-Trade Checklist
-│
-├── Checklist Items
-├── Responses
-└── Result
-
-Trade нь trading_plans.strategy-тэй FK relationship хийх шаардлагагүй.
-
-Checklist-ийн үндсэн зарчим
-
-Checklist нь системд нэг удаагийн hardcoded UI хэлбэрээр байхгүй.
-
-Хэрэглэгч өөрийн Setup Validation checklist-ээ тодорхойлно.
-
-Жишээ:
-
-SMC-style Setup Checklist
-
-├── HTF Bias
-├── Liquidity Sweep
-├── MSS
-├── FVG
-└── Entry Confirmation
-
-Өөр хэрэглэгч:
-
-EMA Pullback Checklist
-
-├── Trend
-├── Pullback
-├── RSI
-└── Candle Confirmation
-
-SMC Setup, EMA Pullback нь заавал strategies table-ийн entity байх албагүй.
-
-Checklist configuration нь өөрөө тухайн хэрэглэгчийн setup validation criteria-г тодорхойлно.
-
-Phase 2 — Response Architecture
-
-Өмнө нь:
-
-value
-rating
-text_value
-
-байсан.
-
-Одоо trade_checklist_responses дээр:
-
-response_status
-
-нэмэгдсэн.
-
-Response Status
-Met
-Partially Met
-Not Met
-Not Applicable
-
-Мөн:
-
-response_status = null
-
-нь Unanswered гэсэн төлөвийг илэрхийлнэ.
-
-Ингэснээр:
-
-Not Applicable
-
-болон
-
-Unanswered
-
-хоёрыг зөв ялгах боломжтой болсон.
-
-Database
-trade_checklist_responses
+text
 ├── id
 ├── user_id
 ├── trade_id
@@ -195,845 +38,316 @@ trade_checklist_responses
 ├── value
 ├── rating
 ├── text_value
-├── response_status
+├── response_status ← met | partially_met | not_met | not_applicable
 ├── created_at
 └── updated_at
+Response Status:
 
-response_status:
+met = 1 (full score)
 
-met
-partially_met
-not_met
-not_applicable
+partially_met = 0.5
+
+not_met = 0
+
+not_applicable = excluded from denominator
+
+null = Unanswered (incomplete)
+
 Setup Validation Result Calculation
+Example:
 
-Application logic дээр:
+text
+HTF Bias → Met (1)
+Liquidity → Met (1)
+MSS → Partially Met (0.5)
+FVG → Not Met (0)
+Entry → N/A (excluded)
 
-Met = 1
-Partially Met = 0.5
-Not Met = 0
-Not Applicable = denominator-д орохгүй
-Unanswered = incomplete
+Result: 2.5 / 4 = 62.5%
+UI Components
+✅ Boolean checklist: [Met] [Partially Met] [Not Met] [N/A]
 
-Жишээ:
+✅ Rating: 1-5 scale
 
-HTF Bias Met 1
-Liquidity Met 1
-MSS Partially Met 0.5
-FVG Not Met 0
-Entry N/A -
+✅ Text: Free-text input
 
-Үр дүн:
+✅ Response Save / Load
 
-2.5 / 4
-62.5%
+✅ Result Calculation
 
-Trade Review дээр:
+Strategy Profiles
+✅ Multiple strategy profiles per user
 
-Setup Validation
+✅ Profile-based checklist items
 
-Met 3
-Partially Met 1
-Not Met 1
-N/A 1
+✅ Active profile selection
 
-Score
-4.5 / 5
+✅ Trade strategy assignment
 
-90%
-
-гэх мэтээр харуулах боломжтой.
-
-Phase 2 — UI + Application Logic
-
-🟢 DONE
-
-Хийгдсэн:
-
-Existing Checklist Configuration
-↓
-Trade Review
-↓
-Checklist UI
-↓
-Response хадгалах
-↓
-Result calculation
-Checklist UI
-
-Boolean checklist:
-
-[Met]
-[Partially Met]
-[Not Met]
-[N/A]
-
-Rating:
-
-1 / 5
-2 / 5
-3 / 5
-4 / 5
-5 / 5
-
-Text:
-
-Write your answer...
-Response Save
-
-trade_checklist_responses рүү:
-
-value
-rating
-text_value
-response_status
-
-зөв төрлөөр хадгална.
-
-Result Save
-
-trade_checklist_results:
-
-├── trade_id
-├── checklist_item_id
-├── value_boolean
-├── value_number
-└── value_text
-
-normalized result/value мэдээллээ хадгалсан хэвээр байна.
-
-Phase 2 — Одоогийн бодит Status
-
-🟢 DB / SQL — DONE
-🟢 Trade Review Page — DONE
-🟢 Checklist UI — DONE
-🟢 Response Save — DONE
-🟢 Existing Response Load — DONE
-🟢 Result Calculation — DONE
-🟢 Met / Partially Met / Not Met / N/A — DONE
-🟢 Required Item Validation — DONE
-🟢 Build / TypeScript errors — FIXED
-
-Phase 2
-
-🟢 DONE
-
-Build / TypeScript Cleanup
-
-Checklist өөрчлөлтийн дараа илэрсэн TypeScript асуудлууд засагдсан.
-
-src/lib/equity.ts
-
-close_time:
-
-string | null
-
-байхад toTimestamp() руу шууд дамжуулснаас үүссэн type error засагдсан.
-
-validTrades дээр:
-
-close_time !== null
-
-гэсэн type narrowing зөв хийгдсэн.
-
-src/lib/hooks/useTrades.ts
-
-Supabase timestamp-ууд frontend дээр string хэлбэртэй байхад ашигласан:
-
-instanceof Date
-
-хэсгүүд арилсан.
-
-Database-аас ирж буй timestamp-ийг шууд ашигладаг болсон.
-
-Жишээ:
-
-open_time: trade.open_time
-
-Update үед:
-
-if (updates.open_time !== undefined) {
-formattedUpdates.open_time = updates.open_time;
-}
-Build
-
-🟢 npm run build — амжилттай
-
-PHASE 3 — Trade Psychology Foundation
-Одоогийн implementation
-
-Энэ phase-ийн суурь Trade Psychology component аль хэдийн хийгдсэн.
-
-Trade Review page:
-
-src/app/.../trade/[id]/page.tsx
-
-дотор:
-
-<TradePsychology tradeId={tradeId} />
-
-холбогдсон.
-
-Trade Psychology Database
+Phase 3 — Pre-Trade Psychology 🟢 DONE
+Database Schema — trade_psychology
+sql
 trade_psychology
-
-Одоогийн schema:
-
-trade_psychology
-
 ├── id
-├── trade_id
+├── trade_id (UNIQUE)
 ├── user_id
-├── mood
-├── confidence_level
-├── anxiety_level
-├── trading_urge_level
-├── plan_followed
-├── emotional_interference
-├── execution_quality
-├── mistakes
-├── lesson_learned
-├── notes
 ├── created_at
-└── updated_at
-
-Constraints:
-
-trade_id UNIQUE
-trade_id → trades(id)
-user_id → auth.users(id)
-
-Мөн trade устахад psychology автоматаар устах:
-
-ON DELETE CASCADE
-Psychology Level Constraints
-
-Database дээр:
-
-confidence_level 1–10
-anxiety_level 1–10
-trading_urge_level 1–10
-execution_quality 1–10
-
-гэсэн range constraint байна.
-
-NULL зөвшөөрөгдөнө.
-
-TradePsychology UI
-
-🟢 IMPLEMENTED
-
-Одоогоор Trade Review дээр дараах мэдээллийг оруулах боломжтой.
-
-Mood
-Mood
-
-Free-text хэлбэрээр.
-
-Psychology Levels
-Confidence
-Anxiety
-Trading Urge
-
-Одоогийн UI:
-
-Select
-1 / 5
-2 / 5
-3 / 5
-4 / 5
-5 / 5
-
-Architecture note: Database одоо 1–10 range дэмждэг боловч UI одоогоор 1–5 сонголттой байна. Дараагийн implementation дээр Phase 3-ийн эцсийн scale-тэй нийцүүлж шийднэ.
-
-Boolean
-Plan followed?
-Yes / No / Clear
-
-Emotional interference?
-Yes / No / Clear
-Execution Quality
-1
-2
-3
-4
-5
-Mistakes
-
-Dynamic tag хэлбэрээр:
-
-Mistake нэмэх...
-
-[Revenge trading ×]
-[FOMO ×]
-[Early entry ×]
-
-Давхардсан mistake нэмэхээс хамгаалсан.
-
-Lesson Learned
-
-Free-text textarea.
-
-Notes
-
-Free-text textarea.
-
-Trade Psychology Save / Load
-
-🟢 DONE
-
-Component:
-
-TradePsychology
-
-дараах ажиллагаатай болсон.
-
-Existing psychology load
-trade_id
-
-- user_id
-  ↓
-  trade_psychology
-  ↓
-  maybeSingle()
-  ↓
-  form populate
-  Existing record байгаа бол
-  UPDATE
-  Байхгүй бол
-  INSERT
-
-дараа нь үүссэн:
-
-id
-
-form state-д хадгалагдана.
-
-Security filtering
-
-Save / Update үед:
-
-trade_id
-user_id
-
-хоёуланг нь ашиглаж байна.
-
-PHASE 3 — Pre-Trade Psychology
-
-🟡 FOUNDATION IMPLEMENTED / NEEDS REFINEMENT
-
-Энд хэрэглэгчээс trade хийхээс өмнөх бодит төлөвийг авна.
-
-Roadmap-ийн зорилтот architecture:
-
-Emotional State
-Calmness
-Anxiety
-Fear
-Greed
-Frustration
-Confidence
-
-1–5 scale.
-
-Cognitive State
-Focus
-Patience
-Decision Clarity
-Decision Pressure
-Rushed Decision
-FOMO
-Emotional Carryover
-
-Чухал зарчим:
-
-Бүгдийг заавал бөглүүлэхгүй.
-
-Trade бүр дээр бодитоор хариулж болох, analytics-д үнэ цэнтэй асуултуудыг л үлдээнэ.
-
-Одоогийн зөрүү
-
-Одоогийн trade_psychology schema болон component нь:
-
-mood
-confidence
-anxiety
-trading urge
-plan followed
-emotional interference
-execution quality
-mistakes
-lesson
-notes
-
-гэсэн анхны psychology foundation-ийг хэрэгжүүлсэн.
-
-Харин roadmap-ийн бүрэн Phase 3-д:
-
-Focus
-Patience
-Decision Clarity
-Decision Pressure
-Rushed Decision
-FOMO
-Emotional Carryover
-Fear
-Greed
-Frustration
-
-зэрэг pre-trade variables-ийг тусад нь structured data болгох эсэхийг эцэслэх шаардлагатай.
-
-Иймээс Phase 3-ийг одоогоор:
-
-🟡 IN PROGRESS / FOUNDATION DONE
-
-гэж үзнэ.
-
-PHASE 4 — Trade Behavior
-
-🔵 NEXT AFTER PHASE 3
-
-Энд:
-
-“Сэтгэл санаа ямар байсан?”
-
-гэхээс илүү:
-
-“Тэр сэтгэл санаа миний үйлдэлд нөлөөлсөн үү?”
-
-гэдгийг бүртгэнэ.
-
-Plan Adherence
-Бүрэн дагасан
-Хэсэгчлэн дагасан
-Зөрчсөн
-Stop Loss Modification
-Өөрчлөөгүй
-Төлөвлөгөөний дагуу
-Эрсдэлийг нэмэгдүүлсэн
-Сэтгэл хөдлөлөөс болсон
-Take Profit Modification
-Өөрчлөөгүй
-Шинэ мэдээлэлд үндэслэсэн
-Айдсаас болсон
-Шуналаас болсон
-Early Exit
-Үгүй
-Төлөвлөгөөний дагуу
-Айдсаас болсон
-Тэвчээргүй байдлаас болсон
-
-⚪ NOT IMPLEMENTED
-
-PHASE 5 — Post-Trade Review
-
-🔵 NOT IMPLEMENTED
-
-Trades table-д байгаа мэдээллийг дахин асуухгүй.
-
-Автоматаар харуулах
-Entry
-SL
-TP
-Exit
-P&L
-R
-Win/Loss
-Duration
-Хэрэглэгчээс авах
-Execution Quality
-1 — Маш муу
-2 — Муу
-3 — Дундаж
-4 — Сайн
-5 — Маш сайн
-Would Take Again?
-Тийм
-Тийм, өөрчлөлттэй
-Үгүй
-Reflection / Lesson
-
-Free-text.
-
-⚪ NOT IMPLEMENTED
-
-PHASE 6 — Unified Trade Review
-Эцсийн UX
-Trade #123 — Review
-
-┌──────────────────────────────┐
-│ Trade Information │
-│ Entry / SL / TP / P&L / R │
-└──────────────────────────────┘
-
-┌──────────────────────────────┐
-│ Setup Validation │
-│ │
-│ ✓ HTF Bias │
-│ ✓ Liquidity Sweep │
-│ ✓ MSS │
-│ ✗ FVG │
-│ ✓ Entry Confirmation │
-│ │
-│ 4 / 5 — 80% │
-└──────────────────────────────┘
-
-┌──────────────────────────────┐
-│ Pre-Trade Psychology │
-│ │
-│ Anxiety 2 / 5 │
-│ Confidence 4 / 5 │
-│ Focus 4 / 5 │
-│ FOMO No │
-└──────────────────────────────┘
-
-┌──────────────────────────────┐
-│ Trade Behavior │
-│ │
-│ Plan Adherence: Full │
-│ SL Modification: None │
-│ TP Modification: None │
-│ Early Exit: No │
-└──────────────────────────────┘
-
-┌──────────────────────────────┐
-│ Post-Trade Review │
-│ │
-│ Execution Quality: 4 / 5 │
-│ Would Take Again: Yes │
+├── updated_at
+│
+├── Emotional State (1-5 scale)
+│ ├── calmness_level
+│ ├── anxiety_level
+│ ├── fear_level
+│ ├── greed_level
+│ ├── frustration_level
+│ └── confidence_level
+│
+├── Cognitive State (1-5 scale)
+│ ├── focus_level
+│ ├── patience_level
+│ ├── decision_clarity_level
+│ └── decision_pressure_level
+│
+└── Decision & Emotional Flags (boolean)
+├── rushed_decision
+├── fomo
+└── emotional_carryover
+UI Components
+✅ Emotional State: 6 fields (1-5 scale)
+
+✅ Cognitive State: 4 fields (1-5 scale)
+
+✅ Decision & Emotional Flags: 3 boolean fields
+
+✅ Save / Load
+
+✅ Error handling
+
+✅ User filtering
+
+Phase 4 — Trade Behavior 🟢 DONE
+Database Schema — trade_behavior
+sql
+trade_behavior
+├── id
+├── trade_id (UNIQUE)
+├── user_id
+├── created_at
+├── updated_at
+│
+├── plan_adherence -- 'full' | 'partial' | 'violated'
+├── sl_modification -- 'none' | 'as_planned' | 'increased_risk' | 'emotional'
+├── tp_modification -- 'none' | 'based_on_new_info' | 'fear' | 'greed'
+└── early_exit -- 'no' | 'as_planned' | 'fear' | 'impatience'
+UI Components
+✅ Plan Adherence: Full | Partial | Violated
+
+✅ Stop Loss Modification: None | As Planned | Increased Risk | Emotional
+
+✅ Take Profit Modification: None | Based on New Info | Fear | Greed
+
+✅ Early Exit: No | As Planned | Fear | Impatience
+
+✅ Save / Load
+
+Phase 5 — Post-Trade Review 🟢 DONE
+Database Schema — post_trade_review
+sql
+post_trade_review
+├── id
+├── trade_id (UNIQUE)
+├── user_id
+├── created_at
+├── updated_at
+│
+├── execution_quality -- 1-5 scale
+├── would_take_again -- 'yes' | 'yes_with_changes' | 'no'
+├── reflection -- free-text
+├── lesson_learned -- free-text
+└── notes -- free-text
+Trade Information (Auto-display from trades table)
+Entry, SL, TP, Exit Price
+
+P&L, R-Multiple
+
+Win/Loss, Duration
+
+User Inputs
+✅ Execution Quality: 1-5 scale with labels (Маш муу → Маш сайн)
+
+✅ Would Take Again: Yes | Yes with changes | No
+
+✅ Reflection: Free-text
+
+✅ Lesson Learned: Free-text
+
+✅ Additional Notes: Free-text
+
+Phase 6 — Unified Trade Review 🟢 DONE
+Final UX — Trade #123 — Review
+text
+┌─────────────────────────────────────────────┐
+│ 📊 Trade Information │
+│ Entry / SL / TP / Exit / P&L / R / Duration │
+└─────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────┐
+│ 🎯 Strategy Profile Selector │
+│ [SMC ✓] [EMA Pullback] [Breakout] [General]│
+└─────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────┐
+│ ✅ Setup Validation │
+│ Met: 3 | Partial: 1 | Not Met: 1 | N/A: 1 │
+│ Score: 4.5 / 5 — 90% │
+└─────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────┐
+│ 🧠 Pre-Trade Psychology │
+│ Calmness: 4/5 | Anxiety: 2/5 | FOMO: No │
+└─────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────┐
+│ ⚡ Trade Behavior │
+│ Plan Adherence: Full | Early Exit: No │
+└─────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────┐
+│ 📝 Post-Trade Review │
+│ Execution Quality: 4/5 | Would Take: Yes │
 │ Reflection: ... │
-└──────────────────────────────┘
+└─────────────────────────────────────────────┘
+Components Integrated
+Component File Status
+Trade Information page.tsx 🟢 Displayed
+Strategy Profile Selector ChecklistSection.tsx 🟢 Integrated
+Setup Validation ChecklistSection.tsx 🟢 Integrated
+Pre-Trade Psychology TradePsychology.tsx 🟢 Integrated
+Trade Behavior TradeBehavior.tsx 🟢 Integrated
+Post-Trade Review PostTradeReview.tsx 🟢 Integrated
+Trade Navigation — /trades/page.tsx
+Action Button Status
+Chart [📊 Chart] 🟢 Available
+Review [📝 Review] 🟢 Available
+Edit [✏️ Edit] 🟢 Available
+Delete [🗑️ Delete] 🟢 Available
+Edit — Only basic trade data (Entry, SL, TP, Lot, Times, Account, Symbol, Direction)
+Review — All psychology/quality data (Setup Validation, Pre-Trade, Behavior, Post-Trade)
 
-Одоогийн:
-
-🟡 PARTIALLY READY
-
-Бэлэн:
-
-Trade Information
-Setup Validation
-Trade Psychology foundation
-
-Үлдсэн:
-
-Pre-Trade Psychology refinement
-Trade Behavior
-Post-Trade Review
-PHASE 7 — Psychology Analytics
-
-🔴 FUTURE
-
-Trade Review хангалттай хэмжээгээр хуримтлагдсаны дараа.
-
+Phase 7 — Psychology Analytics 🔴 FUTURE
+Analysis Categories
 Setup → Result
+
+text
 Setup fully met
 ↓
-Win Rate
-Average R
-Profit Factor
+Win Rate | Average R | Profit Factor
 Psychology → Result
-Anxiety
+
+text
+Anxiety | FOMO | Confidence
 ↓
-Win Rate
-Average R
-FOMO
-↓
-Win Rate
-Average R
-Confidence
-↓
-Win Rate
-Average R
+Win Rate | Average R
 Behavior → Result
-Moved SL
+
+text
+Moved SL | Early Exit | Plan Violation
 ↓
-Average R
-Early Exit
+Average R | Win Rate
+Core Question
+"Би ямар нөхцөлд хамгийн сайн, ямар нөхцөлд хамгийн муу trade хийдэг вэ?"
+
+Phase 8 — Insight / Coaching Layer 🔴 FUTURE
+Example Insights
+Problem Detection:
+
+Сүүлийн 30 trade-ийн 9-д FOMO тэмдэглэгдсэн бөгөөд эдгээр trade-ийн дундаж үр дүн -0.91R байна.
+
+Setup Issue:
+
+Setup-ийн шаардлагыг бүрэн хангаагүй trade-үүдийн average R -0.84R байна.
+
+Execution Pattern:
+
+Ашигтай trade-үүдийг төлөвлөсөн түвшинд хүрэхээс өмнө хаах хандлага байна.
+
+Recommendation:
+
+Дараагийн 10 trade дээр FOMO-той үед trade хийхгүй байх дүрмийг турш.
+
+Logic Flow
+text
+Data → Pattern → Problem → Recommendation
+Database Summary
+Table Purpose Status
+trade_checklist_items User-defined checklist items with groups 🟢
+trade_checklist_responses Checklist responses per trade 🟢
+trade_checklist_results Normalized results 🟢
+trade_psychology Pre-trade psychology (13 fields) 🟢
+trade_behavior Trade behavior (4 fields) 🟢
+post_trade_review Post-trade review (5 fields) 🟢
+strategy_profiles Strategy profiles per user 🟢
+Implementation Flow
+text
+Phase 1 ✅
 ↓
-Average R
-Plan Violation
+Phase 2 ✅
 ↓
-Win Rate
-Average R
-
-Гол зорилго:
-
-“Би ямар нөхцөлд хамгийн сайн, ямар нөхцөлд хамгийн муу trade хийдэг вэ?”
-
-гэдгийг тоогоор харуулах.
-
-PHASE 8 — Insight / Coaching Layer
-
-🔴 FUTURE
-
-Analytics дээр хангалттай өгөгдөл бий болсны дараа.
-
-Жишээ:
-
-Таны гол асуудал:
-
-Сүүлийн 30 trade-ийн 9-д FOMO тэмдэглэгдсэн
-бөгөөд эдгээр trade-ийн дундаж үр дүн -0.91R байна.
-
-Setup:
-
-Setup-ийн шаардлагыг бүрэн хангаагүй
-trade-үүдийн average R -0.84R байна.
-
-Execution:
-
-Ашигтай trade-үүдийг төлөвлөсөн түвшинд
-хүрэхээс өмнө хаах хандлага байна.
-
-Дараагийн анхаарах зүйл:
-
-Дараагийн 10 trade дээр FOMO-той үед
-trade хийхгүй байх дүрмийг турш.
-Эцсийн логик
-Data
+Phase 3 ✅
 ↓
-Pattern
+Phase 4 ✅
 ↓
-Problem
+Phase 5 ✅
 ↓
-Recommendation
-Одоогийн бодит Status
-Phase Status
-Phase 1 — Trade-based architecture 🟢 DONE
-Phase 2 — Dynamic Setup / Checklist 🟢 DONE
-Phase 3 — Pre-Trade Psychology 🟡 FOUNDATION DONE / REFINEMENT NEEDED
-Phase 4 — Trade Behavior ⚪ NOT IMPLEMENTED
-Phase 5 — Post-Trade Review ⚪ NOT IMPLEMENTED
-Phase 6 — Unified Trade Review 🟡 PARTIALLY READY
-Phase 7 — Psychology Analytics 🔴 FUTURE
-Phase 8 — AI / Insights 🔴 FUTURE
-Одоогийн Implementation дараалал
-
-Phase 2 аль хэдийн дууссан.
-
-1. Existing Checklist Configuration
-   ↓
-2. Trade Review Page
-   ↓
-3. Checklist UI
-   ↓
-4. Checklist Response Save / Load
-   ↓
-5. Checklist Result Calculation
-   ↓
-   PHASE 2 COMPLETE
-   ↓
-6. Trade Psychology Foundation
-   ↓
-7. Pre-Trade Psychology refinement
-   ↓
-8. Trade Behavior
-   ↓
-9. Post-Trade Review
-   ↓
-10. Unified Trade Review
-    ↓
-11. Full Review Testing
-    ↓
-12. Psychology Analytics
-    ↓
-13. Insights
-    Trading Plan-ийн үүрэг
-
-Одоогийн trading_plans architecture-г өөрчлөхгүй.
-
-trading_plans
-
-├── strategy
-├── risk_management
-└── key_processes
-
-Энэ нь хэрэглэгчийн өөрийн Trading Plan / reference documentation хэвээр байна.
-
-Trade Review дээр шаардлагатай үед:
-
-📋 Trading Plan
+Phase 6 ✅
 ↓
-Strategy
-Risk Management
-Key Processes
-
-гэж reference болгон харуулж болно.
-
-Гэхдээ:
-
-Trade
-✕
-Trading Plan Strategy
-
-гэсэн тусдаа FK relationship үүсгэхгүй.
-
-Харин:
-
-Trade
+Phase 7 🔴 FUTURE
 ↓
-Trade Checklist
-↓
-Checklist Responses
-↓
-Checklist Result
+Phase 8 🔴 FUTURE
+Files Created/Modified
+Components
+File Purpose
+src/components/trades/TradePsychology.tsx Pre-Trade Psychology UI
+src/components/trades/TradeBehavior.tsx Trade Behavior UI
+src/components/trades/PostTradeReview.tsx Post-Trade Review UI
+src/components/trades/ChecklistSection.tsx Setup Validation + Strategy Profile Selector UI
+src/app/trades/[id]/page.tsx Unified Trade Review page
+src/components/trades/TradeForm.tsx Trade creation form with strategy support
+Types
+File Purpose
+src/types/trade.ts All trade-related TypeScript types (Trade, StrategyProfile, ChecklistItem, etc.)
+Hooks
+File Purpose
+src/lib/hooks/useTrades.ts Trade CRUD + PostTradeReview + updateTradeStrategy
+Migrations
+File Purpose
+supabase/migrations/20260315_add_trade_behavior.sql Trade Behavior table
+supabase/migrations/20260315_add_post_trade_review.sql Post-Trade Review table
+supabase/migrations/\*\_trade_psychology.sql Pre-Trade Psychology table
+supabase/migrations/20260320_add_strategy_profiles.sql Strategy Profiles + checklist items + trades updates
+Current Status: ✅ PHASES 1-6 COMPLETE
+All core psychology features are implemented:
 
-болон:
+✅ Setup Validation (Dynamic Checklist with Groups)
 
-Trade
-↓
-Trade Psychology
+✅ Strategy Profiles (Multiple strategies per user)
 
-гэсэн structured review relationship ашиглана.
+✅ Pre-Trade Psychology (13 structured fields)
 
-Trading Journal — Session Summary
-Гол зорилго
+✅ Trade Behavior (4 behavior categories)
 
-Trade-ийн үндсэн мэдээллийг засах Edit болон Trade-ийн сэтгэлзүйн/чанарын мэдээллийг засах Review үйлдлийг тусгаарласан.
+✅ Post-Trade Review (Quality + Reflection)
 
-Edit
+✅ Unified Trade Review (All in one page with strategy selector)
 
-Зөвхөн:
+✅ Edit/Review separation
 
-Entry
-SL
-TP
-Lot
-Open Time
-Close Time
-Account
-Symbol
-Direction
-...
+✅ Light/Dark mode support
 
-зэрэг trade-ийн үндсэн мэдээлэл.
+Next Steps:
 
-Review
+Collect enough trade data
 
-Тухайн trade-ийн:
+Implement Psychology Analytics (Phase 7)
 
-Setup Validation
-Pre-Trade Psychology
-Trade Behavior
-Post-Trade Review
-
-мэдээлэл.
-
-Trade Navigation
-
-src/app/trades/page.tsx
-
-Trade table дээр:
-
-[Chart] [Review] [Edit] [Delete]
-Chart
-
-Тухайн trade-ийн chart / price action.
-
-Review
-
-Тухайн trade-ийн бүх review:
-
-Setup Validation
-Pre-Trade Psychology
-Trade Behavior
-Post-Trade Review
-Edit
-
-Зөвхөн trade-ийн үндсэн мэдээлэл.
-
-Delete
-
-Trade устгана.
-
-Энэ session-ийн нэмэлт өөрчлөлт
-Trade Psychology component
-
-Trade Review page-д:
-
-<TradePsychology tradeId={tradeId} />
-
-холбогдсон.
-
-TradePsychology component нь одоо:
-
-🟢 Existing Psychology Load
-🟢 Form State
-🟢 Mood
-🟢 Confidence
-🟢 Anxiety
-🟢 Trading Urge
-🟢 Plan Followed
-🟢 Emotional Interference
-🟢 Execution Quality
-🟢 Mistakes
-🟢 Lesson Learned
-🟢 Notes
-🟢 Insert
-🟢 Update
-🟢 Save state
-🟢 Error handling
-🟢 User filtering
-
-зэрэг foundation-ийг хэрэгжүүлсэн.
-
-Database
-
-trade_psychology table:
-
-trade_id UNIQUE
-
-тул:
-
-1 Trade → 1 Psychology Review
-
-гэсэн relationship тогтсон.
-
-Яг одоо хийх ажил
-PHASE 3 — Pre-Trade Psychology
-
-Одоогийн дараагийн бодит ажил:
-
-Current TradePsychology
-↓
-Pre-Trade Psychology architecture
-↓
-Structured fields-ийг эцэслэх
-↓
-UI-г roadmap-той нийцүүлэх
-↓
-DB schema update шаардлагатай эсэхийг шийдэх
-↓
-Save / Load
-↓
-Validation
-↓
-Build test
-
-Үүний дараа:
-
-PHASE 4
-Trade Behavior
-↓
-PHASE 5
-Post-Trade Review
-↓
-PHASE 6
-Unified Trade Review
-
-гэж үргэлжилнэ.
-
-Одоогийн хамгийн чухал архитектурын шийдвэр
-
-Trade Psychology-ийн foundation аль хэдийн хийгдсэн тул Phase 3-ийг шинээр эхнээс нь хийхгүй.
-
-Одоо байгаа:
-
-trade_psychology
-
-- TradePsychology.tsx
-- TradeReviewPage
-
-дээр тулгуурлан roadmap-ийн Pre-Trade Psychology шаардлагад нийцүүлж өргөтгөнө.
-
-Одоогийн дараагийн implementation: PHASE 3 — Pre-Trade Psychology.
+Build Insight Layer (Phase 8)

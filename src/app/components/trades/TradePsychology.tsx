@@ -218,7 +218,7 @@ export default function TradePsychology({ tradeId }: Props) {
     return (
       <section className="rounded-xl border bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <p className="text-sm text-gray-500">
-          Pre-Trade Psychology ачааллаж байна...
+          Арилжааны өмнөх сэтгэлзүй хуудсыг ачааллаж байна...
         </p>
       </section>
     );
@@ -229,10 +229,11 @@ export default function TradePsychology({ tradeId }: Props) {
       {/* HEADER */}
 
       <div className="border-b p-5 dark:border-gray-800">
-        <h2 className="text-lg font-semibold">🧠 Pre-Trade Psychology</h2>
+        <h2 className="text-lg font-semibold">🧠 Арилжааны өмнөх сэтгэл зүй</h2>
 
         <p className="mt-1 text-sm text-gray-500">
-          Trade хийхийн өмнөх сэтгэл зүй болон танин мэдэхүйн төлөвөө бүртгэнэ.
+          Арилжаа хийхийн өмнөх сэтгэл зүй болон танин мэдэхүйн төлөвөө
+          бүртгэнэ.
         </p>
       </div>
 
@@ -241,46 +242,46 @@ export default function TradePsychology({ tradeId }: Props) {
 
         <div>
           <div className="mb-4">
-            <h3 className="text-base font-semibold">Emotional State</h3>
+            <h3 className="text-base font-semibold">Сэтгэл хөдлөлийн төлөв</h3>
 
             <p className="mt-1 text-xs text-gray-500">
-              Trade хийхийн өмнөх тухайн үеийн сэтгэл хөдлөлийн төлөв.
+              Арилжаа хийхийн өмнөх тухайн үеийн сэтгэл хөдлөлийн төлөв.
             </p>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <LevelInput
-              label="Calmness"
+              label="Тогтвортой байдал"
               value={form.calmness_level}
               onChange={(value) => update("calmness_level", value)}
             />
 
             <LevelInput
-              label="Anxiety"
+              label="Түгшүүр/Сандарсан байдал"
               value={form.anxiety_level}
               onChange={(value) => update("anxiety_level", value)}
             />
 
             <LevelInput
-              label="Fear"
+              label="Айдас"
               value={form.fear_level}
               onChange={(value) => update("fear_level", value)}
             />
 
             <LevelInput
-              label="Greed"
+              label="Шунал"
               value={form.greed_level}
               onChange={(value) => update("greed_level", value)}
             />
 
             <LevelInput
-              label="Frustration"
+              label="Бухимдал"
               value={form.frustration_level}
               onChange={(value) => update("frustration_level", value)}
             />
 
             <LevelInput
-              label="Confidence"
+              label="Өөртөө итгэх итгэл"
               value={form.confidence_level}
               onChange={(value) => update("confidence_level", value)}
             />
@@ -291,35 +292,35 @@ export default function TradePsychology({ tradeId }: Props) {
 
         <div>
           <div className="mb-4">
-            <h3 className="text-base font-semibold">Cognitive State</h3>
+            <h3 className="text-base font-semibold">Танин мэдэхүйн төлөв</h3>
 
             <p className="mt-1 text-xs text-gray-500">
-              Trade хийхийн өмнөх анхаарал, шийдвэр гаргалт болон сэтгэлзүйн
+              Арилжаа хийхийн өмнөх анхаарал, шийдвэр гаргалт болон сэтгэлзүйн
               дарамтын төлөв.
             </p>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <LevelInput
-              label="Focus"
+              label="Төвлөрөл"
               value={form.focus_level}
               onChange={(value) => update("focus_level", value)}
             />
 
             <LevelInput
-              label="Patience"
+              label="Тэвчээр"
               value={form.patience_level}
               onChange={(value) => update("patience_level", value)}
             />
 
             <LevelInput
-              label="Decision Clarity"
+              label="Шийдвэрийн тодорхой байдал"
               value={form.decision_clarity_level}
               onChange={(value) => update("decision_clarity_level", value)}
             />
 
             <LevelInput
-              label="Decision Pressure"
+              label="Шийдвэрийн дарамт"
               value={form.decision_pressure_level}
               onChange={(value) => update("decision_pressure_level", value)}
             />
@@ -331,29 +332,32 @@ export default function TradePsychology({ tradeId }: Props) {
         <div>
           <div className="mb-4">
             <h3 className="text-base font-semibold">
-              Decision & Emotional Flags
+              Шийдвэр ба сэтгэл хөдлөлийн улаан туг
             </h3>
 
             <p className="mt-1 text-xs text-gray-500">
-              Тухайн trade хийхийн өмнө эдгээр нөхцөл байсан эсэх.
+              Тухайн арилжаа хийхийн өмнө эдгээр нөхцөл байсан эсэх.
             </p>
           </div>
 
           <div className="grid gap-5 md:grid-cols-3">
             <BooleanInput
-              label="Rushed Decision?"
+              label="Яаран гаргасан шийдвэр"
+              description="Энэ арилжаа яаран гаргасан шийдвэр байсан эсэх."
               value={form.rushed_decision}
               onChange={(value) => update("rushed_decision", value)}
             />
 
             <BooleanInput
-              label="FOMO?"
+              label="Хоцрох айдас (FOMO)"
+              description="Энэ арилжаа хийхдээ FOMO буюу хоцрох вий гэсэн айдас байсан эсэх."
               value={form.fomo}
               onChange={(value) => update("fomo", value)}
             />
 
             <BooleanInput
-              label="Emotional Carryover?"
+              label="Сэтгэл хөдлөлийн үлдэгдэл"
+              description="Энэ арилжаа хийхийн өмнө өмнөх арилжаанаас үлдсэн сэтгэл хөдлөлийн нөлөө байсан эсэх."
               value={form.emotional_carryover}
               onChange={(value) => update("emotional_carryover", value)}
             />
@@ -369,7 +373,7 @@ export default function TradePsychology({ tradeId }: Props) {
 
           {saved && !error && (
             <p className="text-sm text-green-500">
-              Pre-Trade Psychology хадгалагдлаа.
+              Арилжааны өмнөх сэтгэл зүйд хадгалагдлаа.
             </p>
           )}
         </div>
@@ -380,7 +384,7 @@ export default function TradePsychology({ tradeId }: Props) {
           disabled={saving}
           className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
-          {saving ? "Saving..." : "Save Psychology"}
+          {saving ? "Хадгалж байна..." : "Хадгалах"}
         </button>
       </div>
     </section>
@@ -407,7 +411,7 @@ function LevelInput({
         }
         className="w-full rounded-lg border bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
       >
-        <option value="">Select</option>
+        <option value="">Сонгох</option>
 
         {[1, 2, 3, 4, 5].map((value) => (
           <option key={value} value={value}>
@@ -421,17 +425,19 @@ function LevelInput({
 
 function BooleanInput({
   label,
+  description,
   value,
   onChange,
 }: {
   label: string;
+  description: string;
   value: boolean | null;
   onChange: (value: boolean | null) => void;
 }) {
   return (
     <div>
       <label className="mb-2 block text-sm font-medium">{label}</label>
-
+      <p className="mt-1 text-xs text-gray-500 mb-2">{description}</p>
       <div className="flex gap-2">
         <button
           type="button"
@@ -442,7 +448,7 @@ function BooleanInput({
               : "dark:border-gray-600"
           }`}
         >
-          Yes
+          Тийм
         </button>
 
         <button
@@ -454,7 +460,7 @@ function BooleanInput({
               : "dark:border-gray-600"
           }`}
         >
-          No
+          Үгүй
         </button>
 
         <button
@@ -466,7 +472,7 @@ function BooleanInput({
               : "dark:border-gray-600"
           }`}
         >
-          Clear
+          Цэвэрлэх
         </button>
       </div>
     </div>
