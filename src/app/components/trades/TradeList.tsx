@@ -1,3 +1,5 @@
+// src/components/trades/TradeList.tsx
+
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -12,20 +14,7 @@ import {
   ColumnDef,
   SortingState,
 } from "@tanstack/react-table";
-
-type Trade = {
-  id: string;
-  symbol: string;
-  type: string;
-  entry_price: number;
-  exit_price: number;
-  lot_size: number;
-  open_time: string;
-  close_time: string;
-  stop_loss: number;
-  take_profit: number;
-  profit: number;
-};
+import { Trade } from "@/types/trade";
 
 type Props = {
   trades: Trade[];
@@ -41,11 +30,9 @@ type Props = {
 
 const getPriceDecimals = (symbol: string): number => {
   const normalizedSymbol = symbol.toUpperCase();
-
   if (normalizedSymbol === "XAUUSD") {
     return 3;
   }
-
   return 5;
 };
 
@@ -57,30 +44,82 @@ const formatPrice = (price: number, symbol: string): string => {
    TIME FORMATTER
 ===================================================== */
 
-/**
- * IMPORTANT:
- *
- * open_time / close_time are expected to be
- * PostgreSQL timestamptz / ISO timestamps.
- *
- * Example:
- *
- * 2026-08-12T06:51:41.000Z
- *
- * Date preserves the exact instant.
- *
- * toLocaleString() only controls how that instant
- * is displayed to the user.
- */
 const formatTradeTime = (value: string): string => {
   const date = new Date(value);
-
   if (!Number.isFinite(date.getTime())) {
     return "-";
   }
-
   return `${date.toISOString().slice(0, 19).replace("T", " ")} UTC`;
 };
+
+/* =====================================================
+   🆕 PSYCHOLOGY STATUS COMPONENT - CLICKABLE PROGRESS BAR
+===================================================== */
+
+function PsychologyStatus({
+  hasPsychology,
+  hasBehavior,
+  hasPostTrade,
+  hasSetup,
+  onReview,
+  tradeId,
+}: {
+  hasPsychology: boolean;
+  hasBehavior: boolean;
+  hasPostTrade: boolean;
+  hasSetup: boolean;
+  onReview: (id: string) => void;
+  tradeId: string;
+}) {
+  const items = [
+    { label: "Сэтгэл зүй", value: hasPsychology },
+    { label: "Зан төлөв", value: hasBehavior },
+    { label: "Дүгнэлт", value: hasPostTrade },
+    { label: "Нөхцөл", value: hasSetup },
+  ];
+
+  const completed = items.filter((item) => item.value).length;
+  const total = items.length;
+  const percentage = Math.round((completed / total) * 100);
+
+  const getColor = () => {
+    if (percentage === 100) return "bg-green-500";
+    if (percentage >= 50) return "bg-yellow-500";
+    return "bg-gray-300";
+  };
+
+  const getLabel = () => {
+    if (percentage === 100) return "✅ Бүрэн";
+    if (percentage >= 50) return `⏳ ${percentage}%`;
+    return `⬜ ${percentage}%`;
+  };
+
+  const getLabelColor = () => {
+    if (percentage === 100) return "text-green-600 dark:text-green-400";
+    if (percentage >= 50) return "text-yellow-600 dark:text-yellow-400";
+    return "text-gray-400";
+  };
+
+  return (
+    <button
+      onClick={() => onReview(tradeId)}
+      className="flex flex-col gap-1 min-w-[130px] w-full hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg p-2 transition-colors cursor-pointer text-left"
+      title={`${getLabel()} - Дэлгэрэнгүй харах`}
+    >
+      <div className="flex items-center justify-between">
+        <span className={`text-xs font-medium ${getLabelColor()}`}>
+          {getLabel()}
+        </span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${getColor()}`}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </button>
+  );
+}
 
 /* =====================================================
    MAIN COMPONENT
@@ -96,16 +135,12 @@ export default function TradeList({
   const router = useRouter();
 
   const [sorting, setSorting] = useState<SortingState>([]);
-
   const [globalFilter, setGlobalFilter] = useState("");
-
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 10,
   });
-
   const [rowSelection, setRowSelection] = useState({});
-
   const [isSelectMode, setIsSelectMode] = useState(false);
 
   /* =====================================================
@@ -122,7 +157,6 @@ export default function TradeList({
     if (isSelectMode) {
       cols.push({
         id: "select",
-
         header: ({ table }) => (
           <input
             type="checkbox"
@@ -131,7 +165,6 @@ export default function TradeList({
             className="h-4 w-4 rounded border-gray-300"
           />
         ),
-
         cell: ({ row }) => (
           <input
             type="checkbox"
@@ -149,9 +182,7 @@ export default function TradeList({
 
     cols.push({
       accessorKey: "symbol",
-
       header: "Хослол",
-
       cell: (info) => (
         <span className="font-medium">{info.getValue() as string}</span>
       ),
@@ -163,12 +194,9 @@ export default function TradeList({
 
     cols.push({
       accessorKey: "type",
-
       header: "Төрөл",
-
       cell: (info) => {
         const type = info.getValue() as string;
-
         return (
           <span
             className={`rounded-full px-2 py-1 text-xs font-medium ${
@@ -189,12 +217,9 @@ export default function TradeList({
 
     cols.push({
       accessorKey: "entry_price",
-
       header: "Нээлтийн ханш",
-
       cell: (info) => {
         const row = info.row.original;
-
         return formatPrice(info.getValue() as number, row.symbol);
       },
     });
@@ -205,12 +230,9 @@ export default function TradeList({
 
     cols.push({
       accessorKey: "exit_price",
-
       header: "Хаалтын ханш",
-
       cell: (info) => {
         const row = info.row.original;
-
         return formatPrice(info.getValue() as number, row.symbol);
       },
     });
@@ -221,9 +243,7 @@ export default function TradeList({
 
     cols.push({
       accessorKey: "lot_size",
-
       header: "Лот хэмжээ",
-
       cell: (info) => (info.getValue() as number).toFixed(2),
     });
 
@@ -233,18 +253,13 @@ export default function TradeList({
 
     cols.push({
       accessorKey: "stop_loss",
-
       header: "SL",
-
       cell: (info) => {
         const row = info.row.original;
-
         const value = info.getValue() as number;
-
         if (!value) {
           return "-";
         }
-
         return formatPrice(value, row.symbol);
       },
     });
@@ -255,18 +270,13 @@ export default function TradeList({
 
     cols.push({
       accessorKey: "take_profit",
-
       header: "TP",
-
       cell: (info) => {
         const row = info.row.original;
-
         const value = info.getValue() as number;
-
         if (!value) {
           return "-";
         }
-
         return formatPrice(value, row.symbol);
       },
     });
@@ -277,9 +287,7 @@ export default function TradeList({
 
     cols.push({
       accessorKey: "open_time",
-
       header: "Нээлтийн огноо",
-
       cell: (info) => formatTradeTime(info.getValue() as string),
     });
 
@@ -289,9 +297,7 @@ export default function TradeList({
 
     cols.push({
       accessorKey: "close_time",
-
       header: "Хаалтын огноо",
-
       cell: (info) => formatTradeTime(info.getValue() as string),
     });
 
@@ -301,12 +307,9 @@ export default function TradeList({
 
     cols.push({
       accessorKey: "profit",
-
       header: "Ашиг",
-
       cell: (info) => {
         const profit = info.getValue() as number;
-
         return (
           <span
             className={`font-semibold ${
@@ -324,145 +327,65 @@ export default function TradeList({
     });
 
     /* =================================================
-       ACTIONS
+       🆕 PSYCHOLOGY STATUS - CLICKABLE PROGRESS BAR
+    ================================================= */
+
+    cols.push({
+      id: "psychology_status",
+      header: "🧠 Сэтгэл зүй",
+      cell: (info) => {
+        const trade = info.row.original;
+
+        return (
+          <PsychologyStatus
+            hasPsychology={trade.hasPsychology || false}
+            hasBehavior={trade.hasBehavior || false}
+            hasPostTrade={trade.hasPostTrade || false}
+            hasSetup={trade.hasSetup || false}
+            onReview={onReview}
+            tradeId={trade.id}
+          />
+        );
+      },
+    });
+
+    /* =================================================
+       🆕 ACTIONS - Зөвхөн Chart, Edit (Review товч хасагдсан)
     ================================================= */
 
     cols.push({
       id: "actions",
-
       header: "Үйлдэл",
-
       cell: (info) => {
         const tradeId = info.row.original.id;
-
         return (
           <div className="flex items-center gap-2">
             {/* CHART */}
-
             <button
               type="button"
               onClick={() => onChart(tradeId)}
-              className="
-                            group
-                            relative
-                            rounded
-                            bg-green-500
-                            px-3
-                            py-1
-                            text-xs
-                            text-white
-                            hover:bg-green-600
-                            transition-colors
-                          "
+              className="group relative rounded bg-green-500 px-3 py-1 text-xs text-white hover:bg-green-600 transition-colors"
             >
-              📈{/* Tooltip */}
-              <span
-                className="
-                            pointer-events-none 
-                            absolute 
-                            bottom-full 
-                            left-1/2 
-                            mb-2 
-                            -translate-x-1/2 
-                            whitespace-nowrap 
-                            rounded 
-                            bg-gray-800 
-                            px-2 
-                            py-1 
-                            text-[10px] 
-                            text-white 
-                            opacity-0 
-                            transition-opacity 
-                            group-hover:opacity-100
-                          "
-              >
+              📈
+              <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
                 Чарт
               </span>
             </button>
 
             {/* EDIT */}
-
             <button
               type="button"
               onClick={() => onEdit(tradeId)}
-              className="
-                            group
-                            relative
-                            rounded
-                            bg-blue-500
-                            px-3
-                            py-1
-                            text-xs
-                            text-white
-                            hover:bg-blue-600
-                            transition-colors
-                          "
+              className="group relative rounded bg-blue-500 px-3 py-1 text-xs text-white hover:bg-blue-600 transition-colors"
             >
-              ✎{/* Tooltip */}
-              <span
-                className="
-                            pointer-events-none 
-                            absolute 
-                            bottom-full 
-                            left-1/2 
-                            mb-2 
-                            -translate-x-1/2 
-                            whitespace-nowrap 
-                            rounded 
-                            bg-gray-800 
-                            px-2 
-                            py-1 
-                            text-[10px] 
-                            text-white 
-                            opacity-0 
-                            transition-opacity 
-                            group-hover:opacity-100
-                          "
-              >
+              ✎
+              <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
                 Засварлах
               </span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => onReview(tradeId)}
-              className="
-                            group
-                            relative
-                            rounded
-                            bg-red-500
-                            px-3
-                            py-1
-                            text-xs
-                            text-white
-                            hover:bg-red-600
-                            transition-colors
-                          "
-            >
-              🧠{/* Tooltip */}
-              <span
-                className="
-                            pointer-events-none 
-                            absolute 
-                            bottom-full 
-                            left-1/2 
-                            mb-2 
-                            -translate-x-1/2 
-                            whitespace-nowrap 
-                            rounded 
-                            bg-gray-800 
-                            px-2 
-                            py-1 
-                            text-[10px] 
-                            text-white 
-                            opacity-0 
-                            transition-opacity 
-                            group-hover:opacity-100
-                          "
-              >
-                Сэтгэл зүй
-              </span>
-            </button>
+            {/* 🆕 REVIEW товч ХАСАГДСАН */}
+            {/* Сэтгэл зүй column дээр дарж review руу орно */}
           </div>
         );
       },
@@ -477,30 +400,20 @@ export default function TradeList({
 
   const table = useReactTable({
     data: trades,
-
     columns,
-
     state: {
       sorting,
       globalFilter,
       pagination,
       rowSelection,
     },
-
     onSortingChange: setSorting,
-
     onGlobalFilterChange: setGlobalFilter,
-
     onPaginationChange: setPagination,
-
     onRowSelectionChange: setRowSelection,
-
     getCoreRowModel: getCoreRowModel(),
-
     getFilteredRowModel: getFilteredRowModel(),
-
     getPaginationRowModel: getPaginationRowModel(),
-
     getSortedRowModel: getSortedRowModel(),
   });
 
@@ -522,16 +435,13 @@ export default function TradeList({
     if (selectedCount === 0) {
       return;
     }
-
     if (
       confirm(
         `Are you sure you want to delete ${selectedCount} selected trade(s)?`,
       )
     ) {
       onDelete(selectedRowIds);
-
       setRowSelection({});
-
       setIsSelectMode(false);
     }
   };
@@ -542,7 +452,6 @@ export default function TradeList({
 
   const cancelSelectMode = () => {
     setIsSelectMode(false);
-
     setRowSelection({});
   };
 
@@ -558,13 +467,10 @@ export default function TradeList({
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 text-center">
         <div className="mb-2 text-4xl">📭</div>
-
         <h3 className="text-lg font-semibold">Арилжаа олдсонгүй</h3>
-
         <p className="mb-4 text-gray-500">
           Эхлээд хамгийн эхний арилжааг нэмнэ үү
         </p>
-
         <button
           onClick={() => router.push("/trades/new")}
           className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
@@ -581,10 +487,7 @@ export default function TradeList({
 
   return (
     <div className="space-y-4">
-      {/* =================================================
-          HEADER
-      ================================================= */}
-
+      {/* HEADER */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-1 items-center gap-2">
           <div className="relative">
@@ -595,12 +498,10 @@ export default function TradeList({
               placeholder="Хайх..."
               className="w-64 rounded-lg border px-4 py-2 pl-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
               🔍
             </span>
           </div>
-
           <span className="text-sm text-gray-500">
             {trades.length} Нийт арилжаа
           </span>
@@ -618,10 +519,8 @@ export default function TradeList({
                     : "bg-gray-300 cursor-not-allowed"
                 }`}
               >
-                🗑️ Устгах(
-                {selectedCount})
+                🗑️ Устгах({selectedCount})
               </button>
-
               <button
                 onClick={cancelSelectMode}
                 className="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50"
@@ -637,7 +536,6 @@ export default function TradeList({
               >
                 + Нэмэх
               </button>
-
               <button
                 onClick={enterSelectMode}
                 className="rounded-lg border px-4 py-2 text-sm text-red-500 hover:bg-red-50"
@@ -649,16 +547,12 @@ export default function TradeList({
         </div>
       </div>
 
-      {/* =================================================
-          SELECTION INFO
-      ================================================= */}
-
+      {/* SELECTION INFO */}
       {isSelectMode && selectedCount > 0 && (
         <div className="flex items-center justify-between rounded-lg bg-blue-50 p-3 dark:bg-blue-950">
           <span className="text-sm text-blue-800 dark:text-blue-300">
             {selectedCount} сонгогдсон арилжаа
           </span>
-
           <button
             onClick={() => setRowSelection({})}
             className="text-sm text-blue-600 hover:text-blue-800"
@@ -668,10 +562,7 @@ export default function TradeList({
         </div>
       )}
 
-      {/* =================================================
-          TABLE
-      ================================================= */}
-
+      {/* TABLE */}
       <div className="overflow-x-auto rounded-lg border">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50 dark:bg-gray-800">
@@ -692,7 +583,6 @@ export default function TradeList({
                         header.column.columnDef.header,
                         header.getContext(),
                       )}
-
                       {{
                         өсөх: " ↑",
                         буурах: " ↓",
@@ -728,17 +618,13 @@ export default function TradeList({
         </table>
       </div>
 
-      {/* =================================================
-          PAGINATION
-      ================================================= */}
-
+      {/* PAGINATION */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <span>
             Хуудас {table.getState().pagination.pageIndex + 1} /{" "}
             {table.getPageCount()}
           </span>
-
           <select
             value={table.getState().pagination.pageSize}
             onChange={(e) => table.setPageSize(Number(e.target.value))}
@@ -767,7 +653,6 @@ export default function TradeList({
             },
             (_, i) => {
               const pageNum = i + 1;
-
               return (
                 <button
                   key={pageNum}

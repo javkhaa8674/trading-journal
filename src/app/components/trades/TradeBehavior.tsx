@@ -13,6 +13,12 @@ import type {
 
 type Props = {
   tradeId: string;
+  mode?: "view" | "create" | "edit";
+  onSave?: (data: any) => void;
+  onCancel?: () => void;
+  onDelete?: () => void;
+  onChange?: (data: any) => void;
+  initialData?: any;
 };
 
 type FormData = {
@@ -63,7 +69,15 @@ function OptionButton<T extends string>({
   );
 }
 
-export default function TradeBehavior({ tradeId }: Props) {
+export default function TradeBehavior({
+  tradeId,
+  mode = "view",
+  onSave,
+  onCancel,
+  onDelete,
+  onChange,
+  initialData,
+}: Props) {
   const [form, setForm] = useState<FormData>(initialState);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -192,6 +206,63 @@ export default function TradeBehavior({ tradeId }: Props) {
     );
   }
 
+  // ХАРАХ горим
+  if (mode === "view") {
+    return (
+      <div className="space-y-4">
+        <ViewBehaviorItem
+          label="Төлөвлөгөөний биелэлт"
+          value={form.plan_adherence}
+          options={{
+            full: "Бүрэн",
+            partial: "Хагас",
+            violated: "Дагаагүй",
+          }}
+          dangerValues={["violated"]}
+        />
+        <ViewBehaviorItem
+          label="Stop Loss өөрчлөлт"
+          value={form.sl_modification}
+          options={{
+            none: "Үгүй",
+            as_planned: "Төлөвлөсөн байдлаар",
+            increased_risk: "Эрсдэлийг нэмэгдүүлсэн",
+            emotional: "Сэтгэл хөдлөлөөр",
+          }}
+          dangerValues={["increased_risk", "emotional"]}
+        />
+        <ViewBehaviorItem
+          label="Take Profit өөрчлөлт"
+          value={form.tp_modification}
+          options={{
+            none: "Үгүй",
+            based_on_new_info: "Шинэ мэдээлэлд тулгуурлаж",
+            fear: "Айснаас болж",
+            greed: "Шуналаас болж",
+          }}
+          dangerValues={["fear", "greed"]}
+        />
+        <ViewBehaviorItem
+          label="Эрт хаалт"
+          value={form.early_exit}
+          options={{
+            no: "Үгүй",
+            as_planned: "Төлөвлөсөн байдлаар",
+            fear: "Айснаас болж",
+            impatience: "Тэвчээргүйгээс",
+          }}
+          dangerValues={["fear", "impatience"]}
+        />
+
+        {!form.id && (
+          <p className="text-sm text-gray-400 text-center py-4">
+            ⬜ Зан төлөвийн мэдээлэл бүртгэгдээгүй байна
+          </p>
+        )}
+      </div>
+    );
+  }
+  // CREATE/EDIT горим - одоо байгаа UI
   return (
     <section className="rounded-xl border bg-white dark:border-gray-800 dark:bg-gray-900">
       {/* HEADER */}
@@ -405,5 +476,32 @@ export default function TradeBehavior({ tradeId }: Props) {
         </button>
       </div>
     </section>
+  );
+}
+
+// Helper component for view mode
+function ViewBehaviorItem({
+  label,
+  value,
+  options,
+  dangerValues = [],
+}: {
+  label: string;
+  value: string | null;
+  options: Record<string, string>;
+  dangerValues?: string[];
+}) {
+  const labelText = value ? options[value] : null;
+  const isDanger = value && dangerValues.includes(value);
+
+  return (
+    <div className="flex items-center justify-between rounded-lg border p-4 dark:border-gray-700">
+      <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
+      <span
+        className={`text-sm font-medium ${labelText ? (isDanger ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400") : "text-gray-400"}`}
+      >
+        {labelText || "—"}
+      </span>
+    </div>
   );
 }

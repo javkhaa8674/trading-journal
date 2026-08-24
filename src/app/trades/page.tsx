@@ -1,7 +1,9 @@
+// src/app/trades/page.tsx
+
 "use client";
 
 // icon added
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
@@ -36,7 +38,7 @@ export default function TradesPage() {
    */
   const [activeAccount, setActiveAccount] = useState<string | null>(null);
 
-  const [showChart, setShowChart] = useState(true);
+  const [showChart, setShowChart] = useState(false);
 
   /*
    * TradeList дээрээс Chart товч дарахад
@@ -53,9 +55,120 @@ export default function TradesPage() {
     activeAccount || undefined,
   );
 
-  /* =====================================================
-     LOAD ACCOUNTS
-  ===================================================== */
+  // ============================================================
+  // PSYCHOLOGY STATUS STATE
+  // ============================================================
+  const [psychologyStatus, setPsychologyStatus] = useState<Record<string, any>>(
+    {},
+  );
+
+  // ============================================================
+  // FETCH PSYCHOLOGY STATUS
+  // ============================================================
+  const fetchPsychologyStatus = useCallback(async () => {
+    if (!trades.length) {
+      setPsychologyStatus({});
+      return;
+    }
+
+    try {
+      const user = await getCurrentUser();
+      if (!user) return;
+
+      const tradeIds = trades.map((t) => t.id);
+
+      // 1. Psychology
+      const { data: psychData, error: psychError } = await supabase
+        .from("trade_psychology")
+        .select("trade_id")
+        .in("trade_id", tradeIds)
+        .eq("user_id", user.id);
+
+      if (psychError) console.error("Psych error:", psychError);
+
+      // 2. Behavior
+      const { data: behaviorData, error: behaviorError } = await supabase
+        .from("trade_behavior")
+        .select("trade_id")
+        .in("trade_id", tradeIds)
+        .eq("user_id", user.id);
+
+      if (behaviorError) console.error("Behavior error:", behaviorError);
+
+      // 3. Post-Trade
+      const { data: postTradeData, error: postError } = await supabase
+        .from("post_trade_review")
+        .select("trade_id")
+        .in("trade_id", tradeIds)
+        .eq("user_id", user.id);
+
+      if (postError) console.error("Post-Trade error:", postError);
+
+      // 4. Setup
+      const { data: setupData, error: setupError } = await supabase
+        .from("trade_checklist_responses")
+        .select("*")
+        .in("trade_id", tradeIds)
+        .eq("user_id", user.id);
+
+      if (setupError) console.error("Setup error:", setupError);
+
+      // Setup-ийн статусыг тооцоолох
+      const setupStatus: Record<string, boolean> = {};
+      tradeIds.forEach((id) => {
+        setupStatus[id] = false;
+      });
+
+      if (setupData && setupData.length > 0) {
+        const grouped = setupData.reduce(
+          (acc, r) => {
+            if (!acc[r.trade_id]) acc[r.trade_id] = [];
+            acc[r.trade_id].push(r);
+            return acc;
+          },
+          {} as Record<string, any[]>,
+        );
+
+        for (const [tradeId, responses] of Object.entries(grouped) as [
+          string,
+          any[],
+        ][]) {
+          const allAnswered = responses.every(
+            (r) => r.response_status !== null,
+          );
+          setupStatus[tradeId] = allAnswered && responses.length > 0;
+        }
+      }
+
+      // Status map үүсгэх
+      const statusMap: Record<string, any> = {};
+      tradeIds.forEach((id) => {
+        statusMap[id] = {
+          hasPsychology: psychData?.some((p) => p.trade_id === id) || false,
+          hasBehavior: behaviorData?.some((b) => b.trade_id === id) || false,
+          hasPostTrade: postTradeData?.some((p) => p.trade_id === id) || false,
+          hasSetup: setupStatus[id] || false,
+        };
+      });
+
+      setPsychologyStatus(statusMap);
+    } catch (error) {
+      console.error("💥 Error fetching psychology status:", error);
+    }
+  }, [trades]);
+
+  // Status-г татах
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void fetchPsychologyStatus();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [fetchPsychologyStatus]);
+
+  // ============================================================
+  // LOAD ACCOUNTS
+  // ============================================================
 
   useEffect(() => {
     const loadAccounts = async () => {
@@ -81,10 +194,6 @@ export default function TradesPage() {
 
       setAccounts(loadedAccounts);
 
-      /*
-       * Default:
-       * Active tab дээрх эхний account-ийг сонгоно.
-       */
       const activeAccounts = loadedAccounts.filter(
         (acc) => acc.status === "active",
       );
@@ -93,10 +202,6 @@ export default function TradesPage() {
         setActiveTab("active");
         setActiveAccount(activeAccounts[0].id);
       } else {
-        /*
-         * Active account байхгүй бол
-         * хамгийн эхний боломжтой status/account-ийг сонгоно.
-         */
         const firstAccount = loadedAccounts[0];
 
         if (firstAccount) {
@@ -113,9 +218,9 @@ export default function TradesPage() {
     loadAccounts();
   }, [router]);
 
-  /* =====================================================
-     ACCOUNT STATUS HELPERS
-  ===================================================== */
+  // ============================================================
+  // ACCOUNT STATUS HELPERS
+  // ============================================================
 
   const getValidAccountStatus = (status: string): AccountStatus => {
     if (status === "achieved") return "achieved";
@@ -124,16 +229,10 @@ export default function TradesPage() {
     return "active";
   };
 
-  /*
-   * Одоогийн tab-ийн account-ууд
-   */
   const filteredAccounts = accounts.filter(
     (account) => account.status === activeTab,
   );
 
-  /*
-   * Status тус бүрийн account count
-   */
   const activeAccounts = accounts.filter(
     (account) => account.status === "active",
   );
@@ -146,31 +245,21 @@ export default function TradesPage() {
     (account) => account.status === "closed",
   );
 
-  /* =====================================================
-     TAB CHANGE
-  ===================================================== */
+  // ============================================================
+  // TAB CHANGE
+  // ============================================================
 
   const handleTabChange = (tab: AccountStatus) => {
     setActiveTab(tab);
 
-    /*
-     * Сонгогдсон account шинэ tab-д хамаарч байгаа эсэхийг шалгана.
-     */
     const accountsForTab = accounts.filter((account) => account.status === tab);
 
-    /*
-     * Шинэ tab хоосон бол account selection-ийг цэвэрлэнэ.
-     */
     if (accountsForTab.length === 0) {
       setActiveAccount(null);
       setSelectedTradeId(null);
       return;
     }
 
-    /*
-     * Одоогийн account шинэ tab-д байгаа бол
-     * selection-ийг хэвээр үлдээнэ.
-     */
     const currentAccountExists = accountsForTab.some(
       (account) => account.id === activeAccount,
     );
@@ -179,50 +268,27 @@ export default function TradesPage() {
       return;
     }
 
-    /*
-     * Байхгүй бол тухайн tab-ийн эхний account-ийг сонгоно.
-     */
     setActiveAccount(accountsForTab[0].id);
-
-    /*
-     * Өмнөх trade selection-ийг цэвэрлэнэ.
-     */
     setSelectedTradeId(null);
   };
 
-  /* =====================================================
-     ACCOUNT CHANGE
-  ===================================================== */
+  // ============================================================
+  // ACCOUNT CHANGE
+  // ============================================================
 
   const handleAccountChange = (value: string) => {
     setActiveAccount(value);
-
-    /*
-     * Account солигдоход өмнөх
-     * selected trade-ийг арилгана.
-     */
     setSelectedTradeId(null);
   };
 
-  /* =====================================================
-     CHART TRADE
-  ===================================================== */
+  // ============================================================
+  // CHART TRADE
+  // ============================================================
 
   const handleChartTrade = (tradeId: string) => {
-    /*
-     * Chart-ийг нээх
-     */
     setShowChart(true);
-
-    /*
-     * Яг сонгосон trade
-     */
     setSelectedTradeId(tradeId);
 
-    /*
-     * React state update хийсний
-     * дараа chart хэсэг рүү scroll хийнэ.
-     */
     requestAnimationFrame(() => {
       chartSectionRef.current?.scrollIntoView({
         behavior: "smooth",
@@ -231,26 +297,9 @@ export default function TradesPage() {
     });
   };
 
-  /* =====================================================
-     DELETE TRADE
-  ===================================================== */
-
-  const handleDeleteTrade = async (tradeId: string) => {
-    await deleteTrade(tradeId);
-
-    /*
-     * Хэрэв chart дээр
-     * устгасан trade байсан бол
-     * selection-ийг цэвэрлэнэ.
-     */
-    if (selectedTradeId === tradeId) {
-      setSelectedTradeId(null);
-    }
-  };
-
-  /* =====================================================
-     DELETE MULTIPLE
-  ===================================================== */
+  // ============================================================
+  // DELETE MULTIPLE
+  // ============================================================
 
   const handleDeleteTrades = async (tradeIds: string[]) => {
     for (const id of tradeIds) {
@@ -262,9 +311,9 @@ export default function TradesPage() {
     }
   };
 
-  /* =====================================================
-     EDIT TRADE
-  ===================================================== */
+  // ============================================================
+  // EDIT TRADE
+  // ============================================================
 
   const editTrade = (tradeId: string) => {
     router.push(`/trades/${tradeId}`);
@@ -274,9 +323,21 @@ export default function TradesPage() {
     router.push(`/trades/${tradeId}/review`);
   };
 
-  /* =====================================================
-     LOADING
-  ===================================================== */
+  // ============================================================
+  // TRADES WITH STATUS
+  // ============================================================
+
+  const tradesWithStatus = trades.map((trade) => ({
+    ...trade,
+    hasPsychology: psychologyStatus[trade.id]?.hasPsychology || false,
+    hasBehavior: psychologyStatus[trade.id]?.hasBehavior || false,
+    hasPostTrade: psychologyStatus[trade.id]?.hasPostTrade || false,
+    hasSetup: psychologyStatus[trade.id]?.hasSetup || false,
+  }));
+
+  // ============================================================
+  // LOADING
+  // ============================================================
 
   if (loading && accounts.length === 0) {
     return (
@@ -290,9 +351,9 @@ export default function TradesPage() {
     );
   }
 
-  /* =====================================================
-     RENDER
-  ===================================================== */
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
     <div className="space-y-4">
@@ -306,7 +367,6 @@ export default function TradesPage() {
             <h1 className="text-xl sm:text-2xl font-bold">📊 Арилжаанууд</h1>
 
             {/* Chart Toggle Button */}
-
             <button
               onClick={() => setShowChart(!showChart)}
               className="
@@ -329,50 +389,46 @@ export default function TradesPage() {
               title={showChart ? "Chart нуух" : "Chart харуулах"}
             >
               {showChart ? (
-                <>
-                  {/* Eye open */}
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                </>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
               ) : (
-                <>
-                  {/* Eye closed */}
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m3 3 18 18" />
-                    <path d="M10.58 10.58a2 2 0 0 0 2.83 2.83" />
-                    <path d="M9.88 4.24A10.75 10.75 0 0 1 21.94 11.65a1 1 0 0 1 0 .7 10.75 10.75 0 0 1-4.12 5.14" />
-                    <path d="M6.61 6.61A10.75 10.75 0 0 0 2.06 11.65a1 1 0 0 0 0 .7 10.75 10.75 0 0 0 5.28 5.07A10.75 10.75 0 0 0 12 18c.91 0 1.8-.11 2.65-.32" />
-                  </svg>
-                </>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m3 3 18 18" />
+                  <path d="M10.58 10.58a2 2 0 0 0 2.83 2.83" />
+                  <path d="M9.88 4.24A10.75 10.75 0 0 1 21.94 11.65a1 1 0 0 1 0 .7 10.75 10.75 0 0 1-4.12 5.14" />
+                  <path d="M6.61 6.61A10.75 10.75 0 0 0 2.06 11.65a1 1 0 0 0 0 .7 10.75 10.75 0 0 0 5.28 5.07A10.75 10.75 0 0 0 12 18c.91 0 1.8-.11 2.65-.32" />
+                </svg>
               )}
             </button>
 
             {/* Refresh Button */}
-
             <button
-              onClick={refresh}
+              onClick={() => {
+                refresh();
+                fetchPsychologyStatus();
+              }}
               className="
                 px-3 py-1.5
                 text-sm
@@ -392,7 +448,6 @@ export default function TradesPage() {
               "
               title="Refresh"
             >
-              {/* Refresh */}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="16"
@@ -413,7 +468,6 @@ export default function TradesPage() {
           </div>
 
           {/* Account Filter */}
-
           <select
             value={activeAccount || ""}
             onChange={(e) => handleAccountChange(e.target.value)}
@@ -461,8 +515,6 @@ export default function TradesPage() {
             "
             aria-label="Account status tabs"
           >
-            {/* ACTIVE */}
-
             <button
               onClick={() => handleTabChange("active")}
               className={`
@@ -501,8 +553,6 @@ export default function TradesPage() {
               </span>
             </button>
 
-            {/* ACHIEVED */}
-
             <button
               onClick={() => handleTabChange("achieved")}
               className={`
@@ -540,8 +590,6 @@ export default function TradesPage() {
                 {achievedAccounts.length}
               </span>
             </button>
-
-            {/* CLOSED */}
 
             <button
               onClick={() => handleTabChange("closed")}
@@ -660,7 +708,7 @@ export default function TradesPage() {
 
       {activeAccount && (
         <TradeList
-          trades={trades.map((t) => ({
+          trades={tradesWithStatus.map((t) => ({
             ...t,
             open_time: t.open_time?.toString() || "",
             close_time: t.close_time?.toString() || "",

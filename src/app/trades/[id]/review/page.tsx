@@ -1,8 +1,12 @@
+// src/app/trades/[id]/review/page.tsx
+
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTrades } from "@/lib/hooks/useTrades";
+import { supabase } from "@/lib/supabaseClient";
+import { getCurrentUser } from "@/lib/getCurrentUser";
 import TradePsychology from "@/app/components/trades/TradePsychology";
 import TradeBehavior from "@/app/components/trades/TradeBehavior";
 import PostTradeReview from "@/app/components/trades/PostTradeReview";
@@ -16,6 +20,39 @@ export default function TradeReviewPage() {
   const { trades, loading } = useTrades();
   const trade = trades.find((t) => t.id === tradeId);
   const [activeSection, setActiveSection] = useState<string>("overview");
+
+  // 🆕 Стратегийн нэрийг хадгалах state
+  const [strategyName, setStrategyName] = useState<string>("—");
+
+  // 🆕 Стратегийн нэрийг татах
+  useEffect(() => {
+    async function loadStrategyName() {
+      if (!trade?.strategy_profile_id) {
+        setStrategyName("—");
+        return;
+      }
+
+      const user = await getCurrentUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("strategy_profiles")
+        .select("name")
+        .eq("id", trade.strategy_profile_id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error loading strategy name:", error);
+        setStrategyName("—");
+        return;
+      }
+
+      setStrategyName(data?.name || "—");
+    }
+
+    loadStrategyName();
+  }, [trade?.strategy_profile_id]);
 
   if (loading) {
     return (
@@ -50,7 +87,7 @@ export default function TradeReviewPage() {
     { id: "behavior", label: "⚡ Зан төлөв" },
     { id: "review", label: "📝 Дүгнэлт" },
   ];
-  console.log("check trade", trade);
+
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8">
       {/* Header */}
@@ -76,8 +113,8 @@ export default function TradeReviewPage() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => router.push(`/trades/${tradeId}/edit`)}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800"
+              onClick={() => router.push(`/trades/${tradeId}/review/edit`)}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 transition-colors"
             >
               ✏️ Засах
             </button>
@@ -85,125 +122,33 @@ export default function TradeReviewPage() {
         </div>
       </div>
 
-      {/* Mobile: Tab Navigation */}
-      <div className="mb-6 overflow-x-auto md:hidden">
-        <div className="flex gap-2">
-          {sections.map((section) => (
-            <button
-              key={section.id}
-              onClick={() => setActiveSection(section.id)}
-              className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm ${
-                activeSection === section.id
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-              }`}
-            >
-              {section.label}
-            </button>
-          ))}
-        </div>
+      {/* Tabs */}
+      <div className="mb-6 flex flex-wrap gap-2 border-b pb-4 dark:border-gray-800">
+        {sections.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setActiveSection(s.id)}
+            className={`rounded-lg px-4 py-2 text-sm transition-colors ${
+              activeSection === s.id
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
 
-      {/* Desktop: All sections visible */}
-      <div className="hidden space-y-6 md:block">
-        {/* Trade Information */}
-        <section className="rounded-xl border bg-white dark:border-gray-800 dark:bg-gray-900">
-          <div className="border-b p-5 dark:border-gray-800">
-            <h2 className="text-lg font-semibold">
-              📊 Худалдааны мэдээлэл{" "}
-              <span className="text-sm font-normal text-gray-500">
-                (Trade Information)
-              </span>
-            </h2>
-          </div>
-          <div className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
-            <div>
-              <p className="text-xs text-gray-500">
-                Хослол <span className="text-[10px]">(Symbol)</span>
-              </p>
-              <p className="text-sm font-medium">{trade.symbol}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">
-                Чиглэл <span className="text-[10px]">(Direction)</span>
-              </p>
-              <p
-                className={`text-sm font-medium ${
-                  trade.type === "buy" ? "text-green-600" : "text-red-600"
-                }`}
-              >
-                {trade.type === "buy" ? "BUY (Худалдан авах)" : "SELL"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">
-                Нээлт <span className="text-[10px]">(Entry)</span>
-              </p>
-              <p className="text-sm font-medium">{trade.entry_price ?? "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">
-                Stop Loss <span className="text-[10px]">(SL)</span>
-              </p>
-              <p className="text-sm font-medium">{trade.stop_loss ?? "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">
-                Take Profit <span className="text-[10px]">(TP)</span>
-              </p>
-              <p className="text-sm font-medium">{trade.take_profit ?? "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">
-                Хаалт <span className="text-[10px]">(Exit)</span>
-              </p>
-              <p className="text-sm font-medium">{trade.exit_price ?? "—"}</p>
-            </div>
-
-            <div>
-              <p className="text-xs text-gray-500">
-                Багц хэмжээ <span className="text-[10px]">(Lot Size)</span>
-              </p>
-              <p className="text-sm font-medium">{trade.lot_size ?? "—"}</p>
-            </div>
-            {/* 🆕 Strategy Profile */}
-            <div>
-              <p className="text-xs text-gray-500">
-                Стратеги <span className="text-[10px]">(Strategy)</span>
-              </p>
-              <p className="text-sm font-medium">
-                {trade.strategy_profile_id || "—"}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Setup Validation */}
-        <ChecklistSection
-          tradeId={tradeId}
-          initialStrategyProfileId={trade.strategy_profile_id} // 🆕 trade-с strategy_profile_id дамжуулах
-        />
-
-        {/* Psychology */}
-        <TradePsychology tradeId={tradeId} />
-
-        {/* Behavior */}
-        <TradeBehavior tradeId={tradeId} />
-
-        {/* Post-Trade Review */}
-        <PostTradeReview tradeId={tradeId} />
-      </div>
-
-      {/* Mobile: Only active section visible */}
-      <div className="space-y-6 md:hidden">
+      {/* Content */}
+      <div className="space-y-6">
         {activeSection === "overview" && (
           <section className="rounded-xl border bg-white dark:border-gray-800 dark:bg-gray-900">
             <div className="border-b p-5 dark:border-gray-800">
               <h2 className="text-lg font-semibold">📊 Худалдааны мэдээлэл</h2>
             </div>
-            <div className="grid grid-cols-2 gap-4 p-5">
+            <div className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
               <div>
-                <p className="text-xs text-gray-500">Хөрөнгө</p>
+                <p className="text-xs text-gray-500">Хослол</p>
                 <p className="text-sm font-medium">{trade.symbol}</p>
               </div>
               <div>
@@ -257,7 +202,7 @@ export default function TradeReviewPage() {
               <div>
                 <p className="text-xs text-gray-500">Стратеги</p>
                 <p className="text-sm font-medium">
-                  {trade.strategy_profile_id || "—"}
+                  {strategyName} {/* 🆕 ID биш НЭР харуулах */}
                 </p>
               </div>
             </div>
@@ -265,23 +210,76 @@ export default function TradeReviewPage() {
         )}
 
         {activeSection === "setup" && (
-          <ChecklistSection
-            tradeId={tradeId}
-            initialStrategyProfileId={trade.strategy_profile_id}
-          />
+          <section className="rounded-xl border bg-white dark:border-gray-800 dark:bg-gray-900">
+            <div className="border-b p-5 dark:border-gray-800">
+              <h2 className="text-lg font-semibold">
+                ✅ Нөхцөл баталгаажуулалт
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  (Setup Validation)
+                </span>
+              </h2>
+            </div>
+            <div className="p-5">
+              <ChecklistSection
+                tradeId={tradeId}
+                initialStrategyProfileId={trade.strategy_profile_id}
+                mode="view"
+              />
+            </div>
+          </section>
         )}
 
         {activeSection === "psychology" && (
-          <TradePsychology tradeId={tradeId} />
+          <section className="rounded-xl border bg-white dark:border-gray-800 dark:bg-gray-900">
+            <div className="border-b p-5 dark:border-gray-800">
+              <h2 className="text-lg font-semibold">
+                🧠 Сэтгэл зүйн төлөв
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  (Pre-Trade Psychology)
+                </span>
+              </h2>
+            </div>
+            <div className="p-5">
+              <TradePsychology tradeId={tradeId} mode="view" />
+            </div>
+          </section>
         )}
 
-        {activeSection === "behavior" && <TradeBehavior tradeId={tradeId} />}
+        {activeSection === "behavior" && (
+          <section className="rounded-xl border bg-white dark:border-gray-800 dark:bg-gray-900">
+            <div className="border-b p-5 dark:border-gray-800">
+              <h2 className="text-lg font-semibold">
+                ⚡ Зан төлөв
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  (Trade Behavior)
+                </span>
+              </h2>
+            </div>
+            <div className="p-5">
+              <TradeBehavior tradeId={tradeId} mode="view" />
+            </div>
+          </section>
+        )}
 
-        {activeSection === "review" && <PostTradeReview tradeId={tradeId} />}
+        {activeSection === "review" && (
+          <section className="rounded-xl border bg-white dark:border-gray-800 dark:bg-gray-900">
+            <div className="border-b p-5 dark:border-gray-800">
+              <h2 className="text-lg font-semibold">
+                📝 Дүгнэлт
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  (Post-Trade Review)
+                </span>
+              </h2>
+            </div>
+            <div className="p-5">
+              <PostTradeReview tradeId={tradeId} mode="view" />
+            </div>
+          </section>
+        )}
       </div>
 
-      {/* Back to top (mobile) */}
-      <div className="mt-8 text-center md:hidden">
+      {/* Back to top */}
+      <div className="mt-8 text-center">
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           className="rounded-lg bg-gray-100 px-4 py-2 text-sm hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"

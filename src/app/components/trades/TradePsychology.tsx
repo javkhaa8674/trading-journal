@@ -1,3 +1,5 @@
+// src/components/trades/TradePsychology.tsx
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -28,6 +30,12 @@ type TradePsychologyData = {
 
 type Props = {
   tradeId: string;
+  mode?: "view" | "create" | "edit";
+  onSave?: (data: any) => void;
+  onCancel?: () => void;
+  onDelete?: () => void;
+  onChange?: (data: any) => void;
+  initialData?: any;
 };
 
 const initialState: TradePsychologyData = {
@@ -48,7 +56,15 @@ const initialState: TradePsychologyData = {
   emotional_carryover: null,
 };
 
-export default function TradePsychology({ tradeId }: Props) {
+export default function TradePsychology({
+  tradeId,
+  mode = "view",
+  onSave,
+  onCancel,
+  onDelete,
+  onChange,
+  initialData,
+}: Props) {
   const [form, setForm] = useState<TradePsychologyData>(initialState);
 
   const [loading, setLoading] = useState(true);
@@ -56,6 +72,7 @@ export default function TradePsychology({ tradeId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  // Load data
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -137,8 +154,17 @@ export default function TradePsychology({ tradeId }: Props) {
       ...current,
       [key]: value,
     }));
+
+    // onChange дуудах
+    if (onChange) {
+      onChange({
+        ...form,
+        [key]: value,
+      });
+    }
   }
 
+  // 🆕 SAVE FUNCTION - ЗАСВАРЧИЛСАН
   async function save() {
     setSaving(true);
     setSaved(false);
@@ -151,6 +177,7 @@ export default function TradePsychology({ tradeId }: Props) {
         throw new Error("Хэрэглэгч олдсонгүй.");
       }
 
+      // 🆕 id-г payload-с хасах
       const payload = {
         trade_id: tradeId,
         user_id: user.id,
@@ -174,10 +201,11 @@ export default function TradePsychology({ tradeId }: Props) {
         updated_at: new Date().toISOString(),
       };
 
+      // 🆕 Хэрэв form.id байгаа бол UPDATE
       if (form.id) {
         const { error } = await supabase
           .from("trade_psychology")
-          .update(payload)
+          .update(payload) // ✅ payload-д id БАЙХГҮЙ
           .eq("id", form.id)
           .eq("trade_id", tradeId)
           .eq("user_id", user.id);
@@ -186,6 +214,7 @@ export default function TradePsychology({ tradeId }: Props) {
           throw error;
         }
       } else {
+        // 🆕 INSERT
         const { data, error } = await supabase
           .from("trade_psychology")
           .insert(payload)
@@ -203,6 +232,11 @@ export default function TradePsychology({ tradeId }: Props) {
       }
 
       setSaved(true);
+
+      // onSave дуудах
+      if (onSave) {
+        onSave(form);
+      }
     } catch (err) {
       setError(
         err instanceof Error
@@ -217,17 +251,87 @@ export default function TradePsychology({ tradeId }: Props) {
   if (loading) {
     return (
       <section className="rounded-xl border bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <p className="text-sm text-gray-500">
-          Арилжааны өмнөх сэтгэлзүй хуудсыг ачааллаж байна...
-        </p>
+        <p className="text-sm text-gray-500">Ачааллаж байна...</p>
       </section>
     );
   }
 
+  // ============================================================
+  // VIEW MODE
+  // ============================================================
+  if (mode === "view") {
+    return (
+      <div className="space-y-4">
+        {/* Emotional State - View mode */}
+        <div>
+          <h3 className="text-sm font-medium text-gray-500 mb-2">
+            Сэтгэл хөдлөлийн төлөв
+          </h3>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <ViewItem label="Тогтвортой байдал" value={form.calmness_level} />
+            <ViewItem label="Түгшүүр" value={form.anxiety_level} />
+            <ViewItem label="Айдас" value={form.fear_level} />
+            <ViewItem label="Шунал" value={form.greed_level} />
+            <ViewItem label="Бухимдал" value={form.frustration_level} />
+            <ViewItem
+              label="Өөртөө итгэх итгэл"
+              value={form.confidence_level}
+            />
+          </div>
+        </div>
+
+        {/* Cognitive State - View mode */}
+        <div>
+          <h3 className="text-sm font-medium text-gray-500 mb-2">
+            Танин мэдэхүйн төлөв
+          </h3>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <ViewItem label="Төвлөрөл" value={form.focus_level} />
+            <ViewItem label="Тэвчээр" value={form.patience_level} />
+            <ViewItem
+              label="Шийдвэрийн тодорхой байдал"
+              value={form.decision_clarity_level}
+            />
+            <ViewItem
+              label="Шийдвэрийн дарамт"
+              value={form.decision_pressure_level}
+            />
+          </div>
+        </div>
+
+        {/* Flags - View mode */}
+        <div>
+          <h3 className="text-sm font-medium text-gray-500 mb-2">
+            Шийдвэр ба сэтгэл хөдлөлийн улаан туг
+          </h3>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <ViewFlag
+              label="Яаран гаргасан шийдвэр"
+              value={form.rushed_decision}
+            />
+            <ViewFlag label="Хоцрох айдас (FOMO)" value={form.fomo} />
+            <ViewFlag
+              label="Сэтгэл хөдлөлийн үлдэгдэл"
+              value={form.emotional_carryover}
+            />
+          </div>
+        </div>
+
+        {!form.id && (
+          <p className="text-sm text-gray-400 text-center py-4">
+            ⬜ Сэтгэл зүйн мэдээлэл бүртгэгдээгүй байна
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // ============================================================
+  // CREATE/EDIT MODE
+  // ============================================================
   return (
     <section className="rounded-xl border bg-white dark:border-gray-800 dark:bg-gray-900">
       {/* HEADER */}
-
       <div className="border-b p-5 dark:border-gray-800">
         <h2 className="text-lg font-semibold">🧠 Арилжааны өмнөх сэтгэл зүй</h2>
 
@@ -239,7 +343,6 @@ export default function TradePsychology({ tradeId }: Props) {
 
       <div className="space-y-8 p-5">
         {/* EMOTIONAL STATE */}
-
         <div>
           <div className="mb-4">
             <h3 className="text-base font-semibold">Сэтгэл хөдлөлийн төлөв</h3>
@@ -289,7 +392,6 @@ export default function TradePsychology({ tradeId }: Props) {
         </div>
 
         {/* COGNITIVE STATE */}
-
         <div>
           <div className="mb-4">
             <h3 className="text-base font-semibold">Танин мэдэхүйн төлөв</h3>
@@ -328,7 +430,6 @@ export default function TradePsychology({ tradeId }: Props) {
         </div>
 
         {/* COGNITIVE FLAGS */}
-
         <div>
           <div className="mb-4">
             <h3 className="text-base font-semibold">
@@ -366,7 +467,6 @@ export default function TradePsychology({ tradeId }: Props) {
       </div>
 
       {/* FOOTER */}
-
       <div className="flex items-center justify-between border-t p-5 dark:border-gray-800">
         <div>
           {error && <p className="text-sm text-red-500">{error}</p>}
@@ -390,6 +490,10 @@ export default function TradePsychology({ tradeId }: Props) {
     </section>
   );
 }
+
+// ============================================================
+// HELPER COMPONENTS
+// ============================================================
 
 function LevelInput({
   label,
@@ -475,6 +579,32 @@ function BooleanInput({
           Цэвэрлэх
         </button>
       </div>
+    </div>
+  );
+}
+
+function ViewItem({ label, value }: { label: string; value: number | null }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border p-3 dark:border-gray-700">
+      <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
+      <span
+        className={`text-sm font-medium ${value ? "text-blue-600 dark:text-blue-400" : "text-gray-400"}`}
+      >
+        {value ? `${value}/5` : "—"}
+      </span>
+    </div>
+  );
+}
+
+function ViewFlag({ label, value }: { label: string; value: boolean | null }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border p-3 dark:border-gray-700">
+      <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
+      <span
+        className={`text-sm font-medium ${value === true ? "text-red-600 dark:text-red-400" : value === false ? "text-green-600 dark:text-green-400" : "text-gray-400"}`}
+      >
+        {value === true ? "✅ Тийм" : value === false ? "❌ Үгүй" : "—"}
+      </span>
     </div>
   );
 }

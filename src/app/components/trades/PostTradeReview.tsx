@@ -15,6 +15,12 @@ type PostTradeReviewFormData = {
 
 type Props = {
   tradeId: string;
+  mode?: "view" | "create" | "edit";
+  onSave?: (data: any) => void;
+  onCancel?: () => void;
+  onDelete?: () => void;
+  onChange?: (data: any) => void;
+  initialData?: any;
 };
 
 const initialState: PostTradeReviewFormData = {
@@ -25,7 +31,15 @@ const initialState: PostTradeReviewFormData = {
   notes: null,
 };
 
-export default function PostTradeReview({ tradeId }: Props) {
+export default function PostTradeReview({
+  tradeId,
+  mode = "view",
+  onSave,
+  onCancel,
+  onDelete,
+  onChange,
+  initialData,
+}: Props) {
   const {
     trades,
     loading: tradesLoading,
@@ -140,6 +154,65 @@ export default function PostTradeReview({ tradeId }: Props) {
     trade.close_time ?? null,
   );
 
+  // ХАРАХ горим
+  if (mode === "view") {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <ViewItem
+            label="Гүйцэтгэлийн чанар"
+            value={form.execution_quality}
+            maxValue={5}
+            labelMap={{
+              1: "Маш муу",
+              2: "Муу",
+              3: "Дундаж",
+              4: "Сайн",
+              5: "Маш сайн",
+            }}
+          />
+          <ViewItem
+            label="Дахин хийх үү?"
+            value={form.would_take_again}
+            labelMap={{
+              yes: "Тийм",
+              yes_with_changes: "Тийм, өөрчлөлттэй",
+              no: "Үгүй",
+            }}
+          />
+        </div>
+
+        {form.reflection && (
+          <div className="rounded-lg border p-4 dark:border-gray-700">
+            <p className="text-sm text-gray-500 mb-1">Рефлекс</p>
+            <p className="text-sm">{form.reflection}</p>
+          </div>
+        )}
+
+        {form.lesson_learned && (
+          <div className="rounded-lg border p-4 dark:border-gray-700">
+            <p className="text-sm text-gray-500 mb-1">Сурсан зүйл</p>
+            <p className="text-sm">{form.lesson_learned}</p>
+          </div>
+        )}
+
+        {form.notes && (
+          <div className="rounded-lg border p-4 dark:border-gray-700">
+            <p className="text-sm text-gray-500 mb-1">Нэмэлт тэмдэглэл</p>
+            <p className="text-sm">{form.notes}</p>
+          </div>
+        )}
+
+        {!form.id && (
+          <p className="text-sm text-gray-400 text-center py-4">
+            ⬜ Дүгнэлт бүртгэгдээгүй байна
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // CREATE/EDIT горим - одоо байгаа UI
   return (
     <section className="rounded-xl border bg-white dark:border-gray-800 dark:bg-gray-900">
       {/* HEADER */}
@@ -395,5 +468,41 @@ export default function PostTradeReview({ tradeId }: Props) {
         </button>
       </div>
     </section>
+  );
+}
+
+// Helper component for view mode
+function ViewItem({
+  label,
+  value,
+  maxValue,
+  labelMap,
+}: {
+  label: string;
+  value: string | number | null;
+  maxValue?: number;
+  labelMap?: Record<string, string>;
+}) {
+  let displayText = "—";
+
+  if (value !== null && value !== undefined) {
+    if (labelMap && typeof value === "string") {
+      displayText = labelMap[value] || value;
+    } else if (maxValue && typeof value === "number") {
+      displayText = `${value}/${maxValue}`;
+    } else {
+      displayText = String(value);
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between rounded-lg border p-4 dark:border-gray-700">
+      <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
+      <span
+        className={`text-sm font-medium ${value !== null && value !== undefined ? "text-blue-600 dark:text-blue-400" : "text-gray-400"}`}
+      >
+        {displayText}
+      </span>
+    </div>
   );
 }

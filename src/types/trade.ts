@@ -18,6 +18,10 @@ export type Trade = {
   strategy_profile_id: string | null;
   open_time: string;
   close_time: string | null;
+  hasPsychology?: boolean;
+  hasBehavior?: boolean;
+  hasPostTrade?: boolean;
+  hasSetup?: boolean;
 };
 
 // formatTradeFromDatabase дотор strategy_profile_id нэмэх

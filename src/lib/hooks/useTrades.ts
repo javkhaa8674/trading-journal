@@ -570,12 +570,6 @@ export function useTrades(accountId?: string | null) {
         const finalProfileId =
           strategyProfileId === "" ? null : strategyProfileId;
 
-        console.log("Updating trade strategy:", {
-          tradeId: id,
-          strategyProfileId: finalProfileId,
-          userId: user.id,
-        });
-
         // Эхлээд trade байгаа эсэхийг шалгах
         const { data: existingTrade, error: checkError } = await supabase
           .from("trades")
@@ -592,15 +586,11 @@ export function useTrades(accountId?: string | null) {
           };
         }
 
-        console.log("Existing trade:", existingTrade);
-
         // Update хийх
         const updatePayload = {
           strategy_profile_id: finalProfileId,
           updated_at: new Date().toISOString(),
         };
-
-        console.log("Update payload:", updatePayload);
 
         const { data, error } = await supabase
           .from("trades")
@@ -667,6 +657,61 @@ export function useTrades(accountId?: string | null) {
     },
     [],
   );
+
+  // =========================================================
+  // 🆕 GET SINGLE TRADE - Нэг trade-г ID-аар татах
+  // =========================================================
+
+  const getTrade = useCallback(async (tradeId: string) => {
+    try {
+      setError(null);
+
+      const user = await getCurrentUser();
+      if (!user) {
+        return {
+          data: null,
+          error: "Хэрэглэгч олдсонгүй.",
+        };
+      }
+
+      const { data, error } = await supabase
+        .from("trades")
+        .select("*")
+        .eq("id", tradeId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (error) {
+        console.error("Error fetching trade:", error);
+        return {
+          data: null,
+          error: error.message,
+        };
+      }
+
+      if (!data) {
+        return {
+          data: null,
+          error: "Trade олдсонгүй.",
+        };
+      }
+
+      const formattedTrade = formatTradeFromDatabase(data);
+
+      return {
+        data: formattedTrade,
+        error: null,
+      };
+    } catch (err) {
+      console.error("Error in getTrade:", err);
+      const message =
+        err instanceof Error ? err.message : "Trade татахад алдаа гарлаа";
+      return {
+        data: null,
+        error: message,
+      };
+    }
+  }, []);
   // =========================================================
   // REFRESH
   // =========================================================
@@ -694,7 +739,7 @@ export function useTrades(accountId?: string | null) {
     deletePostTradeReview,
 
     updateTradeStrategy,
-
+    getTrade,
     refresh,
   };
 }
