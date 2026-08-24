@@ -18,6 +18,7 @@ type Props = {
   onCancel?: () => void;
   onDelete?: () => void;
   onChange?: (data: any) => void;
+  onNextTab?: () => void;
   initialData?: any;
 };
 
@@ -76,6 +77,7 @@ export default function TradeBehavior({
   onCancel,
   onDelete,
   onChange,
+  onNextTab,
   initialData,
 }: Props) {
   const [form, setForm] = useState<FormData>(initialState);
@@ -185,6 +187,12 @@ export default function TradeBehavior({
       }
 
       setSaved(true);
+      // 🆕 Дараагийн tab руу шилжих
+      if (onNextTab) {
+        setTimeout(() => {
+          onNextTab();
+        }, 300);
+      }
     } catch (err) {
       setError(
         err instanceof Error

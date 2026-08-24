@@ -22,6 +22,7 @@ type Props = {
   onCancel?: () => void;
   onDelete?: () => void;
   onComplete?: (isComplete: boolean) => void;
+  onNextTab?: () => void;
 };
 
 const GROUPS: { id: string; label: string }[] = [
@@ -41,6 +42,7 @@ export default function ChecklistSection({
   onDelete,
   onChange,
   onComplete,
+  onNextTab,
   initialData,
 }: Props) {
   const { updateTradeStrategy } = useTrades();
@@ -343,6 +345,12 @@ export default function ChecklistSection({
       setSaved(true);
       if (onSave) {
         onSave(Object.values(responses));
+      }
+      // 🆕 Дараагийн tab руу шилжих
+      if (onNextTab) {
+        setTimeout(() => {
+          onNextTab();
+        }, 300); // 300ms саатуулах (хадгалагдсан гэсэн мессеж харагдахын тулд)
       }
     } catch (err) {
       setError(

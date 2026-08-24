@@ -32,6 +32,25 @@ export default function EditTradeReviewPage() {
     "setup" | "psychology" | "behavior" | "postTrade"
   >("setup");
 
+  // 🆕 Дараагийн tab руу шилжих функц
+  const goToNextTab = () => {
+    const sections: ("setup" | "psychology" | "behavior" | "postTrade")[] = [
+      "setup",
+      "psychology",
+      "behavior",
+      "postTrade",
+    ];
+    const currentIndex = sections.indexOf(activeSection);
+
+    if (currentIndex < sections.length - 1) {
+      // Дараагийн tab руу шилжих
+      setActiveSection(sections[currentIndex + 1]);
+    } else {
+      // 🆕 Сүүлийн tab (postTrade) бол review хуудас руу буцах
+      router.push(`/trades`);
+    }
+  };
+
   // 🆕 Стратегийн нэрийг хадгалах state
   const [strategyName, setStrategyName] = useState<string>("—");
 
@@ -324,6 +343,7 @@ export default function EditTradeReviewPage() {
             onChange={(data) =>
               setFormData((prev) => ({ ...prev, setup: data }))
             }
+            onNextTab={goToNextTab}
           />
         )}
 
@@ -335,6 +355,7 @@ export default function EditTradeReviewPage() {
             onChange={(data) =>
               setFormData((prev) => ({ ...prev, psychology: data }))
             }
+            onNextTab={goToNextTab}
           />
         )}
 
@@ -346,6 +367,7 @@ export default function EditTradeReviewPage() {
             onChange={(data) =>
               setFormData((prev) => ({ ...prev, behavior: data }))
             }
+            onNextTab={goToNextTab}
           />
         )}
 
@@ -357,6 +379,7 @@ export default function EditTradeReviewPage() {
             onChange={(data) =>
               setFormData((prev) => ({ ...prev, postTrade: data }))
             }
+            onNextTab={goToNextTab}
           />
         )}
       </div>

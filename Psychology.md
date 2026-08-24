@@ -25,7 +25,7 @@ Phase 3 🟢 DONE Full implementation with 13 fields (1-5 scale)
 Phase 4 🟢 DONE Plan Adherence, SL/TP Modification, Early Exit
 Phase 5 🟢 DONE Execution Quality, Would Take Again, Reflection
 Phase 6 🟢 DONE All components integrated into one page
-Phase 7 🔴 FUTURE Setup → Result, Psychology → Result, Behavior → Result
+Phase 7 🟢 DONE Psychology Analytics Dashboard (Account + Strategy filters)
 Phase 8 🔴 FUTURE Pattern detection, recommendations
 
 PHASE 1 — TRADE-BASED PSYCHOLOGY 🟢 DONE
@@ -282,31 +282,98 @@ Review — All psychology/quality data (Setup Validation, Pre-Trade, Behavior, P
    mode="create" → Шинээр үүсгэх
    mode="edit" → Засах (Хадгалах товч байна)
 
-PHASE 7 — PSYCHOLOGY ANALYTICS 🔴 FUTURE
+7. Tab Navigation with Auto-Advance
+   ────────────────────────────────────────────────────────────────────────────
+   ✅ Setup → Хадгалах → Psychology
+   ✅ Psychology → Хадгалах → Behavior
+   ✅ Behavior → Хадгалах → Post-Trade
+   ✅ Post-Trade → Хадгалах → Review хуудас
+
+🆕 PHASE 7 — PSYCHOLOGY ANALYTICS DASHBOARD 🟢 DONE
 ────────────────────────────────────────────────────────────────────────────────
+Overview:
+────────────────────────────────────────────────────────────────────────────────
+Psychology Analytics Dashboard нь дараах боломжуудыг олгодог:
+
+✅ Account filter (All Accounts / Active / Achieved / Closed)
+✅ Strategy filter (All Strategies / Strategy тус бүр)
+✅ Зөвхөн psychology-тэй trade-г харуулах
+✅ Summary Statistics (Нийт trade, Win Rate, Avg R, P&L)
+✅ Strategy Comparison (All Strategies сонгосон үед)
+
 Analysis Categories:
-
-Setup → Result
 ────────────────────────────────────────────────────────────────────────────────
-Setup fully met
-↓
-Win Rate | Average R | Profit Factor
 
-Psychology → Result
-────────────────────────────────────────────────────────────────────────────────
-Anxiety | FOMO | Confidence
-↓
-Win Rate | Average R
+1️⃣ Setup → Result
+────────────────────────────────────────────────────────────────────────────
+Setup score-оор бүлэглэсэн гүйцэтгэл
+├── 90+ → Win Rate | Avg R
+├── 70-89 → Win Rate | Avg R
+├── 50-69 → Win Rate | Avg R
+└── <50 → Win Rate | Avg R
 
-Behavior → Result
-────────────────────────────────────────────────────────────────────────────────
-Moved SL | Early Exit | Plan Violation
-↓
-Average R | Win Rate
+2️⃣ Psychology → Result
+────────────────────────────────────────────────────────────────────────────
+🧠 FOMO Analysis
+├── FOMO-той → Win Rate | Avg R
+└── FOMO-гүй → Win Rate | Avg R
+
+😌 Calmness Impact
+😰 Anxiety Impact
+💪 Confidence Impact
+😨 Fear Impact
+🤑 Greed Impact
+😤 Frustration Impact
+
+3️⃣ Behavior → Result
+────────────────────────────────────────────────────────────────────────────
+📋 Plan Adherence
+├── Бүрэн → Win Rate | Avg R
+├── Хагас → Win Rate | Avg R
+└── Зөрчсөн → Win Rate | Avg R
+
+🚪 Early Exit
+├── Үгүй → Win Rate | Avg R
+├── Төлөвлөсөн → Win Rate | Avg R
+├── Айдас → Win Rate | Avg R
+└── Тэвчээргүй → Win Rate | Avg R
+
+🛑 SL Modification
+├── Үгүй → Win Rate | Avg R
+├── Төлөвлөсөн → Win Rate | Avg R
+├── Эрсдэл нэмсэн → Win Rate | Avg R
+└── Сэтгэл хөдлөл → Win Rate | Avg R
+
+4️⃣ Cross Analysis
+────────────────────────────────────────────────────────────────────────────
+🏆 Амжилтын томьёо
+💀 Алдагдалын томьёо
+
+5️⃣ Insights & Recommendations
+────────────────────────────────────────────────────────────────────────────
+🔴 Илэрсэн асуудлууд
+🟢 Зөвлөмжүүд
 
 Core Question:
 ────────────────────────────────────────────────────────────────────────────────
 "Би ямар нөхцөлд хамгийн сайн, ямар нөхцөлд хамгийн муу trade хийдэг вэ?"
+
+Files Created/Modified:
+────────────────────────────────────────────────────────────────────────────────
+src/app/psychology/page.tsx Psychology Analytics Dashboard
+src/components/analytics/SummaryStats.tsx Summary Statistics
+src/components/analytics/SetupAnalytics.tsx Setup → Result
+src/components/analytics/PsychologyAnalytics.tsx Psychology → Result
+src/components/analytics/BehaviorAnalytics.tsx Behavior → Result
+src/components/analytics/CrossAnalysis.tsx Cross Analysis
+src/components/analytics/InsightsPanel.tsx Insights & Recommendations
+src/components/analytics/StrategyComparison.tsx Strategy Comparison
+src/lib/analytics/index.ts Analytics exports
+src/lib/analytics/setupAnalytics.ts Setup analytics calculations
+src/lib/analytics/psychologyAnalytics.ts Psychology analytics calculations
+src/lib/analytics/behaviorAnalytics.ts Behavior analytics calculations
+src/lib/analytics/crossAnalytics.ts Cross analytics calculations
+src/lib/analytics/insights.ts Insights generation
 
 PHASE 8 — INSIGHT / COACHING LAYER 🔴 FUTURE
 ────────────────────────────────────────────────────────────────────────────────
@@ -360,9 +427,16 @@ Phase 6 ✅
 ├── Strategy Name Display
 ├── Checklist Progress Bar
 ├── RLS Policies
-└── Component Modes (view/create/edit)
+├── Component Modes (view/create/edit)
+└── Tab Navigation with Auto-Advance
 ↓
-Phase 7 🔴 FUTURE
+Phase 7 ✅ (Psychology Analytics Dashboard)
+├── Account + Strategy filters
+├── Setup → Result Analytics
+├── Psychology → Result Analytics
+├── Behavior → Result Analytics
+├── Cross Analysis
+└── Insights & Recommendations
 ↓
 Phase 8 🔴 FUTURE
 
@@ -380,6 +454,30 @@ src/components/trades/TradeList.tsx Trade List with Psychology Status
 src/app/trades/[id]/review/page.tsx READ - Unified Trade Review
 src/app/trades/[id]/review/edit/page.tsx EDIT - Trade Review Edit
 src/app/trades/page.tsx Trade List with Status Fetching
+
+Analytics Components:
+────────────────────────────────────────────────────────────────────────────────
+File Purpose
+────────────────────────────────────────────────────────────────────────────────
+src/app/psychology/page.tsx Psychology Analytics Dashboard
+src/components/analytics/SummaryStats.tsx Summary Statistics
+src/components/analytics/SetupAnalytics.tsx Setup → Result
+src/components/analytics/PsychologyAnalytics.tsx Psychology → Result
+src/components/analytics/BehaviorAnalytics.tsx Behavior → Result
+src/components/analytics/CrossAnalysis.tsx Cross Analysis
+src/components/analytics/InsightsPanel.tsx Insights & Recommendations
+src/components/analytics/StrategyComparison.tsx Strategy Comparison
+
+Analytics Functions:
+────────────────────────────────────────────────────────────────────────────────
+File Purpose
+────────────────────────────────────────────────────────────────────────────────
+src/lib/analytics/index.ts Analytics exports
+src/lib/analytics/setupAnalytics.ts Setup analytics calculations
+src/lib/analytics/psychologyAnalytics.ts Psychology analytics calculations
+src/lib/analytics/behaviorAnalytics.ts Behavior analytics calculations
+src/lib/analytics/crossAnalytics.ts Cross analytics calculations
+src/lib/analytics/insights.ts Insights generation
 
 Types:
 ────────────────────────────────────────────────────────────────────────────────
@@ -403,7 +501,7 @@ supabase/migrations/20260315_add_post_trade_review.sql Post-Trade Review table
 supabase/migrations/\*\_trade_psychology.sql Pre-Trade Psychology table
 supabase/migrations/20260320_add_strategy_profiles.sql Strategy Profiles
 
-CURRENT STATUS: ✅ PHASES 1-6 COMPLETE + UI ENHANCEMENTS
+CURRENT STATUS: ✅ PHASES 1-7 COMPLETE
 ────────────────────────────────────────────────────────────────────────────────
 All core psychology features are implemented:
 
@@ -421,10 +519,18 @@ All core psychology features are implemented:
 ✅ RLS Policies for all psychology tables
 ✅ Component Modes (view/create/edit)
 ✅ CRUD operations for all psychology sections
+✅ Tab Navigation with Auto-Advance
+✅ Psychology Analytics Dashboard
+✅ Account + Strategy filters
+✅ Setup → Result Analytics
+✅ Psychology → Result Analytics
+✅ Behavior → Result Analytics
+✅ Cross Analysis
+✅ Insights & Recommendations
 
 NEXT STEPS:
 ────────────────────────────────────────────────────────────────────────────────
 
-1. Collect enough trade data
-2. Implement Psychology Analytics (Phase 7)
-3. Build Insight Layer (Phase 8)
+1. Collect enough trade data (psychology, behavior, setup, post-trade)
+2. Build Insight Layer (Phase 8) - Pattern detection, coaching recommendations
+3. Add more advanced analytics (Time-based, Market context analysis)

@@ -35,6 +35,7 @@ type Props = {
   onCancel?: () => void;
   onDelete?: () => void;
   onChange?: (data: any) => void;
+  onNextTab?: () => void;
   initialData?: any;
 };
 
@@ -63,6 +64,7 @@ export default function TradePsychology({
   onCancel,
   onDelete,
   onChange,
+  onNextTab,
   initialData,
 }: Props) {
   const [form, setForm] = useState<TradePsychologyData>(initialState);
@@ -236,6 +238,12 @@ export default function TradePsychology({
       // onSave дуудах
       if (onSave) {
         onSave(form);
+      }
+      // 🆕 Дараагийн tab руу шилжих
+      if (onNextTab) {
+        setTimeout(() => {
+          onNextTab();
+        }, 300);
       }
     } catch (err) {
       setError(

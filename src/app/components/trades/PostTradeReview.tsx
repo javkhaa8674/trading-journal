@@ -20,6 +20,7 @@ type Props = {
   onCancel?: () => void;
   onDelete?: () => void;
   onChange?: (data: any) => void;
+  onNextTab?: () => void;
   initialData?: any;
 };
 
@@ -38,6 +39,7 @@ export default function PostTradeReview({
   onCancel,
   onDelete,
   onChange,
+  onNextTab,
   initialData,
 }: Props) {
   const {
@@ -119,6 +121,12 @@ export default function PostTradeReview({
 
     setSaved(true);
     setSaving(false);
+    // 🆕 Дараагийн tab руу шилжих
+    if (onNextTab) {
+      setTimeout(() => {
+        onNextTab();
+      }, 300);
+    }
   }
 
   // Format duration

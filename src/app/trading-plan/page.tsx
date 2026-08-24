@@ -180,13 +180,7 @@ export default function TradingPlanPage() {
 
   // Expanded sections
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set([
-      "strategy",
-      "risk_management",
-      "key_processes",
-      "profiles",
-      "checklist",
-    ]),
+    new Set([]),
   );
 
   // ============================================================
