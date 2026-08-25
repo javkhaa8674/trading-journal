@@ -1,18 +1,46 @@
 // src/lib/getCurrentUser.ts
 
-import { supabase } from "@/lib/supabaseClient";
-import type { User } from "@supabase/supabase-js";
+import { supabase } from "./supabaseClient";
 
-export async function getCurrentUser(): Promise<User | null> {
+export async function getCurrentUser() {
   try {
-    const { data, error } = await supabase.auth.getUser();
-    if (error) {
-      console.error("Error getting user:", error);
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError) {
+      console.error("Session error:", sessionError);
       return null;
     }
-    return data.user;
+
+    if (!session) {
+      console.log("No active session found");
+      return null;
+    }
+
+    return session.user;
   } catch (error) {
-    console.error("Error in getCurrentUser:", error);
+    console.error("Error getting current user:", error);
+    return null;
+  }
+}
+
+export async function getCurrentUserDirect() {
+  try {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error) {
+      console.error("Get user error:", error);
+      return null;
+    }
+
+    return user;
+  } catch (error) {
+    console.error("Error getting user:", error);
     return null;
   }
 }

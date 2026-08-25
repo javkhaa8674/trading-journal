@@ -344,6 +344,7 @@ export default function EditTradeReviewPage() {
               setFormData((prev) => ({ ...prev, setup: data }))
             }
             onNextTab={goToNextTab}
+            isDraft={false}
           />
         )}
 
@@ -356,6 +357,7 @@ export default function EditTradeReviewPage() {
               setFormData((prev) => ({ ...prev, psychology: data }))
             }
             onNextTab={goToNextTab}
+            isDraft={false}
           />
         )}
 

@@ -3,6 +3,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
 
@@ -36,6 +37,7 @@ type Props = {
   onDelete?: () => void;
   onChange?: (data: any) => void;
   onNextTab?: () => void;
+  isDraft?: boolean;
   initialData?: any;
 };
 
@@ -65,23 +67,41 @@ export default function TradePsychology({
   onDelete,
   onChange,
   onNextTab,
+  isDraft = false,
   initialData,
 }: Props) {
   const [form, setForm] = useState<TradePsychologyData>(initialState);
-
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  // Load data
+  // ============================================================
+  // LOAD DATA
+  // ============================================================
+
   useEffect(() => {
     async function load() {
       setLoading(true);
       setError(null);
 
-      const user = await getCurrentUser();
+      // ✅ Draft mode - initialData ашиглах
+      if (isDraft) {
+        if (initialData) {
+          setForm(initialData);
+        }
+        setLoading(false);
+        return;
+      }
 
+      // ✅ tradeId хоосон бол татахгүй
+      if (!tradeId || tradeId === "draft" || tradeId === "") {
+        setLoading(false);
+        return;
+      }
+
+      const user = await getCurrentUser();
       if (!user) {
         setError("Хэрэглэгч олдсонгүй.");
         setLoading(false);
@@ -121,19 +141,16 @@ export default function TradePsychology({
       if (data) {
         setForm({
           id: data.id,
-
           calmness_level: data.calmness_level,
           anxiety_level: data.anxiety_level,
           fear_level: data.fear_level,
           greed_level: data.greed_level,
           frustration_level: data.frustration_level,
           confidence_level: data.confidence_level,
-
           focus_level: data.focus_level,
           patience_level: data.patience_level,
           decision_clarity_level: data.decision_clarity_level,
           decision_pressure_level: data.decision_pressure_level,
-
           rushed_decision: data.rushed_decision,
           fomo: data.fomo,
           emotional_carryover: data.emotional_carryover,
@@ -144,7 +161,7 @@ export default function TradePsychology({
     }
 
     load();
-  }, [tradeId]);
+  }, [tradeId, isDraft, initialData]);
 
   function update<K extends keyof TradePsychologyData>(
     key: K,
@@ -152,21 +169,21 @@ export default function TradePsychology({
   ) {
     setSaved(false);
 
-    setForm((current) => ({
-      ...current,
+    const updatedForm = {
+      ...form,
       [key]: value,
-    }));
+    };
+    setForm(updatedForm);
 
-    // onChange дуудах
     if (onChange) {
-      onChange({
-        ...form,
-        [key]: value,
-      });
+      onChange(updatedForm);
     }
   }
 
-  // 🆕 SAVE FUNCTION - ЗАСВАРЧИЛСАН
+  // ============================================================
+  // SAVE
+  // ============================================================
+
   async function save() {
     setSaving(true);
     setSaved(false);
@@ -174,12 +191,37 @@ export default function TradePsychology({
 
     try {
       const user = await getCurrentUser();
+      if (!user) throw new Error("Хэрэглэгч олдсонгүй");
 
-      if (!user) {
-        throw new Error("Хэрэглэгч олдсонгүй.");
+      // ✅ DRAFT MODE - draft_psychology таблиц-д хадгалах
+      if (isDraft) {
+        if (!tradeId || tradeId === "draft" || tradeId === "") {
+          setError("Draft ID байхгүй байна.");
+          return;
+        }
+
+        const { error } = await supabase
+          .from("draft_psychology")
+          .update({
+            ...form,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", tradeId)
+          .eq("user_id", user.id);
+
+        if (error) throw error;
+
+        setSaved(true);
+        if (onChange) onChange(form);
+        // ✅ Draft mode-д /psychology/drafts руу шилжих
+        setTimeout(() => {
+          router.push("/psychology/drafts");
+        }, 300);
+        return;
       }
 
-      // 🆕 id-г payload-с хасах
+      // ✅ REAL TRADE MODE
+      // id-г payload-с хасах
       const payload = {
         trade_id: tradeId,
         user_id: user.id,
@@ -203,48 +245,31 @@ export default function TradePsychology({
         updated_at: new Date().toISOString(),
       };
 
-      // 🆕 Хэрэв form.id байгаа бол UPDATE
       if (form.id) {
+        // UPDATE
         const { error } = await supabase
           .from("trade_psychology")
-          .update(payload) // ✅ payload-д id БАЙХГҮЙ
+          .update(payload)
           .eq("id", form.id)
           .eq("trade_id", tradeId)
           .eq("user_id", user.id);
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
       } else {
-        // 🆕 INSERT
+        // INSERT
         const { data, error } = await supabase
           .from("trade_psychology")
           .insert(payload)
           .select("id")
           .single();
 
-        if (error) {
-          throw error;
-        }
-
-        setForm((current) => ({
-          ...current,
-          id: data.id,
-        }));
+        if (error) throw error;
+        setForm((current) => ({ ...current, id: data.id }));
       }
 
       setSaved(true);
-
-      // onSave дуудах
-      if (onSave) {
-        onSave(form);
-      }
-      // 🆕 Дараагийн tab руу шилжих
-      if (onNextTab) {
-        setTimeout(() => {
-          onNextTab();
-        }, 300);
-      }
+      if (onSave) onSave(form);
+      if (onNextTab) setTimeout(onNextTab, 300);
     } catch (err) {
       setError(
         err instanceof Error
@@ -267,10 +292,11 @@ export default function TradePsychology({
   // ============================================================
   // VIEW MODE
   // ============================================================
+
   if (mode === "view") {
     return (
       <div className="space-y-4">
-        {/* Emotional State - View mode */}
+        {/* Emotional State */}
         <div>
           <h3 className="text-sm font-medium text-gray-500 mb-2">
             Сэтгэл хөдлөлийн төлөв
@@ -288,7 +314,7 @@ export default function TradePsychology({
           </div>
         </div>
 
-        {/* Cognitive State - View mode */}
+        {/* Cognitive State */}
         <div>
           <h3 className="text-sm font-medium text-gray-500 mb-2">
             Танин мэдэхүйн төлөв
@@ -307,7 +333,7 @@ export default function TradePsychology({
           </div>
         </div>
 
-        {/* Flags - View mode */}
+        {/* Flags */}
         <div>
           <h3 className="text-sm font-medium text-gray-500 mb-2">
             Шийдвэр ба сэтгэл хөдлөлийн улаан туг
@@ -337,12 +363,12 @@ export default function TradePsychology({
   // ============================================================
   // CREATE/EDIT MODE
   // ============================================================
+
   return (
     <section className="rounded-xl border bg-white dark:border-gray-800 dark:bg-gray-900">
       {/* HEADER */}
       <div className="border-b p-5 dark:border-gray-800">
         <h2 className="text-lg font-semibold">🧠 Арилжааны өмнөх сэтгэл зүй</h2>
-
         <p className="mt-1 text-sm text-gray-500">
           Арилжаа хийхийн өмнөх сэтгэл зүй болон танин мэдэхүйн төлөвөө
           бүртгэнэ.
@@ -354,43 +380,36 @@ export default function TradePsychology({
         <div>
           <div className="mb-4">
             <h3 className="text-base font-semibold">Сэтгэл хөдлөлийн төлөв</h3>
-
             <p className="mt-1 text-xs text-gray-500">
               Арилжаа хийхийн өмнөх тухайн үеийн сэтгэл хөдлөлийн төлөв.
             </p>
           </div>
-
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <LevelInput
               label="Тогтвортой байдал"
               value={form.calmness_level}
               onChange={(value) => update("calmness_level", value)}
             />
-
             <LevelInput
               label="Түгшүүр/Сандарсан байдал"
               value={form.anxiety_level}
               onChange={(value) => update("anxiety_level", value)}
             />
-
             <LevelInput
               label="Айдас"
               value={form.fear_level}
               onChange={(value) => update("fear_level", value)}
             />
-
             <LevelInput
               label="Шунал"
               value={form.greed_level}
               onChange={(value) => update("greed_level", value)}
             />
-
             <LevelInput
               label="Бухимдал"
               value={form.frustration_level}
               onChange={(value) => update("frustration_level", value)}
             />
-
             <LevelInput
               label="Өөртөө итгэх итгэл"
               value={form.confidence_level}
@@ -403,32 +422,27 @@ export default function TradePsychology({
         <div>
           <div className="mb-4">
             <h3 className="text-base font-semibold">Танин мэдэхүйн төлөв</h3>
-
             <p className="mt-1 text-xs text-gray-500">
               Арилжаа хийхийн өмнөх анхаарал, шийдвэр гаргалт болон сэтгэлзүйн
               дарамтын төлөв.
             </p>
           </div>
-
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <LevelInput
               label="Төвлөрөл"
               value={form.focus_level}
               onChange={(value) => update("focus_level", value)}
             />
-
             <LevelInput
               label="Тэвчээр"
               value={form.patience_level}
               onChange={(value) => update("patience_level", value)}
             />
-
             <LevelInput
               label="Шийдвэрийн тодорхой байдал"
               value={form.decision_clarity_level}
               onChange={(value) => update("decision_clarity_level", value)}
             />
-
             <LevelInput
               label="Шийдвэрийн дарамт"
               value={form.decision_pressure_level}
@@ -443,12 +457,10 @@ export default function TradePsychology({
             <h3 className="text-base font-semibold">
               Шийдвэр ба сэтгэл хөдлөлийн улаан туг
             </h3>
-
             <p className="mt-1 text-xs text-gray-500">
               Тухайн арилжаа хийхийн өмнө эдгээр нөхцөл байсан эсэх.
             </p>
           </div>
-
           <div className="grid gap-5 md:grid-cols-3">
             <BooleanInput
               label="Яаран гаргасан шийдвэр"
@@ -456,14 +468,12 @@ export default function TradePsychology({
               value={form.rushed_decision}
               onChange={(value) => update("rushed_decision", value)}
             />
-
             <BooleanInput
               label="Хоцрох айдас (FOMO)"
               description="Энэ арилжаа хийхдээ FOMO буюу хоцрох вий гэсэн айдас байсан эсэх."
               value={form.fomo}
               onChange={(value) => update("fomo", value)}
             />
-
             <BooleanInput
               label="Сэтгэл хөдлөлийн үлдэгдэл"
               description="Энэ арилжаа хийхийн өмнө өмнөх арилжаанаас үлдсэн сэтгэл хөдлөлийн нөлөө байсан эсэх."
@@ -478,7 +488,6 @@ export default function TradePsychology({
       <div className="flex items-center justify-between border-t p-5 dark:border-gray-800">
         <div>
           {error && <p className="text-sm text-red-500">{error}</p>}
-
           {saved && !error && (
             <p className="text-sm text-green-500">
               Арилжааны өмнөх сэтгэл зүйд хадгалагдлаа.
@@ -515,7 +524,6 @@ function LevelInput({
   return (
     <div>
       <label className="mb-2 block text-sm font-medium">{label}</label>
-
       <select
         value={value ?? ""}
         onChange={(e) =>
@@ -524,7 +532,6 @@ function LevelInput({
         className="w-full rounded-lg border bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
       >
         <option value="">Сонгох</option>
-
         {[1, 2, 3, 4, 5].map((value) => (
           <option key={value} value={value}>
             {value} / 5
@@ -562,7 +569,6 @@ function BooleanInput({
         >
           Тийм
         </button>
-
         <button
           type="button"
           onClick={() => onChange(false)}
@@ -574,7 +580,6 @@ function BooleanInput({
         >
           Үгүй
         </button>
-
         <button
           type="button"
           onClick={() => onChange(null)}
@@ -596,7 +601,9 @@ function ViewItem({ label, value }: { label: string; value: number | null }) {
     <div className="flex items-center justify-between rounded-lg border p-3 dark:border-gray-700">
       <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
       <span
-        className={`text-sm font-medium ${value ? "text-blue-600 dark:text-blue-400" : "text-gray-400"}`}
+        className={`text-sm font-medium ${
+          value ? "text-blue-600 dark:text-blue-400" : "text-gray-400"
+        }`}
       >
         {value ? `${value}/5` : "—"}
       </span>
@@ -609,7 +616,13 @@ function ViewFlag({ label, value }: { label: string; value: boolean | null }) {
     <div className="flex items-center justify-between rounded-lg border p-3 dark:border-gray-700">
       <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
       <span
-        className={`text-sm font-medium ${value === true ? "text-red-600 dark:text-red-400" : value === false ? "text-green-600 dark:text-green-400" : "text-gray-400"}`}
+        className={`text-sm font-medium ${
+          value === true
+            ? "text-red-600 dark:text-red-400"
+            : value === false
+              ? "text-green-600 dark:text-green-400"
+              : "text-gray-400"
+        }`}
       >
         {value === true ? "✅ Тийм" : value === false ? "❌ Үгүй" : "—"}
       </span>

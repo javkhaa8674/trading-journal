@@ -6,6 +6,7 @@ import { useTrades } from "@/lib/hooks/useTrades";
 import { useAccounts } from "@/lib/hooks/useAccounts";
 import { useRouter } from "next/navigation";
 import { getStatusIcon } from "@/lib/utils/statusUtils";
+import { useDraft } from "@/lib/hooks/useDraft";
 
 type ParsedTrade = {
   symbol: string;
@@ -27,6 +28,7 @@ type ValidationError = {
 };
 
 export default function TradeForm() {
+  const { hasDraft, linkToTrade } = useDraft();
   const accounts = useAccounts();
   const router = useRouter();
   const { addTrade, bulkAddTrades } = useTrades();
@@ -61,7 +63,7 @@ export default function TradeForm() {
   // 0 = аль хэдийн UTC
   // ============================================================
 
-  const [serverOffset, setServerOffset] = useState("0");
+  const [serverOffset, setServerOffset] = useState("3");
 
   // -------------------------
   // BULK INPUT STATE

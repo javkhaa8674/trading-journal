@@ -1,113 +1,146 @@
 // src/lib/analytics/insights.ts
 
-// 🆕 R-Multiple helper
-function getRMultiple(trade: any): number {
-  if (!trade.profit) return 0;
-  const risk =
-    trade.entry_price && trade.stop_loss
-      ? Math.abs(trade.entry_price - trade.stop_loss)
-      : 1;
-  if (risk === 0) return 0;
-  return parseFloat((trade.profit / risk).toFixed(2));
-}
+import { TradeWithPsychology } from "@/types/trade";
+import { InsightGenerator, getRMultiple } from "./insightGenerator";
+
+// ============================================================
+// COMPATIBILITY LAYER - Old function signature
+// ============================================================
 
 export function generateInsights(
   trades: any[],
-  psychologyData: any[],
-  behaviorData: any[],
-  setupData: any[],
-  postTradeData: any[],
-) {
-  if (trades.length === 0) {
+  psychologyData: any[] = [],
+  behaviorData: any[] = [],
+  setupData: any[] = [],
+  postTradeData: any[] = [],
+): {
+  problems: string[];
+  recommendations: string[];
+  summary: string;
+} {
+  // Build TradeWithPsychology objects
+  const tradesWithPsychology: TradeWithPsychology[] = trades.map((trade) => {
+    const psychology = psychologyData.find((p) => p.trade_id === trade.id);
+    const behavior = behaviorData.find((b) => b.trade_id === trade.id);
+    const postTradeReview = postTradeData.find((p) => p.trade_id === trade.id);
+
+    // Calculate setup score
+    const responses = setupData.filter((s) => s.trade_id === trade.id);
+    const totalItems = responses.filter(
+      (r: any) => r.response_status !== "not_applicable",
+    ).length;
+    const metItems = responses.filter(
+      (r: any) => r.response_status === "met",
+    ).length;
+    const partiallyMetItems = responses.filter(
+      (r: any) => r.response_status === "partially_met",
+    ).length;
+
+    const setupScore =
+      totalItems > 0
+        ? ((metItems + partiallyMetItems * 0.5) / totalItems) * 100
+        : undefined;
+
     return {
-      problems: ["Хангалттай мэдээлэл байхгүй байна."],
-      recommendations: [
-        "Илүү их trade бүртгэж, бүх psychology хэсгийг бөглөнө үү.",
-      ],
-      summary: "Мэдээлэл хангалтгүй байна.",
+      ...trade,
+      pnl: trade.profit,
+      rMultiple: getRMultiple(trade),
+      setupScore,
+      psychology,
+      behavior,
+      postTradeReview,
     };
-  }
-
-  const problems: string[] = [];
-  const recommendations: string[] = [];
-
-  // FOMO Problem
-  const fomoTrades = trades.filter((t) => {
-    const psych = psychologyData.find((p) => p.trade_id === t.id);
-    return psych?.fomo === true;
   });
 
-  if (fomoTrades.length > 2) {
-    const fomoAvgR =
-      fomoTrades.reduce((sum, t) => sum + getRMultiple(t), 0) /
-      fomoTrades.length;
-    if (fomoAvgR < 0) {
-      problems.push(
-        `Сүүлийн ${trades.length} trade-ийн ${fomoTrades.length}-д FOMO тэмдэглэгдсэн бөгөөд эдгээр trade-ийн дундаж үр дүн ${fomoAvgR.toFixed(2)}R байна.`,
-      );
-      recommendations.push(
-        "Дараагийн 10 trade дээр FOMO-той үед trade хийхгүй байх дүрмийг турш.",
-      );
+  // Use the new InsightGenerator
+  const generator = new InsightGenerator(tradesWithPsychology);
+  const result = generator.generate();
+
+  // Convert to old format for compatibility
+  const problems = result.patterns
+    .filter(
+      (p) =>
+        p.type === "problem" ||
+        p.type === "warning" ||
+        p.severity === "critical",
+    )
+    .map((p) => p.description);
+
+  const recommendations = result.recommendations.map((r) => r.action);
+
+  // Add problems and recommendations from patterns
+  const existingProblems = problems.length > 0 ? problems : [];
+  const existingRecommendations =
+    recommendations.length > 0 ? recommendations : [];
+
+  // Add basic problems if none detected but there are trades
+  if (existingProblems.length === 0 && trades.length >= 5) {
+    // Check FOMO pattern manually
+    const fomoTrades = trades.filter((t) => {
+      const psych = psychologyData.find((p) => p.trade_id === t.id);
+      return psych?.fomo === true;
+    });
+
+    if (fomoTrades.length > 2) {
+      const fomoAvgR =
+        fomoTrades.reduce((sum, t) => sum + getRMultiple(t), 0) /
+        fomoTrades.length;
+      if (fomoAvgR < 0) {
+        existingProblems.push(
+          `Сүүлийн ${trades.length} trade-ийн ${fomoTrades.length}-д FOMO тэмдэглэгдсэн бөгөөд эдгээр trade-ийн дундаж үр дүн ${fomoAvgR.toFixed(2)}R байна.`,
+        );
+        existingRecommendations.push(
+          "Дараагийн 10 trade дээр FOMO-той үед trade хийхгүй байх дүрмийг турш.",
+        );
+      }
+    }
+
+    // Check plan violation
+    const violatedTrades = trades.filter((t) => {
+      const behavior = behaviorData.find((b) => b.trade_id === t.id);
+      return behavior?.plan_adherence === "violated";
+    });
+
+    if (violatedTrades.length > 2) {
+      const violatedAvgR =
+        violatedTrades.reduce((sum, t) => sum + getRMultiple(t), 0) /
+        violatedTrades.length;
+      if (violatedAvgR < 0) {
+        existingProblems.push(
+          `Төлөвлөгөөгөө зөрчсөн trade-үүдийн дундаж үр дүн ${violatedAvgR.toFixed(2)}R байна.`,
+        );
+        existingRecommendations.push(
+          "Төлөвлөгөөгөө дагах reminder тохируулах.",
+        );
+      }
     }
   }
 
-  // Setup Problem
-  const lowSetupTrades = trades.filter((t) => {
-    const setup = setupData.filter((s) => s.trade_id === t.id);
-    if (setup.length === 0) return false;
-    const score =
-      (setup.reduce((sum, r) => {
-        if (r.response_status === "met") return sum + 1;
-        if (r.response_status === "partially_met") return sum + 0.5;
-        return sum;
-      }, 0) /
-        setup.length) *
-      100;
-    return score < 60;
-  });
-
-  if (lowSetupTrades.length > 2) {
-    const lowSetupAvgR =
-      lowSetupTrades.reduce((sum, t) => sum + getRMultiple(t), 0) /
-      lowSetupTrades.length;
-    if (lowSetupAvgR < 0) {
-      problems.push(
-        `Setup-ийн шаардлагыг бүрэн хангаагүй trade-үүдийн дундаж үр дүн ${lowSetupAvgR.toFixed(2)}R байна.`,
-      );
-      recommendations.push(
-        "Setup 70% доош бол trade хийхгүй байх дүрэм нэмэх.",
-      );
-    }
-  }
-
-  // Plan Violation Problem
-  const violatedTrades = trades.filter((t) => {
-    const behavior = behaviorData.find((b) => b.trade_id === t.id);
-    return behavior?.plan_adherence === "violated";
-  });
-
-  if (violatedTrades.length > 2) {
-    const violatedAvgR =
-      violatedTrades.reduce((sum, t) => sum + getRMultiple(t), 0) /
-      violatedTrades.length;
-    if (violatedAvgR < 0) {
-      problems.push(
-        `Төлөвлөгөөгөө зөрчсөн trade-үүдийн дундаж үр дүн ${violatedAvgR.toFixed(2)}R байна.`,
-      );
-      recommendations.push("Төлөвлөгөөгөө дагах reminder тохируулах.");
-    }
-  }
-
-  if (problems.length === 0) {
-    recommendations.push(
+  // Add default recommendation if none
+  if (existingRecommendations.length === 0 && trades.length >= 5) {
+    existingRecommendations.push(
       "Таны арилжааны сэтгэл зүй тогтвортой байна. Энэ хэв маягаа үргэлжлүүлэх.",
     );
   }
 
+  if (existingProblems.length === 0 && trades.length === 0) {
+    existingProblems.push("Хангалттай мэдээлэл байхгүй байна.");
+    existingRecommendations.push(
+      "Илүү их trade бүртгэж, бүх psychology хэсгийг бөглөнө үү.",
+    );
+  }
+
   const summary =
-    problems.length > 0
-      ? `${problems.length} асуудал илэрсэн. Дээрх зөвлөмжүүдийг дагаж сайжруулах.`
+    existingProblems.length > 0
+      ? `${existingProblems.length} асуудал илэрсэн. Дээрх зөвлөмжүүдийг дагаж сайжруулах.`
       : "Таны арилжааны сэтгэл зүй тогтвортой байна.";
 
-  return { problems, recommendations, summary };
+  return {
+    problems: existingProblems,
+    recommendations: existingRecommendations,
+    summary,
+  };
 }
+
+// Re-export getRMultiple for other modules
+export { getRMultiple } from "./insightGenerator";

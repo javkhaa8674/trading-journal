@@ -14,6 +14,7 @@ import {
   calculateCrossAnalytics,
   generateInsights,
 } from "@/lib/analytics/index";
+import { ReportButtonGroup } from "@/app/components/report/ReportButtonGroup";
 
 // ============================================================
 // ТӨРЛҮҮД
@@ -323,7 +324,6 @@ export default function PsychologyAnalyticsPage() {
   // ============================================================
   // RENDER
   // ============================================================
-
   return (
     <div className="space-y-6 px-4 py-8 max-w-7xl mx-auto">
       {/* HEADER */}
@@ -333,6 +333,20 @@ export default function PsychologyAnalyticsPage() {
             🧠 Арилжааны сэтгэл зүйн дүн шинжилгээ
           </h1>
           <p className="text-sm text-gray-500">Psychology Analytics</p>
+        </div>
+        {/* ✅ Report Download Buttons - Different formats */}
+        <div className="flex flex-wrap gap-2">
+          {/* ✅ Report Button Group */}
+          <ReportButtonGroup
+            accountId={
+              activeAccount === "all" ? undefined : (activeAccount ?? undefined)
+            }
+            strategyId={
+              activeStrategy === "all"
+                ? undefined
+                : (activeStrategy ?? undefined)
+            }
+          />
         </div>
       </div>
 

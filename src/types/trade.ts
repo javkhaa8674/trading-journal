@@ -24,6 +24,66 @@ export type Trade = {
   hasSetup?: boolean;
 };
 
+// src/types/trade.ts (Add these fields)
+
+export interface TradeWithPsychology extends Trade {
+  // ✅ Use 'profit' instead of 'pnl'
+  profit: number;
+  pnl?: number; // For backward compatibility
+
+  // Psychology data
+  psychology?: {
+    id: string;
+    trade_id: string;
+    user_id: string;
+    calmness_level: number;
+    anxiety_level: number;
+    fear_level: number;
+    greed_level: number;
+    frustration_level: number;
+    confidence_level: number;
+    focus_level: number;
+    patience_level: number;
+    decision_clarity_level: number;
+    decision_pressure_level: number;
+    rushed_decision: boolean;
+    fomo: boolean;
+    emotional_carryover: boolean;
+    created_at: string;
+    updated_at: string;
+  } | null;
+
+  // Behavior data
+  behavior?: {
+    id: string;
+    trade_id: string;
+    user_id: string;
+    plan_adherence: "full" | "partial" | "violated";
+    sl_modification: "none" | "as_planned" | "increased_risk" | "emotional";
+    tp_modification: "none" | "based_on_new_info" | "fear" | "greed";
+    early_exit: "no" | "as_planned" | "fear" | "impatience";
+    created_at: string;
+    updated_at: string;
+  } | null;
+
+  // Post-trade review
+  postTradeReview?: {
+    id: string;
+    trade_id: string;
+    user_id: string;
+    execution_quality: number;
+    would_take_again: "yes" | "yes_with_changes" | "no";
+    reflection: string;
+    lesson_learned: string;
+    notes: string;
+    created_at: string;
+    updated_at: string;
+  } | null;
+
+  // Calculated fields
+  setupScore?: number;
+  rMultiple?: number;
+}
 // formatTradeFromDatabase дотор strategy_profile_id нэмэх
 function formatTradeFromDatabase(trade: any): Trade {
   return {

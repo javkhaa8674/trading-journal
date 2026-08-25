@@ -103,14 +103,57 @@ function PsychologyStatus({
   return (
     <button
       onClick={() => onReview(tradeId)}
-      className="flex flex-col gap-1 min-w-[130px] w-full hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg p-2 transition-colors cursor-pointer text-left"
-      title={`${getLabel()} - Дэлгэрэнгүй харах`}
+      className="
+                  group
+                  relative
+                  flex
+                  flex-col
+                  gap-1
+                  min-w-[130px]
+                  w-full
+                  hover:bg-gray-50
+                  dark:hover:bg-gray-800
+                  rounded-lg
+                  p-2
+                  transition-colors
+                  cursor-pointer
+                  text-left
+                "
     >
+      {/* Tooltip */}
+      <span
+        className="
+                    pointer-events-none
+                    absolute
+                    -top-2
+                    left-1/2
+                    -translate-x-1/2
+                    -translate-y-full
+                    whitespace-nowrap
+                    rounded
+                    bg-gray-800
+                    px-3
+                    py-1.5
+                    text-xs
+                    text-white
+                    opacity-0
+                    transition-opacity
+                    duration-200
+                    group-hover:opacity-100
+                    dark:bg-gray-700
+                    dark:text-white
+                    z-50
+                  "
+      >
+        {getLabel()} - Дэлгэрэнгүй харах
+      </span>
+
       <div className="flex items-center justify-between">
         <span className={`text-xs font-medium ${getLabelColor()}`}>
           {getLabel()}
         </span>
       </div>
+
       <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-500 ${getColor()}`}
@@ -535,6 +578,52 @@ export default function TradeList({
                 className="rounded-lg bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600"
               >
                 + Нэмэх
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(`/psychology/drafts`)}
+                className="
+                            group
+                            relative
+                            rounded-lg
+                            border
+                            px-4
+                            py-2
+                            text-sm
+                            text-yellow-500
+                            hover:bg-yellow-50
+                            transition-colors
+                            dark:border-yellow-800
+                            dark:text-yellow-400
+                            dark:hover:bg-yellow-950/20
+                          "
+              >
+                📝 Түр тэмдэглэл
+                {/* Tooltip */}
+                <span
+                  className="
+                              pointer-events-none
+                              absolute
+                              bottom-full
+                              left-1/2
+                              mb-2
+                              -translate-x-1/2
+                              whitespace-nowrap
+                              rounded
+                              bg-gray-800
+                              px-3
+                              py-1.5
+                              text-xs
+                              text-white
+                              opacity-0
+                              transition-opacity
+                              duration-200
+                              group-hover:opacity-100
+                              dark:bg-gray-700
+                            "
+                >
+                  Арилжааны setup, сэтгэл зүйн мэдээллийг урьдчилан хадгалах
+                </span>
               </button>
               <button
                 onClick={enterSelectMode}

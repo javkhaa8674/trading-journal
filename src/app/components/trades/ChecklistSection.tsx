@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
 import { useTrades } from "@/lib/hooks/useTrades";
@@ -23,6 +23,7 @@ type Props = {
   onDelete?: () => void;
   onComplete?: (isComplete: boolean) => void;
   onNextTab?: () => void;
+  isDraft?: boolean;
 };
 
 const GROUPS: { id: string; label: string }[] = [
@@ -43,10 +44,11 @@ export default function ChecklistSection({
   onChange,
   onComplete,
   onNextTab,
+  isDraft = false,
   initialData,
 }: Props) {
   const { updateTradeStrategy } = useTrades();
-
+  const hasCreatedDraft = useRef(false);
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [responses, setResponses] = useState<Record<string, ChecklistResponse>>(
     {},
@@ -56,7 +58,6 @@ export default function ChecklistSection({
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Strategy Profile state
   const [profiles, setProfiles] = useState<StrategyProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
     initialStrategyProfileId || null,
@@ -64,19 +65,58 @@ export default function ChecklistSection({
   const [profilesLoading, setProfilesLoading] = useState(true);
   const [updatingStrategy, setUpdatingStrategy] = useState(false);
 
-  // 🆕 Setup бүрэн эсэхийг шалгах (ЗӨВХӨН шаардлагатай асуултууд)
+  // ============================================================
+  // DRAFT AUTOMATICALLY CREATE
+  // ============================================================
+
+  const ensureDraft = async () => {
+    // ✅ tradeId байгаа бол шинээр үүсгэхгүй
+    if (tradeId && tradeId !== "draft" && tradeId !== "") {
+      return tradeId;
+    }
+
+    const user = await getCurrentUser();
+    if (!user) throw new Error("Хэрэглэгч олдсонгүй");
+
+    const { data, error } = await supabase
+      .from("draft_psychology")
+      .insert({ user_id: user.id })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+
+    if (onChange) {
+      onChange({
+        type: "draft_created",
+        draftId: data.id,
+      });
+    }
+
+    return data.id;
+  };
+
+  // ✅ ЗӨВХӨН НЭГ Л УДАА draft үүсгэх
+  useEffect(() => {
+    if (isDraft && selectedProfileId && !tradeId && !hasCreatedDraft.current) {
+      hasCreatedDraft.current = true;
+      ensureDraft();
+    }
+  }, [selectedProfileId, isDraft, tradeId]);
+
+  // ============================================================
+  // SETUP COMPLETE
+  // ============================================================
+
   const isSetupComplete = useMemo(() => {
     if (items.length === 0) return false;
 
-    // Шаардлагатай асуултуудыг шүүх (critical OR required)
     const requiredItems = items.filter(
       (item) => item.critical || item.required,
     );
 
-    // Хэрэв шаардлагатай асуулт байхгүй бол бүрэн гэж үзэх
     if (requiredItems.length === 0) return true;
 
-    // Бүх шаардлагатай асуултууд хариулагдсан эсэхийг шалгах
     const allRequiredAnswered = requiredItems.every((item) => {
       const response = responses[item.id];
       return response && response.response_status !== null;
@@ -85,7 +125,6 @@ export default function ChecklistSection({
     return allRequiredAnswered;
   }, [items, responses]);
 
-  // 🆕 Progress тооцоолох
   const requiredItems = items.filter((item) => item.critical || item.required);
   const answeredRequired = requiredItems.filter((item) => {
     const response = responses[item.id];
@@ -97,14 +136,16 @@ export default function ChecklistSection({
       ? Math.round((answeredRequired.length / requiredItems.length) * 100)
       : 100;
 
-  // 🆕 Status өөрчлөгдөх бүрд гадагш мэдээлэх
   useEffect(() => {
     if (onComplete) {
       onComplete(isSetupComplete);
     }
   }, [isSetupComplete, onComplete]);
 
-  // Load strategy profiles
+  // ============================================================
+  // LOAD PROFILES
+  // ============================================================
+
   useEffect(() => {
     async function loadProfiles() {
       setProfilesLoading(true);
@@ -128,14 +169,9 @@ export default function ChecklistSection({
 
       setProfiles(data || []);
 
-      // If no profile selected, try to select active one
       if (!selectedProfileId && data && data.length > 0) {
         const active = data.find((p) => p.is_active);
-        if (active) {
-          setSelectedProfileId(active.id);
-        } else {
-          setSelectedProfileId(data[0].id);
-        }
+        setSelectedProfileId(active?.id || data[0].id);
       }
 
       setProfilesLoading(false);
@@ -144,9 +180,44 @@ export default function ChecklistSection({
     loadProfiles();
   }, []);
 
-  // Load checklist items when profile changes
+  // ============================================================
+  // INITIAL DATA
+  // ============================================================
+
+  useEffect(() => {
+    if (isDraft && initialData && Array.isArray(initialData)) {
+      const responseMap: Record<string, ChecklistResponse> = {};
+      initialData.forEach((item: any) => {
+        responseMap[item.checklist_item_id] = {
+          id: item.id || `draft-${item.checklist_item_id}`,
+          checklist_item_id: item.checklist_item_id,
+          response_status: item.response_status,
+          value: item.value ?? null,
+          rating: item.rating ?? null,
+          text_value: item.text_value ?? null,
+          trade_id: "draft",
+          user_id: "",
+          created_at: "",
+          updated_at: "",
+        };
+      });
+      setResponses(responseMap);
+    }
+  }, [isDraft, initialData]);
+
+  // ============================================================
+  // LOAD CHECKLIST
+  // ============================================================
+
   useEffect(() => {
     async function loadChecklist() {
+      if (isDraft) {
+        // draft mode - tradeId шаардлагагүй
+      } else if (!tradeId || tradeId === "draft" || tradeId === "") {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
 
@@ -157,14 +228,15 @@ export default function ChecklistSection({
         return;
       }
 
-      // Load checklist items - filter by selected strategy_profile_id
       let query = supabase
         .from("trade_checklist_items")
         .select("*")
         .eq("user_id", user.id);
 
-      if (selectedProfileId) {
-        query = query.eq("strategy_profile_id", selectedProfileId);
+      const profileId = selectedProfileId || initialStrategyProfileId;
+
+      if (profileId) {
+        query = query.eq("strategy_profile_id", profileId);
       } else {
         query = query.is("strategy_profile_id", null);
       }
@@ -182,7 +254,11 @@ export default function ChecklistSection({
 
       setItems(itemsData || []);
 
-      // Load responses for this trade
+      if (isDraft) {
+        setLoading(false);
+        return;
+      }
+
       if (itemsData && itemsData.length > 0) {
         const { data: responsesData, error: responsesError } = await supabase
           .from("trade_checklist_responses")
@@ -207,11 +283,15 @@ export default function ChecklistSection({
     }
 
     loadChecklist();
-  }, [tradeId, selectedProfileId]);
+  }, [tradeId, selectedProfileId, isDraft, initialStrategyProfileId]);
 
-  // Update trade's strategy_profile_id when profile changes
+  // ============================================================
+  // UPDATE TRADE STRATEGY
+  // ============================================================
+
   useEffect(() => {
     async function updateTradeStrategyProfile() {
+      if (isDraft) return;
       if (!selectedProfileId) return;
       if (selectedProfileId === initialStrategyProfileId) return;
       if (profilesLoading) return;
@@ -220,29 +300,39 @@ export default function ChecklistSection({
       setError(null);
 
       try {
-        console.log("🔄 Updating trade strategy to:", selectedProfileId);
-
         const result = await updateTradeStrategy(tradeId, selectedProfileId);
 
         if (result.error) {
-          console.error("❌ Error updating trade strategy:", result.error);
+          console.error("Error updating trade strategy:", result.error);
           setError("Стратеги шинэчлэхэд алдаа гарлаа: " + result.error);
         } else {
-          console.log("✅ Trade strategy updated successfully:", result.data);
           setSaved(true);
         }
       } catch (err) {
-        console.error("💥 Unexpected error:", err);
         setError("Стратеги шинэчлэхэд алдаа гарлаа: " + String(err));
       } finally {
         setUpdatingStrategy(false);
       }
     }
 
-    if (selectedProfileId && selectedProfileId !== initialStrategyProfileId) {
+    if (
+      !isDraft &&
+      selectedProfileId &&
+      selectedProfileId !== initialStrategyProfileId
+    ) {
       updateTradeStrategyProfile();
     }
-  }, [selectedProfileId, tradeId, initialStrategyProfileId, profilesLoading]);
+  }, [
+    selectedProfileId,
+    tradeId,
+    initialStrategyProfileId,
+    profilesLoading,
+    isDraft,
+  ]);
+
+  // ============================================================
+  // UPDATE RESPONSE
+  // ============================================================
 
   async function updateResponse(
     itemId: string,
@@ -252,11 +342,105 @@ export default function ChecklistSection({
     setError(null);
 
     const user = await getCurrentUser();
-    if (!user) return;
+    if (!user) {
+      setError("Хэрэглэгч олдсонгүй.");
+      return;
+    }
+
+    // ============================================================
+    // DRAFT MODE
+    // ============================================================
+
+    if (isDraft) {
+      if (!tradeId || tradeId === "draft" || tradeId === "") {
+        setError("Draft ID байхгүй байна. Эхлээд стратегиа сонгоно уу.");
+        return;
+      }
+
+      const existing = responses[itemId];
+
+      if (existing && existing.response_status === status) {
+        if (existing.id && !existing.id.startsWith("draft-")) {
+          await supabase
+            .from("draft_checklist_responses")
+            .delete()
+            .eq("id", existing.id)
+            .eq("draft_id", tradeId)
+            .eq("user_id", user.id);
+        }
+
+        const newResponses = { ...responses };
+        delete newResponses[itemId];
+        setResponses(newResponses);
+        setSaved(true);
+
+        if (onChange) {
+          onChange(Object.values(newResponses));
+        }
+        return;
+      }
+
+      const payload = {
+        draft_id: tradeId,
+        user_id: user.id,
+        checklist_item_id: itemId,
+        response_status: status,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (existing && existing.id && !existing.id.startsWith("draft-")) {
+        const { error } = await supabase
+          .from("draft_checklist_responses")
+          .update(payload)
+          .eq("id", existing.id)
+          .eq("draft_id", tradeId)
+          .eq("user_id", user.id);
+
+        if (!error) {
+          const updatedResponses = {
+            ...responses,
+            [itemId]: { ...existing, response_status: status },
+          };
+          setResponses(updatedResponses);
+          setSaved(true);
+
+          if (onChange) {
+            onChange(Object.values(updatedResponses));
+          }
+        } else {
+          setError(error.message);
+        }
+      } else {
+        const { data, error } = await supabase
+          .from("draft_checklist_responses")
+          .insert({ ...payload, created_at: new Date().toISOString() })
+          .select()
+          .single();
+
+        if (!error && data) {
+          const updatedResponses = {
+            ...responses,
+            [itemId]: data,
+          };
+          setResponses(updatedResponses);
+          setSaved(true);
+
+          if (onChange) {
+            onChange(Object.values(updatedResponses));
+          }
+        } else {
+          setError(error?.message || "Хадгалахад алдаа гарлаа");
+        }
+      }
+      return;
+    }
+
+    // ============================================================
+    // REAL TRADE MODE
+    // ============================================================
 
     const existing = responses[itemId];
 
-    // If same status, toggle off (delete)
     if (existing && existing.response_status === status) {
       const { error } = await supabase
         .from("trade_checklist_responses")
@@ -285,7 +469,6 @@ export default function ChecklistSection({
     };
 
     if (existing) {
-      // Update existing
       const { error } = await supabase
         .from("trade_checklist_responses")
         .update(payload)
@@ -304,7 +487,6 @@ export default function ChecklistSection({
         }
       }
     } else {
-      // Insert new
       const { data, error } = await supabase
         .from("trade_checklist_responses")
         .insert({ ...payload, created_at: new Date().toISOString() })
@@ -326,7 +508,10 @@ export default function ChecklistSection({
     }
   }
 
-  // 🆕 SAVE ALL RESPONSES
+  // ============================================================
+  // SAVE ALL
+  // ============================================================
+
   async function saveAll() {
     setSaving(true);
     setSaved(false);
@@ -338,19 +523,33 @@ export default function ChecklistSection({
         throw new Error("Хэрэглэгч олдсонгүй.");
       }
 
-      // Бүх хариултыг хадгалах
-      // (responses нь аль хэдийн supabase-д хадгалагдсан байгаа
-      // updateResponse функц нь тус бүрд хадгалдаг)
+      if (isDraft) {
+        const responseArray = Object.values(responses).map((r) => ({
+          checklist_item_id: r.checklist_item_id,
+          response_status: r.response_status,
+        }));
+
+        if (onChange) {
+          onChange(responseArray);
+        }
+        if (onSave) {
+          onSave(responseArray);
+        }
+        setSaved(true);
+
+        // ✅ Дараагийн tab руу шилжих
+        if (onNextTab) {
+          setTimeout(() => onNextTab(), 300);
+        }
+        return;
+      }
 
       setSaved(true);
       if (onSave) {
         onSave(Object.values(responses));
       }
-      // 🆕 Дараагийн tab руу шилжих
       if (onNextTab) {
-        setTimeout(() => {
-          onNextTab();
-        }, 300); // 300ms саатуулах (хадгалагдсан гэсэн мессеж харагдахын тулд)
+        setTimeout(() => onNextTab(), 300);
       }
     } catch (err) {
       setError(
@@ -363,7 +562,10 @@ export default function ChecklistSection({
     }
   }
 
-  // Critical items check
+  // ============================================================
+  // CRITICAL ITEMS
+  // ============================================================
+
   const criticalItems = items.filter((item) => item.critical);
   const allCriticalMet = criticalItems.every((item) => {
     const response = responses[item.id];
@@ -375,15 +577,16 @@ export default function ChecklistSection({
     return response?.response_status === "met";
   });
 
-  // Get selected profile name
   const selectedProfile = profiles.find((p) => p.id === selectedProfileId);
+
+  // ============================================================
+  // LOADING
+  // ============================================================
 
   if (loading || profilesLoading) {
     return (
       <section className="rounded-xl border bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <p className="text-sm text-gray-500">
-          Арилжааны нөхцөл баталгаажуулалт ачааллаж байна...
-        </p>
+        <p className="text-sm text-gray-500">Ачааллаж байна...</p>
       </section>
     );
   }
@@ -391,6 +594,7 @@ export default function ChecklistSection({
   // ============================================================
   // VIEW MODE
   // ============================================================
+
   if (mode === "view") {
     const groupedItems: Record<string, ChecklistItem[]> = {};
     items.forEach((item) => {
@@ -404,15 +608,13 @@ export default function ChecklistSection({
 
     return (
       <div className="space-y-4">
-        {/* Strategy name */}
         <div className="rounded-lg border p-3 dark:border-gray-700">
           <span className="text-sm text-gray-500">Стратеги:</span>
           <span className="ml-2 text-sm font-medium">
-            {selectedProfile?.name || "Ерөнхий"}
+            {selectedProfile?.name}
           </span>
         </div>
 
-        {/* Items grouped */}
         {GROUPS.map((group) => {
           const groupItems = items.filter(
             (item) => item.group_name === group.id,
@@ -479,7 +681,6 @@ export default function ChecklistSection({
           </p>
         )}
 
-        {/* Critical items result */}
         {criticalItems.length > 0 && hasResponses && (
           <div
             className={`rounded-lg p-4 ${
@@ -511,6 +712,7 @@ export default function ChecklistSection({
   // ============================================================
   // CREATE/EDIT MODE
   // ============================================================
+
   return (
     <section className="rounded-xl border bg-white dark:border-gray-800 dark:bg-gray-900">
       <div className="border-b p-5 dark:border-gray-800">
@@ -536,81 +738,68 @@ export default function ChecklistSection({
         <div className="rounded-lg border p-4 dark:border-gray-700">
           <label className="block text-sm font-medium mb-2">
             🎯 Стратеги сонгох
-            {updatingStrategy && (
+            {!isDraft && updatingStrategy && (
               <span className="ml-2 text-xs text-gray-400">
                 Хадгалж байна...
               </span>
             )}
           </label>
+
+          {isDraft && (
+            <p className="text-xs text-blue-500 mb-2">
+              ℹ️ Сонгосон стратегийн шалгууруудыг харуулна
+            </p>
+          )}
+
           <div className="flex flex-wrap gap-2">
-            {profiles.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                Стратегийн профайл байхгүй байна.{" "}
-                <a
-                  href="/trading-plan"
-                  className="text-blue-500 hover:underline"
-                >
-                  Төлөвлөгөө хуудас
-                </a>
-                -д очиж үүсгэнэ үү.
-              </p>
-            ) : (
-              <>
-                {profiles.map((profile) => (
-                  <button
-                    key={profile.id}
-                    onClick={() => setSelectedProfileId(profile.id)}
-                    className={`px-4 py-2 rounded-lg border text-sm transition-colors ${
-                      selectedProfileId === profile.id
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-400"
-                        : "border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800"
-                    }`}
-                  >
-                    {profile.name}
-                    {profile.is_active && (
-                      <span className="ml-2 text-xs text-green-500">✓</span>
-                    )}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setSelectedProfileId(null)}
-                  className={`px-4 py-2 rounded-lg border text-sm transition-colors ${
-                    selectedProfileId === null
-                      ? "border-gray-500 bg-gray-100 dark:bg-gray-700 dark:border-gray-400"
-                      : "border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800"
-                  }`}
-                >
-                  📋 Ерөнхий
-                </button>
-              </>
-            )}
+            {profiles.map((profile) => (
+              <button
+                key={profile.id}
+                onClick={() => {
+                  setSelectedProfileId(profile.id);
+                }}
+                className={`px-4 py-2 rounded-lg border text-sm transition-colors ${
+                  selectedProfileId === profile.id
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-400"
+                    : "border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800"
+                }`}
+              >
+                {profile.name}
+                {profile.is_active && (
+                  <span className="ml-2 text-xs text-green-500">✓</span>
+                )}
+              </button>
+            ))}
           </div>
+
           {selectedProfile && (
             <p className="mt-2 text-xs text-gray-500">
               Сонгосон стратеги:{" "}
               <span className="font-medium">{selectedProfile.name}</span>
-              {selectedProfile.is_active && (
+              {!isDraft && selectedProfile.is_active && (
                 <span className="ml-2 text-green-500">✓ Идэвхтэй</span>
+              )}
+              {isDraft && (
+                <span className="ml-2 text-blue-500">(шалгуур харуулах)</span>
               )}
             </p>
           )}
           {!selectedProfile && (
-            <p className="mt-2 text-xs text-gray-500">Ерөнхий шалгуур</p>
+            <p className="mt-2 text-xs text-gray-500">
+              {isDraft ? "Ерөнхий шалгуур харуулах" : "Ерөнхий шалгуур"}
+            </p>
           )}
         </div>
 
         {items.length === 0 ? (
           <div className="rounded-lg border p-4 dark:border-gray-700">
             <p className="text-sm text-gray-500">
-              {selectedProfile
-                ? `"${selectedProfile.name}" стратегид`
-                : "Ерөнхий"}{" "}
-              шалгуур байхгүй байна.
+              {selectedProfile && `"${selectedProfile.name}" стратегид`} шалгуур
+              байхгүй байна.
             </p>
           </div>
         ) : (
           <>
-            {/* Grouped Items */}
             {GROUPS.map((group) => {
               const groupItems = items.filter(
                 (item) => item.group_name === group.id,
@@ -724,7 +913,6 @@ export default function ChecklistSection({
               );
             })}
 
-            {/* PROGRESS BAR */}
             <div className="mt-4 border-t pt-4 dark:border-gray-800">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-gray-500">
@@ -747,7 +935,6 @@ export default function ChecklistSection({
                 />
               </div>
 
-              {/* Status message */}
               {isSetupComplete ? (
                 <div className="mt-3 rounded-lg bg-green-50 p-3 border border-green-200 dark:bg-green-900/20 dark:border-green-800">
                   <p className="text-sm text-green-700 dark:text-green-400">
@@ -764,7 +951,6 @@ export default function ChecklistSection({
               )}
             </div>
 
-            {/* TRADE / NO TRADE Decision */}
             {criticalItems.length > 0 && (
               <div
                 className={`mt-6 rounded-lg p-4 ${
@@ -823,7 +1009,6 @@ export default function ChecklistSection({
         )}
       </div>
 
-      {/* 🆕 FOOTER - ХАДГАЛАХ ТОВЧ */}
       <div className="flex items-center justify-between border-t p-5 dark:border-gray-800">
         <div>
           {error && <p className="text-sm text-red-500">{error}</p>}

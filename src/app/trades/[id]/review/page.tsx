@@ -73,7 +73,7 @@ export default function TradeReviewPage() {
             onClick={() => router.push("/trades")}
             className="mt-4 rounded-lg bg-gray-200 px-4 py-2 text-sm hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
           >
-            ← Бүх Trade руу буцах
+            ← Бүх арилжаа руу буцах
           </button>
         </div>
       </div>
@@ -98,7 +98,7 @@ export default function TradeReviewPage() {
               onClick={() => router.push("/trades")}
               className="mb-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
             >
-              ← Бүх Trade
+              ← Бүх арилжаа руу буцах
             </button>
             <h1 className="text-2xl font-bold">
               Trade #{trade.symbol} — Дүн шинжилгээ{" "}
