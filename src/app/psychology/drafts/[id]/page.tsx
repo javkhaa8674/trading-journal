@@ -10,12 +10,6 @@ import TradePsychology from "@/app/components/trades/TradePsychology";
 import ChecklistSection from "@/app/components/trades/ChecklistSection";
 import DraftTradeInfo from "@/app/components/trades/DraftTradeInfo";
 
-type StrategyProfile = {
-  id: string;
-  name: string;
-  is_active: boolean;
-};
-
 export default function EditDraftPage() {
   const params = useParams();
   const router = useRouter();
@@ -24,26 +18,28 @@ export default function EditDraftPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
   const [psychologyData, setPsychologyData] = useState<any>(null);
   const [checklistData, setChecklistData] = useState<any[]>([]);
   const [tradeInfoData, setTradeInfoData] = useState<any>(null);
+
   const [activeSection, setActiveSection] = useState<
     "tradeInfo" | "setup" | "psychology"
-  >("tradeInfo");
+  >("setup");
 
-  const [profiles, setProfiles] = useState<StrategyProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
     null,
   );
   const [profilesLoading, setProfilesLoading] = useState(true);
 
   // ============================================================
-  // LOAD PROFILES
+  // LOAD ACTIVE STRATEGY PROFILE
   // ============================================================
 
   useEffect(() => {
     async function loadProfiles() {
       const user = await getCurrentUser();
+
       if (!user) {
         setProfilesLoading(false);
         return;
@@ -61,11 +57,12 @@ export default function EditDraftPage() {
         return;
       }
 
-      setProfiles(data || []);
       if (data && data.length > 0) {
-        const active = data.find((p) => p.is_active);
+        const active = data.find((profile) => profile.is_active);
+
         setSelectedProfileId(active?.id || data[0].id);
       }
+
       setProfilesLoading(false);
     }
 
@@ -79,13 +76,18 @@ export default function EditDraftPage() {
   useEffect(() => {
     async function loadDraft() {
       setLoading(true);
+
       const user = await getCurrentUser();
+
       if (!user) {
         router.push("/login");
         return;
       }
 
-      // 1. Load draft psychology
+      // ========================================================
+      // 1. LOAD DRAFT PSYCHOLOGY
+      // ========================================================
+
       const { data: psych, error: psychError } = await supabase
         .from("draft_psychology")
         .select("*")
@@ -101,7 +103,10 @@ export default function EditDraftPage() {
 
       setPsychologyData(psych);
 
-      // 2. Load draft trade info
+      // ========================================================
+      // 2. LOAD DRAFT TRADE INFO
+      // ========================================================
+
       const { data: tradeInfo, error: tradeError } = await supabase
         .from("draft_trade_info")
         .select("*")
@@ -115,11 +120,11 @@ export default function EditDraftPage() {
 
       if (tradeInfo) {
         setTradeInfoData({
-          symbol: tradeInfo.symbol || "",
-          lot_size: tradeInfo.lot_size || null,
-          entry_price: tradeInfo.entry_price || null,
+          symbol: tradeInfo.symbol ?? "",
+          lot_size: tradeInfo.lot_size ?? null,
+          entry_price: tradeInfo.entry_price ?? null,
           entry_date:
-            tradeInfo.entry_date || new Date().toISOString().split("T")[0],
+            tradeInfo.entry_date ?? new Date().toISOString().split("T")[0],
         });
       } else {
         setTradeInfoData({
@@ -130,18 +135,28 @@ export default function EditDraftPage() {
         });
       }
 
-      // 3. Load draft checklist
-      const { data: checklist } = await supabase
+      // ========================================================
+      // 3. LOAD DRAFT CHECKLIST
+      // ========================================================
+
+      const { data: checklist, error: checklistError } = await supabase
         .from("draft_checklist_responses")
         .select("*")
         .eq("draft_id", draftId)
         .eq("user_id", user.id);
 
+      if (checklistError) {
+        console.error("Error loading checklist:", checklistError);
+      }
+
       setChecklistData(checklist || []);
+
       setLoading(false);
     }
 
-    loadDraft();
+    if (draftId) {
+      loadDraft();
+    }
   }, [draftId, router]);
 
   // ============================================================
@@ -163,19 +178,21 @@ export default function EditDraftPage() {
   };
 
   // ============================================================
-  // TRADE INFO SAVE - Setup tab руу шилжих
+  // TRADE INFO SAVE
+  // Trade Info → Psychology
   // ============================================================
 
   const handleTradeInfoSave = () => {
-    setActiveSection("setup");
+    setActiveSection("psychology");
   };
 
   // ============================================================
-  // CHECKLIST SAVE - Psychology tab руу шилжих
+  // CHECKLIST SAVE
+  // Setup → Trade Info
   // ============================================================
 
   const handleChecklistSave = () => {
-    setActiveSection("psychology");
+    setActiveSection("tradeInfo");
   };
 
   // ============================================================
@@ -184,11 +201,18 @@ export default function EditDraftPage() {
 
   const handleUpdate = async () => {
     setSaving(true);
+
     try {
       const user = await getCurrentUser();
-      if (!user) throw new Error("Хэрэглэгч олдсонгүй");
 
-      // 1. Update draft trade info
+      if (!user) {
+        throw new Error("Хэрэглэгч олдсонгүй");
+      }
+
+      // ========================================================
+      // 1. UPDATE DRAFT TRADE INFO
+      // ========================================================
+
       if (tradeInfoData) {
         const { error } = await supabase.from("draft_trade_info").upsert(
           {
@@ -200,13 +224,20 @@ export default function EditDraftPage() {
             entry_date: tradeInfoData.entry_date,
             updated_at: new Date().toISOString(),
           },
-          { onConflict: "draft_id" },
+          {
+            onConflict: "draft_id",
+          },
         );
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
       }
 
-      // 2. Update draft psychology
+      // ========================================================
+      // 2. UPDATE DRAFT PSYCHOLOGY
+      // ========================================================
+
       if (psychologyData) {
         const { error } = await supabase
           .from("draft_psychology")
@@ -217,18 +248,27 @@ export default function EditDraftPage() {
           .eq("id", draftId)
           .eq("user_id", user.id);
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
       }
 
-      // 3. Update draft checklist
-      await supabase
+      // ========================================================
+      // 3. UPDATE DRAFT CHECKLIST
+      // ========================================================
+
+      const { error: deleteChecklistError } = await supabase
         .from("draft_checklist_responses")
         .delete()
         .eq("draft_id", draftId)
         .eq("user_id", user.id);
 
+      if (deleteChecklistError) {
+        throw deleteChecklistError;
+      }
+
       if (checklistData && checklistData.length > 0) {
-        const { error } = await supabase
+        const { error: insertChecklistError } = await supabase
           .from("draft_checklist_responses")
           .insert(
             checklistData.map((item: any) => ({
@@ -239,7 +279,9 @@ export default function EditDraftPage() {
             })),
           );
 
-        if (error) throw error;
+        if (insertChecklistError) {
+          throw insertChecklistError;
+        }
       }
 
       router.push("/psychology/drafts");
@@ -256,32 +298,60 @@ export default function EditDraftPage() {
   // ============================================================
 
   const handleDelete = async () => {
-    if (!confirm("Энэ draft-ыг устгах уу?")) return;
+    if (!confirm("Энэ draft-ыг устгах уу?")) {
+      return;
+    }
 
     setDeleting(true);
+
     try {
       const user = await getCurrentUser();
-      if (!user) return;
 
-      await supabase
+      if (!user) {
+        return;
+      }
+
+      // ========================================================
+      // 1. DELETE TRADE INFO
+      // ========================================================
+
+      const { error: tradeInfoDeleteError } = await supabase
         .from("draft_trade_info")
         .delete()
         .eq("draft_id", draftId)
         .eq("user_id", user.id);
 
-      await supabase
+      if (tradeInfoDeleteError) {
+        throw tradeInfoDeleteError;
+      }
+
+      // ========================================================
+      // 2. DELETE CHECKLIST
+      // ========================================================
+
+      const { error: checklistDeleteError } = await supabase
         .from("draft_checklist_responses")
         .delete()
         .eq("draft_id", draftId)
         .eq("user_id", user.id);
 
-      const { error } = await supabase
+      if (checklistDeleteError) {
+        throw checklistDeleteError;
+      }
+
+      // ========================================================
+      // 3. DELETE PSYCHOLOGY / DRAFT
+      // ========================================================
+
+      const { error: psychologyDeleteError } = await supabase
         .from("draft_psychology")
         .delete()
         .eq("id", draftId)
         .eq("user_id", user.id);
 
-      if (error) throw error;
+      if (psychologyDeleteError) {
+        throw psychologyDeleteError;
+      }
 
       router.push("/psychology/drafts");
     } catch (error) {
@@ -293,14 +363,18 @@ export default function EditDraftPage() {
   };
 
   // ============================================================
-  // PSYCHOLOGY SAVE (for onSave prop)
+  // PSYCHOLOGY SAVE
   // ============================================================
 
   const handlePsychologySave = async () => {
     setSaving(true);
+
     try {
       const user = await getCurrentUser();
-      if (!user) throw new Error("Хэрэглэгч олдсонгүй");
+
+      if (!user) {
+        throw new Error("Хэрэглэгч олдсонгүй");
+      }
 
       if (psychologyData) {
         const { error } = await supabase
@@ -312,7 +386,9 @@ export default function EditDraftPage() {
           .eq("id", draftId)
           .eq("user_id", user.id);
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
       }
 
       router.push("/psychology/drafts");
@@ -324,6 +400,10 @@ export default function EditDraftPage() {
     }
   };
 
+  // ============================================================
+  // LOADING
+  // ============================================================
+
   if (loading || profilesLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
@@ -332,15 +412,35 @@ export default function EditDraftPage() {
     );
   }
 
+  // ============================================================
+  // TABS
+  // ============================================================
+
   const tabs = [
-    { id: "tradeInfo", label: "📊 Trade Info" },
-    { id: "setup", label: "✅ Нөхцөл баталгаажуулалт" },
-    { id: "psychology", label: "🧠 Сэтгэл зүй" },
+    {
+      id: "setup",
+      label: "✅ Нөхцөл баталгаажуулалт",
+    },
+    {
+      id: "tradeInfo",
+      label: "📊 Trade Info",
+    },
+    {
+      id: "psychology",
+      label: "🧠 Сэтгэл зүй",
+    },
   ];
+
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
-      {/* Header */}
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
+
       <div className="mb-6">
         <button
           onClick={() => router.push("/psychology/drafts")}
@@ -348,9 +448,11 @@ export default function EditDraftPage() {
         >
           ← Draft-ууд руу буцах
         </button>
+
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">✏️ Draft засах</h1>
+
             <p className="text-sm text-gray-500">
               {psychologyData?.created_at
                 ? new Date(psychologyData.created_at).toLocaleDateString()
@@ -358,17 +460,23 @@ export default function EditDraftPage() {
               үед үүсгэсэн
             </p>
           </div>
+
           <div className="flex gap-2">
+            {/* DELETE */}
+
             <button
               onClick={handleDelete}
-              disabled={deleting}
+              disabled={deleting || saving}
               className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 disabled:opacity-50"
             >
               {deleting ? "Устгаж байна..." : "🗑️ Устгах"}
             </button>
+
+            {/* SAVE */}
+
             <button
               onClick={handleUpdate}
-              disabled={saving}
+              disabled={saving || deleting}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {saving ? "Хадгалж байна..." : "💾 Хадгалах"}
@@ -377,7 +485,10 @@ export default function EditDraftPage() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* ======================================================
+          TABS
+      ====================================================== */}
+
       <div className="mb-6 flex gap-2 border-b pb-4">
         {tabs.map((tab) => (
           <button
@@ -396,18 +507,14 @@ export default function EditDraftPage() {
         ))}
       </div>
 
-      {/* Content */}
+      {/* ======================================================
+          CONTENT
+      ====================================================== */}
+
       <div className="space-y-6">
-        {activeSection === "tradeInfo" && (
-          <div className="rounded-lg border p-4 dark:border-gray-800">
-            <DraftTradeInfo
-              draftId={draftId || undefined}
-              initialData={tradeInfoData}
-              onChange={handleTradeInfoChange}
-              onNextTab={handleTradeInfoSave}
-            />
-          </div>
-        )}
+        {/* ====================================================
+            SETUP / CHECKLIST
+        ==================================================== */}
 
         {activeSection === "setup" && (
           <div className="rounded-lg border p-4 dark:border-gray-800">
@@ -422,6 +529,25 @@ export default function EditDraftPage() {
             />
           </div>
         )}
+
+        {/* ====================================================
+            TRADE INFO
+        ==================================================== */}
+
+        {activeSection === "tradeInfo" && (
+          <div className="rounded-lg border p-4 dark:border-gray-800">
+            <DraftTradeInfo
+              draftId={draftId || undefined}
+              initialData={tradeInfoData}
+              onChange={handleTradeInfoChange}
+              onNextTab={handleTradeInfoSave}
+            />
+          </div>
+        )}
+
+        {/* ====================================================
+            PSYCHOLOGY
+        ==================================================== */}
 
         {activeSection === "psychology" && (
           <div className="rounded-lg border p-4 dark:border-gray-800">

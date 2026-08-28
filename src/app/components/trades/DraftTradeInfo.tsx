@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
 
@@ -15,197 +15,232 @@ type DraftTradeInfoData = {
 };
 
 type Props = {
-  onChange?: (data: DraftTradeInfoData) => void;
-  initialData?: DraftTradeInfoData;
   onNextTab?: () => void;
-  onSave?: (data: DraftTradeInfoData) => Promise<void> | void;
+  onChange?: (data: DraftTradeInfoData) => void;
   draftId?: string;
+  initialData?: Partial<DraftTradeInfoData> | null;
 };
 
 const getCurrentDateTime = () => {
   const now = new Date();
+
   const date = now.toISOString().split("T")[0];
   const time = now.toTimeString().slice(0, 8);
-  return { date, time };
+
+  return {
+    date,
+    time,
+  };
 };
 
-const initialState: DraftTradeInfoData = {
-  symbol: "",
-  lot_size: null,
-  entry_price: null,
-  entry_date: getCurrentDateTime().date,
-  entry_time: getCurrentDateTime().time,
+const getInitialState = (): DraftTradeInfoData => {
+  const { date, time } = getCurrentDateTime();
+
+  return {
+    symbol: "",
+    lot_size: null,
+    entry_price: null,
+    entry_date: date,
+    entry_time: time,
+  };
 };
 
 export default function DraftTradeInfo({
-  onChange,
-  initialData,
   onNextTab,
-  onSave,
+  onChange,
   draftId,
+  initialData,
 }: Props) {
-  const [form, setForm] = useState<DraftTradeInfoData>(() => {
-    if (initialData) {
-      return {
-        symbol: initialData.symbol || "",
-        lot_size: initialData.lot_size ?? null,
-        entry_price: initialData.entry_price ?? null,
-        entry_date: initialData.entry_date || getCurrentDateTime().date,
-        entry_time: initialData.entry_time || getCurrentDateTime().time,
-      };
-    }
-    return initialState;
-  });
+  const [form, setForm] = useState<DraftTradeInfoData>(() => ({
+    ...getInitialState(),
+    ...(initialData ?? {}),
+  }));
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isDirty, setIsDirty] = useState(false);
 
-  // Auto-save when form changes
+  // ============================================================
+  // INITIAL DATA
+  // Parent-оос DB-ээс уншсан data ирэх үед form update хийнэ
+  // ============================================================
+
   useEffect(() => {
-    if (draftId && isDirty) {
-      const timer = setTimeout(() => {
-        handleSave();
-      }, 2000);
-      return () => clearTimeout(timer);
+    if (!initialData) {
+      return;
     }
-  }, [form, draftId, isDirty]);
 
-  const update = (key: keyof DraftTradeInfoData, value: any) => {
+    const defaultState = getInitialState();
+
+    const updatedForm: DraftTradeInfoData = {
+      ...defaultState,
+      ...initialData,
+    };
+
+    setForm(updatedForm);
+  }, [initialData]);
+
+  // ============================================================
+  // HANDLE INPUT CHANGE
+  // ============================================================
+
+  const update = (
+    key: keyof DraftTradeInfoData,
+    value: string | number | null,
+  ) => {
     setSaved(false);
     setError(null);
-    setIsDirty(true);
-    const updated = { ...form, [key]: value };
-    setForm(updated);
-    if (onChange) {
-      onChange(updated);
-    }
+
+    setForm((previous) => {
+      const updated: DraftTradeInfoData = {
+        ...previous,
+        [key]: value,
+      };
+
+      // Parent state update
+      if (onChange) {
+        onChange(updated);
+      }
+
+      return updated;
+    });
   };
 
-  // ✅ SAVE with separate INSERT/UPDATE
+  // ============================================================
+  // SAVE
+  // ============================================================
+
   const handleSave = async () => {
+    if (saving) {
+      return;
+    }
+
     setSaving(true);
     setSaved(false);
     setError(null);
 
     try {
-      // Validation
-      if (!form.symbol) {
+      // ========================================================
+      // 1. VALIDATION
+      // ========================================================
+
+      if (!form.symbol.trim()) {
         setError("Хослол оруулна уу.");
-        setSaving(false);
         return;
       }
 
       if (!form.lot_size || form.lot_size <= 0) {
         setError("Багц хэмжээг зөв оруулна уу.");
-        setSaving(false);
         return;
       }
 
       if (!form.entry_price || form.entry_price <= 0) {
         setError("Нээлтийн ханш зөв оруулна уу.");
-        setSaving(false);
         return;
       }
 
       if (!form.entry_date) {
         setError("Нээлтийн огноо сонгоно уу.");
-        setSaving(false);
         return;
       }
 
       if (!form.entry_time) {
         setError("Нээлтийн цаг оруулна уу.");
-        setSaving(false);
         return;
       }
 
-      // ✅ Save to database if draftId is provided
-      if (draftId) {
-        const user = await getCurrentUser();
-        if (!user) {
-          setError("Хэрэглэгч олдсонгүй");
-          setSaving(false);
-          return;
-        }
+      // ========================================================
+      // 2. DRAFT ID
+      // ========================================================
 
-        console.log("Saving trade info for draft:", draftId);
-        console.log("Data:", form);
+      if (!draftId) {
+        setError("Draft ID олдсонгүй. Хадгалах боломжгүй.");
+        return;
+      }
 
-        // ✅ Check if record exists
-        const { data: existing, error: checkError } = await supabase
+      // ========================================================
+      // 3. CURRENT USER
+      // ========================================================
+
+      const user = await getCurrentUser();
+
+      if (!user) {
+        setError("Хэрэглэгч олдсонгүй.");
+        return;
+      }
+
+      // ========================================================
+      // 4. EXISTING RECORD
+      // ========================================================
+
+      const { data: existing, error: checkError } = await supabase
+        .from("draft_trade_info")
+        .select("id")
+        .eq("draft_id", draftId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (checkError) {
+        throw new Error(checkError.message);
+      }
+
+      // ========================================================
+      // 5. UPDATE EXISTING RECORD
+      // ========================================================
+
+      if (existing) {
+        const { error: updateError } = await supabase
           .from("draft_trade_info")
-          .select("id")
-          .eq("draft_id", draftId)
-          .eq("user_id", user.id)
-          .maybeSingle();
+          .update({
+            symbol: form.symbol.trim(),
+            lot_size: form.lot_size,
+            entry_price: form.entry_price,
+            entry_date: form.entry_date,
+            entry_time: form.entry_time,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id)
+          .eq("user_id", user.id);
 
-        if (checkError) {
-          console.error("Check error:", checkError);
-          throw new Error(checkError.message);
-        }
-
-        let result;
-        if (existing) {
-          // ✅ UPDATE existing record
-          console.log("Updating existing record:", existing.id);
-          const { data, error: updateError } = await supabase
-            .from("draft_trade_info")
-            .update({
-              symbol: form.symbol,
-              lot_size: form.lot_size,
-              entry_price: form.entry_price,
-              entry_date: form.entry_date,
-              entry_time: form.entry_time,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", existing.id)
-            .eq("user_id", user.id)
-            .select();
-
-          if (updateError) {
-            console.error("Update error:", updateError);
-            throw new Error(updateError.message);
-          }
-          result = data;
-          console.log("Updated successfully:", result);
-        } else {
-          // ✅ INSERT new record
-          console.log("Inserting new record");
-          const { data, error: insertError } = await supabase
-            .from("draft_trade_info")
-            .insert({
-              draft_id: draftId,
-              user_id: user.id,
-              symbol: form.symbol,
-              lot_size: form.lot_size,
-              entry_price: form.entry_price,
-              entry_date: form.entry_date,
-              entry_time: form.entry_time,
-            })
-            .select();
-
-          if (insertError) {
-            console.error("Insert error:", insertError);
-            throw new Error(insertError.message);
-          }
-          result = data;
-          console.log("Inserted successfully:", result);
+        if (updateError) {
+          throw new Error(updateError.message);
         }
       }
 
-      // ✅ Call onSave if provided
-      if (onSave) {
-        await onSave(form);
+      // ========================================================
+      // 6. INSERT NEW RECORD
+      // ========================================================
+      else {
+        const { error: insertError } = await supabase
+          .from("draft_trade_info")
+          .insert({
+            draft_id: draftId,
+            user_id: user.id,
+            symbol: form.symbol.trim(),
+            lot_size: form.lot_size,
+            entry_price: form.entry_price,
+            entry_date: form.entry_date,
+            entry_time: form.entry_time,
+          });
+
+        if (insertError) {
+          throw new Error(insertError.message);
+        }
       }
 
-      setIsDirty(false);
+      // ========================================================
+      // 7. SAVE SUCCESS
+      // ========================================================
+
       setSaved(true);
 
       setTimeout(() => {
         setSaved(false);
       }, 3000);
+
+      // ========================================================
+      // 8. NEXT TAB
+      // ========================================================
 
       if (onNextTab) {
         setTimeout(() => {
@@ -214,26 +249,42 @@ export default function DraftTradeInfo({
       }
     } catch (err) {
       console.error("Save error:", err);
-      setError(err instanceof Error ? err.message : "Хадгалахад алдаа гарлаа");
+
+      setError(err instanceof Error ? err.message : "Хадгалахад алдаа гарлаа.");
+
       setSaved(false);
     } finally {
       setSaving(false);
     }
   };
 
+  // ============================================================
+  // SUMMARY DATA
+  // ============================================================
+
   const hasData = () => {
-    return !!(
+    return Boolean(
       form.symbol ||
       form.lot_size ||
       form.entry_price ||
-      form.entry_date
+      form.entry_date ||
+      form.entry_time,
     );
   };
 
+  // ============================================================
+  // RENDER
+  // ============================================================
+
   return (
     <div className="rounded-xl border bg-white dark:border-gray-800 dark:bg-gray-900">
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
+
       <div className="border-b p-5 dark:border-gray-800">
         <h2 className="text-lg font-semibold">📊 Арилжааны мэдээлэл</h2>
+
         <p className="mt-1 text-sm text-gray-500">
           Арилжааны үндсэн мэдээллийг бүртгэнэ. Дараа нь trade-тай холбоход энэ
           мэдээлэл ашиглагдана.
@@ -245,12 +296,21 @@ export default function DraftTradeInfo({
         </p>
       </div>
 
-      <div className="p-5 space-y-4">
+      {/* ======================================================
+          FORM
+      ====================================================== */}
+
+      <div className="space-y-4 p-5">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* ==================================================
+              SYMBOL
+          ================================================== */}
+
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="mb-1 block text-sm font-medium">
               Хослол (Currency Pair) <span className="text-red-500">*</span>
             </label>
+
             <input
               type="text"
               value={form.symbol}
@@ -260,10 +320,15 @@ export default function DraftTradeInfo({
             />
           </div>
 
+          {/* ==================================================
+              LOT SIZE
+          ================================================== */}
+
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="mb-1 block text-sm font-medium">
               Багц хэмжээ (Lot Size) <span className="text-red-500">*</span>
             </label>
+
             <input
               type="number"
               step="0.01"
@@ -280,11 +345,16 @@ export default function DraftTradeInfo({
             />
           </div>
 
+          {/* ==================================================
+              ENTRY PRICE
+          ================================================== */}
+
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="mb-1 block text-sm font-medium">
               Нээлтийн ханш (Entry Price){" "}
               <span className="text-red-500">*</span>
             </label>
+
             <input
               type="number"
               step="0.00001"
@@ -301,11 +371,16 @@ export default function DraftTradeInfo({
             />
           </div>
 
+          {/* ==================================================
+              ENTRY DATE
+          ================================================== */}
+
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="mb-1 block text-sm font-medium">
               Нээлтийн огноо (Entry Date){" "}
               <span className="text-red-500">*</span>
             </label>
+
             <input
               type="date"
               value={form.entry_date}
@@ -314,10 +389,15 @@ export default function DraftTradeInfo({
             />
           </div>
 
+          {/* ==================================================
+              ENTRY TIME
+          ================================================== */}
+
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="mb-1 block text-sm font-medium">
               Нээлтийн цаг (Entry Time) <span className="text-red-500">*</span>
             </label>
+
             <input
               type="time"
               step="1"
@@ -328,26 +408,38 @@ export default function DraftTradeInfo({
           </div>
         </div>
 
+        {/* ======================================================
+            ERROR
+        ====================================================== */}
+
         {error && (
-          <div className="rounded-lg bg-red-50 p-3 border border-red-200 dark:bg-red-950/20 dark:border-red-800">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950/20">
             <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
           </div>
         )}
 
+        {/* ======================================================
+            SAVED
+        ====================================================== */}
+
         {saved && !error && (
-          <div className="rounded-lg bg-green-50 p-3 border border-green-200 dark:bg-green-950/20 dark:border-green-800">
+          <div className="rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-950/20">
             <p className="text-sm text-green-600 dark:text-green-400">
               ✅ Арилжааны мэдээлэл хадгалагдлаа.
             </p>
           </div>
         )}
 
+        {/* ======================================================
+            SUMMARY
+        ====================================================== */}
+
         {hasData() && (
           <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-950/30">
             <p className="text-sm text-blue-700 dark:text-blue-400">
               📌 <span className="font-medium">{form.symbol || "—"}</span>
-              {form.lot_size && ` · Lot: ${form.lot_size}`}
-              {form.entry_price && ` · Entry: ${form.entry_price}`}
+              {form.lot_size !== null && ` · Lot: ${form.lot_size}`}
+              {form.entry_price !== null && ` · Entry: ${form.entry_price}`}
               {form.entry_date &&
                 ` · Date: ${new Date(form.entry_date).toLocaleDateString()}`}
               {form.entry_time && ` · Time: ${form.entry_time}`}
@@ -356,11 +448,16 @@ export default function DraftTradeInfo({
         )}
       </div>
 
+      {/* ======================================================
+          FOOTER
+      ====================================================== */}
+
       <div className="flex items-center justify-between border-t p-5 dark:border-gray-800">
         <div>
           {saving && (
             <p className="text-sm text-blue-500">⏳ Хадгалж байна...</p>
           )}
+
           {saved && !error && !saving && (
             <p className="text-sm text-green-500">
               ✅ Арилжааны мэдээлэл хадгалагдлаа.
