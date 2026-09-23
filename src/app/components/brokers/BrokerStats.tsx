@@ -45,7 +45,10 @@ export function BrokerStats() {
       (accounts || [])
         ?.filter((a: Account) => a.broker_id)
         ?.reduce(
-          (sum: number, a: Account) => sum + (Number(a.balance) || 0),
+          (sum: number, a: Account) =>
+            sum +
+            (Number((a as Account & { balance?: number | string }).balance) ||
+              0),
           0,
         ) || 0,
   };

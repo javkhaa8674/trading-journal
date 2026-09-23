@@ -1029,8 +1029,7 @@ export default function TradeForm() {
 
             {filtedAccounts.map((acc) => (
               <option key={acc.id} value={acc.id}>
-                {getStatusIcon(acc.status)} {acc.name} - $
-                {acc.balance.toLocaleString()}
+                {getStatusIcon(acc.status)} {acc.name}
               </option>
             ))}
           </select>

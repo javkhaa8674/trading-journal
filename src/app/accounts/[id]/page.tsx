@@ -6,7 +6,8 @@ import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
 import Link from "next/link";
-import { Account, Broker } from "@/types/accounts";
+import { Account } from "@/types/accounts";
+import { Broker } from "@/types/broker";
 
 export default function EditAccountPage() {
   const router = useRouter();
@@ -35,7 +36,9 @@ export default function EditAccountPage() {
         // 1. Брокеруудыг татах
         const { data: brokersData, error: brokersError } = await supabase
           .from("brokers")
-          .select("id, name, logo_url, leverage, website, is_default")
+          .select(
+            "id, name, logo_url, leverage, website, is_default, user_id, created_at, updated_at",
+          )
           .eq("user_id", user.id)
           .order("is_default", { ascending: false })
           .order("name", { ascending: true });

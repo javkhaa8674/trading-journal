@@ -9,10 +9,15 @@ import Link from "next/link";
 import { AccountFormData } from "@/types/accounts";
 import { Broker } from "@/types/broker";
 
+type BrokerOption = Pick<
+  Broker,
+  "id" | "name" | "logo_url" | "leverage" | "website" | "is_default"
+>;
+
 export default function CreateAccountPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [brokers, setBrokers] = useState<Broker[]>([]);
+  const [brokers, setBrokers] = useState<BrokerOption[]>([]);
   const [brokersLoading, setBrokersLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
