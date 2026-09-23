@@ -124,7 +124,8 @@ export default function DashboardPage() {
     ? (accounts.find((a) => a.id === selectedAccountId) ?? null)
     : null;
 
-  const balance = selectedAccount?.start_balance;
+  const balance = selectedAccount?.initial_balance;
+
   const isValidBalance = typeof balance === "number" && balance > 0;
 
   // =========================
@@ -237,7 +238,20 @@ export default function DashboardPage() {
         {/* Account Selector */}
         <div>
           <select
-            className="w-full sm:w-auto rounded-lg border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white text-sm"
+            className="
+              rounded-lg
+              border
+              px-3
+              py-2
+              text-sm
+              w-full
+              sm:w-auto
+              bg-white
+              dark:bg-gray-800
+              dark:border-gray-700
+              disabled:opacity-50
+              disabled:cursor-not-allowed
+            "
             value={selectedAccountId ?? ""}
             onChange={(e) => {
               const value = e.target.value;
@@ -249,12 +263,9 @@ export default function DashboardPage() {
 
             {/* Accounts in selected tab */}
             {selectedTabAccounts.map((acc) => (
-              <option
-                key={acc.id}
-                value={acc.id}
-                className={getStatusColor(acc.status)}
-              >
-                {getStatusIcon(acc.status)} {acc.name}
+              <option key={acc.id} value={acc.id}>
+                {getStatusIcon(acc.status)} {acc.name} - $
+                {acc.initial_balance.toLocaleString()}
               </option>
             ))}
 
