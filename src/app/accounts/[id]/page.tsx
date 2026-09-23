@@ -6,26 +6,7 @@ import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
 import Link from "next/link";
-
-type Broker = {
-  id: string;
-  name: string;
-  logo_url?: string | null;
-  leverage?: string | null;
-  website?: string | null;
-  is_default?: boolean;
-};
-
-type Account = {
-  id: string;
-  name: string;
-  broker: string;
-  broker_id?: string | null;
-  mode: string;
-  balance: number;
-  status: string;
-  start_balance?: number;
-};
+import { Account, Broker } from "@/types/accounts";
 
 export default function EditAccountPage() {
   const router = useRouter();
@@ -72,22 +53,35 @@ export default function EditAccountPage() {
 
         if (accountError) throw accountError;
 
-        setFormData(accountData);
+        // Хуучин өгөгдөлд шинэ талбарууд байхгүй бол default утга оноох
+        const startBal =
+          accountData.start_balance || accountData.initial_balance || 0;
+        const currentBal = accountData.initial_balance || startBal;
+        const drawdownPercent = accountData.max_drawdown_percent || 10;
 
-        // 3. ✅ Дансны broker_id-ээр брокерыг сонгох
+        setFormData({
+          ...accountData,
+          start_balance: startBal,
+          initial_balance: currentBal,
+          target_balance: accountData.target_balance || startBal * 1.1,
+          max_loss_limit:
+            accountData.max_loss_limit ||
+            startBal * (1 - drawdownPercent / 100),
+          max_drawdown_percent: drawdownPercent,
+        });
+
+        // 3. Дансны broker_id-ээр брокерыг сонгох
         if (accountData.broker_id) {
           const broker = brokersData?.find(
             (b) => b.id === accountData.broker_id,
           );
           setSelectedBroker(broker || null);
         } else if (accountData.broker) {
-          // broker_id байхгүй бол нэрээр хайх
           const broker = brokersData?.find(
             (b) => b.name.toLowerCase() === accountData.broker?.toLowerCase(),
           );
           if (broker) {
             setSelectedBroker(broker);
-            // broker_id-г шинэчлэх
             setFormData((prev) =>
               prev ? { ...prev, broker_id: broker.id } : null,
             );
@@ -109,15 +103,45 @@ export default function EditAccountPage() {
     const timestamp = new Date().toLocaleString();
     const modeText = data.mode;
     const brokerName = selectedBroker?.name || data.broker || "Брокергүй";
-    return `${brokerName} ${modeText} $${data.balance.toLocaleString()} ${timestamp}`;
+    return `${brokerName} ${modeText} $${data.start_balance.toLocaleString()} ${timestamp}`;
   };
 
-  // Regenerate account name
   const regenerateAccountName = () => {
     if (!formData) return;
     const newName = generateAccountName(formData);
     setFormData({ ...formData, name: newName });
     setRegenerateName(false);
+  };
+
+  // ✅ Start balance өөрчлөгдөхөд target болон loss limit-ийг шинэчлэх
+  const handleStartBalanceChange = (value: number) => {
+    if (!formData) return;
+    const drawdownPercent = formData.max_drawdown_percent || 10;
+    setFormData({
+      ...formData,
+      start_balance: value,
+      target_balance: value * 1.1,
+      max_loss_limit: value * (1 - drawdownPercent / 100),
+    });
+  };
+
+  // ✅ Одоогийн баланс өөрчлөгдөхөд
+  const handleCurrentBalanceChange = (value: number) => {
+    if (!formData) return;
+    setFormData({
+      ...formData,
+      initial_balance: value,
+    });
+  };
+
+  // ✅ Drawdown percent өөрчлөгдөхөд
+  const handleDrawdownChange = (percent: number) => {
+    if (!formData) return;
+    setFormData({
+      ...formData,
+      max_drawdown_percent: percent,
+      max_loss_limit: (formData.start_balance || 0) * (1 - percent / 100),
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -133,7 +157,6 @@ export default function EditAccountPage() {
       return;
     }
 
-    // Сонгосон брокерын мэдээлэл
     const selectedBrokerData = brokers.find((b) => b.id === formData.broker_id);
     const brokerName =
       selectedBrokerData?.name || formData.broker || "Брокергүй";
@@ -145,7 +168,11 @@ export default function EditAccountPage() {
         broker: brokerName,
         broker_id: formData.broker_id || null,
         mode: formData.mode,
-        balance: formData.balance,
+        start_balance: formData.start_balance,
+        initial_balance: formData.initial_balance,
+        target_balance: formData.target_balance,
+        max_loss_limit: formData.max_loss_limit,
+        max_drawdown_percent: formData.max_drawdown_percent,
         status: formData.status,
       })
       .eq("id", accountId)
@@ -160,7 +187,6 @@ export default function EditAccountPage() {
     }
   };
 
-  // Handle broker change
   const handleBrokerChange = (brokerId: string) => {
     const broker = brokers.find((b) => b.id === brokerId);
     setSelectedBroker(broker || null);
@@ -210,8 +236,104 @@ export default function EditAccountPage() {
     );
   }
 
-  // ✅ Сонгогдсон брокер (дансны broker_id-ээр)
   const currentBroker = brokers.find((b) => b.id === formData.broker_id);
+
+  // ============================================
+  // ✅ PROGRESS ТООЦООЛОЛ (CENTERED 0%)
+  // ============================================
+  const getProgressData = () => {
+    const startBalance = formData.start_balance || 0;
+    const currentBalance = formData.initial_balance || 0;
+    const targetBalance = formData.target_balance || 0;
+    const lossLimit = formData.max_loss_limit || 0;
+
+    const targetProfitPercent =
+      startBalance > 0
+        ? ((targetBalance - startBalance) / startBalance) * 100
+        : 0;
+
+    const drawdownPercent =
+      startBalance > 0 ? ((lossLimit - startBalance) / startBalance) * 100 : 0;
+
+    const currentProfitPercent =
+      startBalance > 0
+        ? ((currentBalance - startBalance) / startBalance) * 100
+        : 0;
+
+    // 0% үргэлж төвд (50%)
+    const startPosition = 50;
+
+    let fillWidth = 0;
+    let fillStart = startPosition;
+    let isNegative = false;
+
+    if (currentProfitPercent >= 0) {
+      fillWidth =
+        targetProfitPercent > 0
+          ? (currentProfitPercent / targetProfitPercent) * 50
+          : 0;
+      fillStart = startPosition;
+      isNegative = false;
+    } else {
+      fillWidth =
+        Math.abs(drawdownPercent) > 0
+          ? (Math.abs(currentProfitPercent) / Math.abs(drawdownPercent)) * 50
+          : 0;
+      fillStart = startPosition - fillWidth;
+      isNegative = true;
+    }
+
+    fillWidth = Math.min(Math.max(fillWidth, 0), 50);
+    fillStart = Math.min(Math.max(fillStart, 0), 100);
+
+    const distanceToLoss = currentBalance - lossLimit;
+    const distanceToLossPercent =
+      startBalance > 0
+        ? ((currentBalance - lossLimit) / startBalance) * 100
+        : 0;
+
+    const profit = currentBalance - startBalance;
+    const profitPercent = startBalance > 0 ? (profit / startBalance) * 100 : 0;
+
+    return {
+      startBalance,
+      currentBalance,
+      targetBalance,
+      lossLimit,
+      targetProfitPercent,
+      drawdownPercent,
+      currentProfitPercent,
+      startPosition,
+      fillWidth,
+      fillStart,
+      isNegative,
+      distanceToLoss,
+      distanceToLossPercent,
+      profit,
+      profitPercent,
+    };
+  };
+
+  const progressData = getProgressData();
+
+  // Format functions
+  const formatBalance = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  const formatCompact = (amount: number) => {
+    if (amount >= 1000000) {
+      return `$${(amount / 1000000).toFixed(1)}M`;
+    }
+    if (amount >= 1000) {
+      return `$${(amount / 1000).toFixed(1)}K`;
+    }
+    return `$${amount.toFixed(0)}`;
+  };
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -268,7 +390,7 @@ export default function EditAccountPage() {
           </div>
         )}
 
-        {/* Broker Select - Custom Dropdown with Logo */}
+        {/* Broker Select */}
         <div>
           <label className="block text-sm font-medium mb-1 dark:text-gray-300">
             Брокер *
@@ -284,7 +406,6 @@ export default function EditAccountPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {/* ✅ Custom Dropdown - Сонгогдсон брокероо харуулна */}
               <div className="relative">
                 <button
                   type="button"
@@ -314,18 +435,19 @@ export default function EditAccountPage() {
                     )}
                     {currentBroker?.is_default && (
                       <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-2 py-0.5 rounded flex-shrink-0">
-                        ⭐ Default
+                        ⭐
                       </span>
                     )}
                   </div>
                   <span
-                    className={`ml-2 flex-shrink-0 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`}
+                    className={`ml-2 flex-shrink-0 transition-transform ${
+                      isDropdownOpen ? "rotate-180" : ""
+                    }`}
                   >
                     ▾
                   </span>
                 </button>
 
-                {/* Dropdown List - Зөвхөн дарвал нээгдэнэ */}
                 {isDropdownOpen && (
                   <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {brokers.length === 0 ? (
@@ -386,7 +508,6 @@ export default function EditAccountPage() {
                       ))
                     )}
 
-                    {/* Add new broker link */}
                     <div className="border-t border-gray-200 dark:border-gray-700 p-2">
                       <Link
                         href="/brokers/new"
@@ -400,7 +521,6 @@ export default function EditAccountPage() {
                 )}
               </div>
 
-              {/* ✅ Selected broker info - Сонгогдсон брокерын дэлгэрэнгүй */}
               {currentBroker && (
                 <div className="flex items-center gap-3 p-3 border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-950/30">
                   {currentBroker.logo_url ? (
@@ -474,6 +594,295 @@ export default function EditAccountPage() {
           </select>
         </div>
 
+        {/* ✅ Financial Section */}
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            💰 Санхүүгийн мэдээлэл
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Start Balance */}
+            <div>
+              <label className="block text-sm font-medium mb-1 dark:text-gray-300">
+                📌 Данс эхлэх баланс ($) *
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.start_balance || 0}
+                onChange={(e) =>
+                  handleStartBalanceChange(parseFloat(e.target.value) || 0)
+                }
+                className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                required
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Энэ нь <strong>0%</strong> цэг болно (тогтмол)
+              </p>
+            </div>
+
+            {/* Current Balance */}
+            <div>
+              <label className="block text-sm font-medium mb-1 dark:text-gray-300">
+                💵 Одоогийн баланс ($) *
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.initial_balance || 0}
+                onChange={(e) =>
+                  handleCurrentBalanceChange(parseFloat(e.target.value) || 0)
+                }
+                className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                required
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Одоогийн байрлал{" "}
+                {progressData.currentProfitPercent !== 0 && (
+                  <span
+                    className={`font-medium ${
+                      progressData.currentProfitPercent > 0
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    ({progressData.currentProfitPercent > 0 ? "+" : ""}
+                    {progressData.currentProfitPercent.toFixed(2)}%)
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {/* Target Balance */}
+            <div>
+              <label className="block text-sm font-medium mb-1 dark:text-gray-300">
+                🎯 Зорилтот баланс ($)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.target_balance || 0}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    target_balance: parseFloat(e.target.value) || 0,
+                  })
+                }
+                className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              />
+              {progressData.startBalance > 0 && (
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                  Энэ нь{" "}
+                  <strong>
+                    +{progressData.targetProfitPercent.toFixed(1)}%
+                  </strong>{" "}
+                  (100% progress)
+                </p>
+              )}
+            </div>
+
+            {/* Max Drawdown Percent */}
+            <div>
+              <label className="block text-sm font-medium mb-1 dark:text-gray-300">
+                🛑 Алдагдал хязгаар (%)
+              </label>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                max="100"
+                value={formData.max_drawdown_percent || 10}
+                onChange={(e) =>
+                  handleDrawdownChange(parseFloat(e.target.value) || 0)
+                }
+                className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              />
+              <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+                Энэ нь <strong>-{formData.max_drawdown_percent}%</strong> цэг
+                болно
+              </p>
+            </div>
+
+            {/* Max Loss Limit */}
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium mb-1 dark:text-gray-300">
+                Алдагдал хязгаар ($)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.max_loss_limit || 0}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    max_loss_limit: parseFloat(e.target.value) || 0,
+                  })
+                }
+                className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              />
+              <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+                Данс автоматаар хаагдах үлдэгдэл
+              </p>
+            </div>
+          </div>
+
+          {/* ✅ Visual Preview - Progress Bar */}
+          {progressData.startBalance > 0 && (
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                📊 Одоогийн байрлал:
+              </p>
+
+              {/* Percent labels */}
+              <div className="flex items-center justify-between text-[10px] mb-1">
+                <span className="text-red-500 font-medium">
+                  {progressData.drawdownPercent.toFixed(0)}%
+                </span>
+                <span className="text-gray-500 font-bold">0%</span>
+                <span className="text-green-600 font-medium">
+                  +{progressData.targetProfitPercent.toFixed(0)}%
+                </span>
+              </div>
+
+              {/* Progress bar container */}
+              <div className="relative h-3 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                {/* Loss zone background */}
+                <div
+                  className="absolute inset-y-0 left-0 bg-gray-100 dark:bg-gray-950/50"
+                  style={{ width: `${progressData.startPosition}%` }}
+                />
+
+                {/* Profit zone background */}
+                <div
+                  className="absolute inset-y-0 bg-gray-100 dark:bg-gray-950/50"
+                  style={{
+                    left: `${progressData.startPosition}%`,
+                    right: 0,
+                  }}
+                />
+
+                {/* Progress fill */}
+                <div
+                  className={`absolute inset-y-0 transition-all duration-500 ${
+                    progressData.isNegative ? "bg-red-500" : "bg-green-500"
+                  }`}
+                  style={{
+                    left: `${progressData.fillStart}%`,
+                    width: `${progressData.fillWidth}%`,
+                  }}
+                />
+
+                {/* 0% marker */}
+                <div
+                  className="absolute inset-y-0 w-0.5 bg-gray-700 dark:bg-white z-20"
+                  style={{ left: `${progressData.startPosition}%` }}
+                  title={`Эхлэл: ${formatBalance(progressData.startBalance)}`}
+                />
+              </div>
+
+              {/* ✅ Percentage label - дүүрсэн хэсгийн төвд */}
+              <div className="relative h-5 mt-0.5">
+                {progressData.fillWidth > 0 && (
+                  <div
+                    className={`absolute text-[10px] font-bold whitespace-nowrap transition-all duration-500 ${
+                      progressData.isNegative
+                        ? "text-red-500"
+                        : "text-green-600"
+                    }`}
+                    style={{
+                      left: `${progressData.fillStart + progressData.fillWidth / 2}%`,
+                      transform: "translateX(-50%)",
+                    }}
+                  >
+                    {progressData.currentProfitPercent >= 0 ? "+" : ""}
+                    {progressData.currentProfitPercent.toFixed(1)}%
+                  </div>
+                )}
+              </div>
+
+              {/* Labels under bar */}
+              <div className="flex items-center justify-between text-[9px] mt-0.5">
+                <span className="text-red-500">
+                  🛑 {formatCompact(progressData.lossLimit)}
+                </span>
+                <span className="text-gray-500">
+                  Эхлэл: {formatCompact(progressData.startBalance)}
+                </span>
+                <span className="text-green-600">
+                  🎯 {formatCompact(progressData.targetBalance)}
+                </span>
+              </div>
+
+              {/* Distance to loss limit */}
+              <div className="mt-1.5 flex items-center justify-between text-[10px]">
+                <span className="text-gray-500">
+                  🔻 Алдагдал хязгаар хүртэл
+                </span>
+                <span
+                  className={`font-medium ${
+                    progressData.distanceToLossPercent <= 3
+                      ? "text-red-600 dark:text-red-400"
+                      : progressData.distanceToLossPercent <= 7
+                        ? "text-orange-600 dark:text-orange-400"
+                        : "text-gray-600 dark:text-gray-400"
+                  }`}
+                >
+                  {formatBalance(progressData.distanceToLoss)} (
+                  {progressData.distanceToLossPercent.toFixed(1)}%)
+                </span>
+              </div>
+
+              {/* Profit/Loss */}
+              <div className="mt-1 flex items-center justify-between text-xs">
+                <span className="text-gray-500">
+                  {progressData.profit >= 0 ? "Ашиг" : "Алдагдал"}
+                </span>
+                <span
+                  className={`font-semibold ${
+                    progressData.profit >= 0
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  }`}
+                >
+                  {progressData.profit >= 0 ? "+" : ""}
+                  {formatBalance(progressData.profit)}
+                  <span className="ml-1 text-[10px] opacity-80">
+                    ({progressData.profitPercent >= 0 ? "+" : ""}
+                    {progressData.profitPercent.toFixed(2)}%)
+                  </span>
+                </span>
+              </div>
+
+              {/* Badges */}
+              {progressData.currentProfitPercent >=
+                progressData.targetProfitPercent && (
+                <div className="mt-1 flex items-center justify-center">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700 dark:bg-green-950 dark:text-green-300">
+                    ✅ Зорилтод хүрсэн
+                  </span>
+                </div>
+              )}
+
+              {progressData.isNegative && (
+                <div className="mt-1 flex items-center justify-center">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-950 dark:text-red-300">
+                    📉 Алдагдалд байна
+                  </span>
+                </div>
+              )}
+
+              {progressData.distanceToLossPercent <= 3 &&
+                progressData.distanceToLoss > 0 && (
+                  <div className="mt-1 flex items-center justify-center">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-950 dark:text-red-300 animate-pulse">
+                      ⚠️ Алдагдал хязгаарт ойрхон
+                    </span>
+                  </div>
+                )}
+            </div>
+          )}
+        </div>
+
         {/* Status */}
         <div>
           <label className="block text-sm font-medium mb-1 dark:text-gray-300">
@@ -482,7 +891,10 @@ export default function EditAccountPage() {
           <select
             value={formData.status}
             onChange={(e) =>
-              setFormData({ ...formData, status: e.target.value })
+              setFormData({
+                ...formData,
+                status: e.target.value as "active" | "achieved" | "closed",
+              })
             }
             className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
           >
@@ -490,26 +902,6 @@ export default function EditAccountPage() {
             <option value="achieved">🟡 Achieved</option>
             <option value="closed">🔴 Closed</option>
           </select>
-        </div>
-
-        {/* Balance */}
-        <div>
-          <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-            Баланс ($) *
-          </label>
-          <input
-            type="number"
-            step="0.01"
-            value={formData.balance}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                balance: parseFloat(e.target.value) || 0,
-              })
-            }
-            className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-            required
-          />
         </div>
 
         {error && (
