@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
 import Link from "next/link";
@@ -417,9 +418,11 @@ export default function EditAccountPage() {
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     {currentBroker?.logo_url ? (
-                      <img
+                      <Image
                         src={currentBroker.logo_url}
                         alt={currentBroker.name}
+                        width={24}
+                        height={24}
                         className="w-6 h-6 rounded-full object-cover flex-shrink-0"
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = "none";
@@ -471,9 +474,11 @@ export default function EditAccountPage() {
                           }`}
                         >
                           {broker.logo_url ? (
-                            <img
+                            <Image
                               src={broker.logo_url}
                               alt={broker.name}
+                              width={32}
+                              height={32}
                               className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-gray-200 dark:border-gray-600"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).style.display =
@@ -527,12 +532,14 @@ export default function EditAccountPage() {
               {currentBroker && (
                 <div className="flex items-center gap-3 p-3 border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-950/30">
                   {currentBroker.logo_url ? (
-                    <img
+                    <Image
                       src={currentBroker.logo_url}
                       alt={currentBroker.name}
+                      width={40}
+                      height={40}
                       className="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
+                        e.currentTarget.style.display = "none";
                       }}
                     />
                   ) : (
@@ -830,6 +837,7 @@ export default function EditAccountPage() {
                         : "text-gray-600 dark:text-gray-400"
                   }`}
                 >
+                  {"-"}
                   {formatBalance(progressData.distanceToLoss)} (
                   {progressData.distanceToLossPercent.toFixed(1)}%)
                 </span>

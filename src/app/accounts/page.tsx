@@ -528,6 +528,7 @@ export default function AccountsPage() {
                           : "text-gray-600 dark:text-gray-400"
                     }`}
                   >
+                    {"-"}
                     {formatBalance(progressData.distanceToLoss)} (
                     {progressData.distanceToLossPercent.toFixed(1)}%)
                   </span>

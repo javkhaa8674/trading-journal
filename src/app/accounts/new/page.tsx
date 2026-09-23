@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentUser } from "@/lib/getCurrentUser";
 import Link from "next/link";
+import Image from "next/image";
 import { AccountFormData } from "@/types/accounts";
 import { Broker } from "@/types/broker";
 
@@ -286,9 +287,11 @@ export default function CreateAccountPage() {
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     {selectedBroker?.logo_url ? (
-                      <img
+                      <Image
                         src={selectedBroker.logo_url}
                         alt={selectedBroker.name}
+                        width={24}
+                        height={24}
                         className="w-6 h-6 rounded-full object-cover flex-shrink-0"
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = "none";
@@ -348,9 +351,11 @@ export default function CreateAccountPage() {
                           }`}
                         >
                           {broker.logo_url ? (
-                            <img
+                            <Image
                               src={broker.logo_url}
                               alt={broker.name}
+                              width={32}
+                              height={32}
                               className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-gray-200 dark:border-gray-600"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).style.display =
@@ -405,9 +410,11 @@ export default function CreateAccountPage() {
               {selectedBroker && (
                 <div className="flex items-center gap-3 p-3 border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-950/30">
                   {selectedBroker.logo_url ? (
-                    <img
+                    <Image
                       src={selectedBroker.logo_url}
                       alt={selectedBroker.name}
+                      width={40}
+                      height={40}
                       className="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-600"
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = "none";
@@ -710,6 +717,7 @@ export default function CreateAccountPage() {
                         : "text-gray-600 dark:text-gray-400"
                   }`}
                 >
+                  {"-"}
                   {formatBalance(progressData.distanceToLoss)} (
                   {progressData.distanceToLossPercent.toFixed(1)}%)
                 </span>
