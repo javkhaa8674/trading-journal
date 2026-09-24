@@ -7,83 +7,53 @@ import { Trade } from "@/types/trade";
  */
 
 export function buildEquityCurve(trades: Trade[], balance: number) {
-  // Return starting point if no trades
-  if (!trades || trades.length === 0) {
-    return [
-      {
-        date: Date.now(),
-        equity: balance,
-        drawdown: 0,
-      },
-    ];
-  }
-
   // Safe date to timestamp converter
-  const toTimestamp = (date: string | number | Date | undefined): number => {
-    if (date === undefined || date === null) return 0;
-    try {
-      const d = new Date(date);
-      return isNaN(d.getTime()) ? 0 : d.getTime();
-    } catch {
-      return 0;
-    }
+  const toTimestamp = (date: string | number | Date | undefined | null): number => {
+    if (date === undefined || date === null || date === "") return NaN;
+    const d = new Date(date);
+    const t = d.getTime();
+    return Number.isFinite(t) ? t : NaN;
   };
 
-  // Filter trades with valid close_time and sort
-  const validTrades = trades.filter(
-    (trade): trade is typeof trade & { close_time: string } =>
-      trade.close_time !== null,
-  );
+  // Зөвхөн хүчинтэй close_time-тай trades-ийг шүүх
+  const validTrades = (Array.isArray(trades) ? trades : [])
+    .map((trade) => ({
+      trade,
+      time: toTimestamp(trade.close_time),
+    }))
+    .filter(({ time }) => Number.isFinite(time))
+    .sort((a, b) => a.time - b.time);
 
+  // Хэрэв хүчинтэй trade байхгүй бол зөвхөн эхлэлийн цэг
   if (validTrades.length === 0) {
-    return [
-      {
-        date: Date.now(),
-        equity: balance,
-        drawdown: 0,
-      },
-    ];
+    return [{ date: Date.now(), equity: balance, drawdown: 0 }];
   }
-
-  const sortedTrades = [...validTrades].sort((a, b) => {
-    const timeA = toTimestamp(a.close_time ?? undefined);
-    const timeB = toTimestamp(b.close_time ?? undefined);
-
-    return timeA - timeB;
-  });
 
   let equity = balance;
   let peak = balance;
-  const result: {
-    date: number;
-    equity: number;
-    drawdown: number;
-  }[] = [];
 
-  // Add starting point (one day before first trade)
-  const firstTradeTime = toTimestamp(sortedTrades[0].close_time);
-  const dayBefore = firstTradeTime - 24 * 60 * 60 * 1000;
+  const result: { date: number; equity: number; drawdown: number }[] = [];
 
+  // Эхлэлийн цэг — эхний trade-ээс 1 өдрийн өмнө
+  const firstTradeTime = validTrades[0].time;
   result.push({
-    date: dayBefore,
+    date: firstTradeTime - 24 * 60 * 60 * 1000,
     equity: balance,
     drawdown: 0,
   });
 
-  // Process each trade
-  for (const trade of sortedTrades) {
-    const profit = Number(trade.profit || 0);
+  for (const { trade, time } of validTrades) {
+    const profit = Number(trade.profit ?? 0);
+    if (!Number.isFinite(profit)) continue;
+
     equity = Number((equity + profit).toFixed(2));
 
-    if (equity > peak) {
-      peak = equity;
-    }
-
+    if (equity > peak) peak = equity;
     const drawdownPercent = peak > 0 ? ((peak - equity) / peak) * 100 : 0;
 
     result.push({
-      date: toTimestamp(trade.close_time),
-      equity: equity,
+      date: time,
+      equity,
       drawdown: Number(drawdownPercent.toFixed(2)),
     });
   }
