@@ -124,7 +124,7 @@ export default function DashboardPage() {
     ? (accounts.find((a) => a.id === selectedAccountId) ?? null)
     : null;
 
-  const balance = selectedAccount?.initial_balance;
+  const balance = selectedAccount?.start_balance;
 
   const isValidBalance = typeof balance === "number" && balance > 0;
 
