@@ -332,6 +332,15 @@ export default function TradeList({
       accessorKey: "open_time",
       header: "Нээлтийн огноо",
       cell: (info) => formatTradeTime(info.getValue() as string),
+      sortingFn: (rowA, rowB, columnId) => {
+        const a = new Date(rowA.getValue(columnId) as string).getTime();
+        const b = new Date(rowB.getValue(columnId) as string).getTime();
+        // Invalid date-г хамгийн сүүлд эрэмбэлнэ
+        if (!Number.isFinite(a) && !Number.isFinite(b)) return 0;
+        if (!Number.isFinite(a)) return 1;
+        if (!Number.isFinite(b)) return -1;
+        return a - b;
+      },
     });
 
     /* =================================================
@@ -342,6 +351,14 @@ export default function TradeList({
       accessorKey: "close_time",
       header: "Хаалтын огноо",
       cell: (info) => formatTradeTime(info.getValue() as string),
+      sortingFn: (rowA, rowB, columnId) => {
+        const a = new Date(rowA.getValue(columnId) as string).getTime();
+        const b = new Date(rowB.getValue(columnId) as string).getTime();
+        if (!Number.isFinite(a) && !Number.isFinite(b)) return 0;
+        if (!Number.isFinite(a)) return 1;
+        if (!Number.isFinite(b)) return -1;
+        return a - b;
+      },
     });
 
     /* =================================================
