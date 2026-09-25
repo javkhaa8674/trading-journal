@@ -6,11 +6,12 @@ import { useTrades } from "@/lib/hooks/useTrades";
 import { useAccounts } from "@/lib/hooks/useAccounts";
 import { useRouter } from "next/navigation";
 import { getStatusIcon } from "@/lib/utils/statusUtils";
-import { useDraft } from "@/lib/hooks/useDraft";
+
+type TradeType = "buy" | "sell" | "payout" | "violation" | "deposit";
 
 type ParsedTrade = {
   symbol: string;
-  type: string;
+  type: TradeType;
   entry_price: number;
   exit_price: number;
   lot_size: number;
@@ -19,6 +20,7 @@ type ParsedTrade = {
   stop_loss: number;
   take_profit: number;
   profit: number;
+  comment?: string;
 };
 
 type ValidationError = {
@@ -28,39 +30,31 @@ type ValidationError = {
 };
 
 export default function TradeForm() {
-  const { hasDraft, linkToTrade } = useDraft();
   const accounts = useAccounts();
   const router = useRouter();
   const { addTrade, bulkAddTrades } = useTrades();
 
   const [accountId, setAccountId] = useState("");
   const [symbol, setSymbol] = useState("");
-  const [type, setType] = useState("buy");
+  const [type, setType] = useState<TradeType>("buy");
   const [entry, setEntry] = useState<string>("");
   const [exit, setExit] = useState<string>("");
   const [tp, setTp] = useState<string>("");
   const [sl, setSl] = useState<string>("");
   const [lot, setLot] = useState<string>("");
+  const [swap, setSwap] = useState<string>("");
+  const [commission, setCommission] = useState<string>("");
 
   const [openTime, setOpenTime] = useState("");
   const [closeTime, setCloseTime] = useState("");
   const [profit, setProfit] = useState<string>("");
 
+  // Гараар оруулах үед balance төрөл эсэх
+  const isBalanceType =
+    type === "payout" || type === "violation" || type === "deposit";
+
   // ============================================================
   // SERVER TIME OFFSET
-  //
-  // Broker-ийн server time-г UTC руу хөрвүүлэхэд хэрэглэнэ.
-  //
-  // Жишээ:
-  // Broker Server = UTC+3
-  // Input          = 2026-08-13 09:10:00
-  // DB UTC         = 2026-08-13T06:10:00.000Z
-  //
-  // Broker Server = UTC+2
-  // Input          = 2026-08-13 09:10:00
-  // DB UTC         = 2026-08-13T07:10:00.000Z
-  //
-  // 0 = аль хэдийн UTC
   // ============================================================
 
   const [serverOffset, setServerOffset] = useState("3");
@@ -99,22 +93,6 @@ export default function TradeForm() {
   // TIME HELPERS
   // ============================================================
 
-  /**
-   * Broker/server time-ийг UTC ISO string болгоно.
-   *
-   * Жишээ:
-   *
-   * input:
-   * 2026-08-13 09:10:00
-   *
-   * offset:
-   * +3
-   *
-   * result:
-   * 2026-08-13T06:10:00.000Z
-   *
-   * Browser timezone огт ашиглахгүй.
-   */
   const convertServerTimeToUTC = (
     timeString: string,
     offsetHours: number,
@@ -145,17 +123,6 @@ export default function TradeForm() {
     return new Date(utcMillis).toISOString();
   };
 
-  /**
-   * JForex:
-   *
-   * 1/7/2026 16:14
-   *
-   * -> 2026-01-07 16:14:00
-   *
-   * Мөн секундтэй format зөвшөөрнө:
-   *
-   * 1/7/2026 16:14:30
-   */
   const formatJForexDate = (dateStr: string): string => {
     const parts = dateStr.trim().split(/\s+/);
 
@@ -221,10 +188,6 @@ export default function TradeForm() {
     );
   };
 
-  /**
-   * Preview дээр UTC-г browser local timezone руу шилжүүлэхгүйгээр
-   * шууд UTC хэлбэрээр харуулна.
-   */
   const formatUTCForDisplay = (isoString: string): string => {
     const date = new Date(isoString);
 
@@ -242,14 +205,6 @@ export default function TradeForm() {
     return `${year}-${month}-${day} ${hour}:${minute}:${second} UTC`;
   };
 
-  /**
-   * datetime-local input нь timezone information агуулахгүй.
-   *
-   * Тиймээс input дээр байгаа цагийг UTC гэж үзээд
-   * шууд UTC ISO string үүсгэнэ.
-   *
-   * Browser-ийн local timezone ашиглахгүй.
-   */
   const convertDateTimeLocalAsUTC = (value: string): string => {
     const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
 
@@ -272,6 +227,31 @@ export default function TradeForm() {
   };
 
   // ============================================================
+  // BALANCE TYPE DETECTOR
+  // ============================================================
+
+  const detectBalanceType = (comment: string): TradeType => {
+    const lower = comment.toLowerCase().trim();
+
+    // Payout
+    if (lower.includes("payout") || lower.includes("withdraw")) {
+      return "payout";
+    }
+
+    // Violation
+    if (
+      lower.includes("violated") ||
+      lower.includes("violation") ||
+      lower.includes("breach")
+    ) {
+      return "violation";
+    }
+
+    // Default → deposit
+    return "deposit";
+  };
+
+  // ============================================================
   // SINGLE TRADE SUBMIT
   // ============================================================
 
@@ -281,28 +261,49 @@ export default function TradeForm() {
       return;
     }
 
-    if (!symbol) {
+    if (!isBalanceType && !symbol) {
       alert("Хослолын нэр оруулна уу");
       return;
     }
 
-    const entryPrice = parseFloat(entry);
-    const exitPrice = parseFloat(exit);
     const profitValue = parseFloat(profit);
 
-    if (!Number.isFinite(entryPrice)) {
-      alert("Нээлтийн ханш оруулна уу");
-      return;
-    }
-
-    if (!Number.isFinite(exitPrice)) {
-      alert("Хаалтын ханш оруулна уу");
-      return;
-    }
-
     if (!Number.isFinite(profitValue)) {
-      alert("Ашгийн утга оруулна уу");
+      alert(isBalanceType ? "Дүн оруулна уу" : "Ашгийн утга оруулна уу");
       return;
+    }
+
+    let entryPrice = 0;
+    let exitPrice = 0;
+    let swapValue = 0;
+    let commissionValue = 0;
+
+    // Зөвхөн арилжааны төрөлд entry/exit/swap/commission шаардана
+    if (!isBalanceType) {
+      entryPrice = parseFloat(entry);
+      exitPrice = parseFloat(exit);
+      swapValue = swap === "" ? 0 : parseFloat(swap);
+      commissionValue = commission === "" ? 0 : parseFloat(commission);
+
+      if (!Number.isFinite(entryPrice)) {
+        alert("Нээлтийн ханш оруулна уу");
+        return;
+      }
+
+      if (!Number.isFinite(exitPrice)) {
+        alert("Хаалтын ханш оруулна уу");
+        return;
+      }
+
+      if (!Number.isFinite(swapValue)) {
+        alert("Swap оруулна уу");
+        return;
+      }
+
+      if (!Number.isFinite(commissionValue)) {
+        alert("Commission оруулна уу");
+        return;
+      }
     }
 
     let openTimeUTC: string;
@@ -315,24 +316,29 @@ export default function TradeForm() {
 
       closeTimeUTC = closeTime
         ? convertDateTimeLocalAsUTC(closeTime)
-        : new Date().toISOString();
+        : openTimeUTC;
     } catch (error) {
       console.error(error);
       alert("Огноо боловсруулах үед алдаа гарлаа");
       return;
     }
 
+    // Нийт profit — balance төрөлд зөвхөн profit, арилжаанд commission+swap нэмнэ
+    const totalProfit = isBalanceType
+      ? truncateTo2Decimals(profitValue)
+      : truncateTo2Decimals(profitValue + swapValue + commissionValue);
+
     const result = await addTrade({
       account_id: accountId,
       strategy_profile_id: null,
-      symbol,
-      type: type as "buy" | "sell",
-      entry_price: entryPrice,
-      exit_price: exitPrice,
-      profit: profitValue,
-      stop_loss: sl === "" ? 0 : parseFloat(sl),
-      take_profit: tp === "" ? 0 : parseFloat(tp),
-      lot_size: lot === "" ? 0.1 : parseFloat(lot),
+      symbol: isBalanceType ? type.toUpperCase() : symbol,
+      type,
+      entry_price: isBalanceType ? 0 : entryPrice,
+      exit_price: isBalanceType ? 0 : exitPrice,
+      profit: totalProfit,
+      stop_loss: isBalanceType ? 0 : sl === "" ? 0 : parseFloat(sl),
+      take_profit: isBalanceType ? 0 : tp === "" ? 0 : parseFloat(tp),
+      lot_size: isBalanceType ? 0 : lot === "" ? 0.1 : parseFloat(lot),
       open_time: openTimeUTC,
       close_time: closeTimeUTC,
     });
@@ -343,7 +349,7 @@ export default function TradeForm() {
       return;
     }
 
-    alert("Арилжаа амжилттай нэмэгдлээ!");
+    alert("Амжилттай нэмэгдлээ!");
 
     setAccountId("");
     setSymbol("");
@@ -353,6 +359,8 @@ export default function TradeForm() {
     setSl("");
     setTp("");
     setLot("");
+    setSwap("");
+    setCommission("");
     setOpenTime("");
     setCloseTime("");
     setProfit("");
@@ -365,7 +373,7 @@ export default function TradeForm() {
   // ============================================================
 
   const truncateTo2Decimals = (num: number): number => {
-    return Math.trunc(num * 100) / 100;
+    return Math.round((num + Number.EPSILON) * 100) / 100;
   };
 
   const cleanNumber = (value: string): string => {
@@ -387,22 +395,67 @@ export default function TradeForm() {
     lines.forEach((line, index) => {
       const columns = line.split("\t").map((col) => col.trim());
 
-      if (columns.length < 14) {
-        errors.push({
-          row: index + 1,
-          line,
-          errors: [
-            `14 багана хүлээгдэж байсан боловч ${columns.length} олдлоо`,
-          ],
-        });
-
+      if (columns.length < 13) {
         return;
       }
 
       try {
+        const typeRaw = columns[3];
+        const typeLower = typeRaw?.toLowerCase();
+
+        // ======================================================
+        // 🅱️ BALANCE МӨРҮҮД (Payout, Deposit, Violation)
+        // ======================================================
+        if (
+          typeLower === "balance" ||
+          typeLower === "credit" ||
+          typeLower === "deposit"
+        ) {
+          const profit = parseFloat(columns[12].replace(/\s/g, "")) || 0;
+          const comment = columns[13] || "";
+
+          const balanceType = detectBalanceType(comment);
+
+          const timeStr = columns[0];
+          let timeUTC: string;
+
+          try {
+            timeUTC = convertServerTimeToUTC(timeStr, Number(serverOffset));
+          } catch {
+            timeUTC = timeStr;
+          }
+
+          validTrades.push({
+            symbol: balanceType.toUpperCase(),
+            type: balanceType,
+            entry_price: 0,
+            exit_price: 0,
+            lot_size: 0,
+            open_time: timeUTC,
+            close_time: timeUTC,
+            stop_loss: 0,
+            take_profit: 0,
+            profit: truncateTo2Decimals(profit),
+            comment,
+          });
+
+          return;
+        }
+
+        // ======================================================
+        // 🅰️ ЖИНХЭНЭ АРИЛЖАА (buy / sell)
+        // ======================================================
+        if (typeLower !== "buy" && typeLower !== "sell") {
+          return;
+        }
+
         const openTimeStr = columns[0];
         const symbol = columns[2];
-        const typeRaw = columns[3];
+
+        if (!symbol || symbol.length === 0) {
+          return;
+        }
+
         const volume = parseFloat(columns[4]);
         const openPrice = parseFloat(cleanNumber(columns[5]));
         const sl = parseFloat(cleanNumber(columns[6])) || 0;
@@ -413,40 +466,20 @@ export default function TradeForm() {
         const swap = parseFloat(columns[11].replace(/\s/g, "")) || 0;
         const profit = parseFloat(columns[12].replace(/\s/g, "")) || 0;
 
+        if (isNaN(volume) || volume <= 0) return;
+        if (isNaN(openPrice) || isNaN(closePrice)) return;
+
         let commission = 0;
 
         if (commissionRaw !== "-" && commissionRaw !== "") {
           commission = parseFloat(commissionRaw.replace(/\s/g, "")) || 0;
         }
 
-        const effectiveSwap = swap > 0 ? 0 : swap;
-
-        let totalProfit = commission + effectiveSwap + profit;
+        let totalProfit = commission + swap + profit;
 
         totalProfit = truncateTo2Decimals(totalProfit);
 
-        let tradeType = "";
-
-        if (typeRaw.toLowerCase() === "buy") {
-          tradeType = "buy";
-        } else if (typeRaw.toLowerCase() === "sell") {
-          tradeType = "sell";
-        } else {
-          errors.push({
-            row: index + 1,
-            line,
-            errors: [
-              `Төрөл нь "buy" эсвэл "sell" байх ёстой. Олдсон: ${typeRaw}`,
-            ],
-          });
-
-          return;
-        }
-
-        // ======================================================
         // MT5 SERVER TIME -> UTC
-        // ======================================================
-
         let openTimeUTC: string;
         let closeTimeUTC: string;
 
@@ -459,11 +492,8 @@ export default function TradeForm() {
           errors.push({
             row: index + 1,
             line,
-            errors: [
-              `Нээлтийн огнооны формат буруу эсвэл UTC хөрвүүлэлт амжилтгүй: ${openTimeStr}`,
-            ],
+            errors: [`Нээлтийн огноо буруу: ${openTimeStr}`],
           });
-
           return;
         }
 
@@ -476,11 +506,8 @@ export default function TradeForm() {
           errors.push({
             row: index + 1,
             line,
-            errors: [
-              `Хаалтын огнооны формат буруу эсвэл UTC хөрвүүлэлт амжилтгүй: ${closeTimeStr}`,
-            ],
+            errors: [`Хаалтын огноо буруу: ${closeTimeStr}`],
           });
-
           return;
         }
 
@@ -493,7 +520,6 @@ export default function TradeForm() {
             line,
             errors: [`Нээлтийн UTC огноо буруу: ${openTimeStr}`],
           });
-
           return;
         }
 
@@ -503,13 +529,12 @@ export default function TradeForm() {
             line,
             errors: [`Хаалтын UTC огноо буруу: ${closeTimeStr}`],
           });
-
           return;
         }
 
         validTrades.push({
           symbol,
-          type: tradeType,
+          type: typeLower as "buy" | "sell",
           entry_price: openPrice,
           exit_price: closePrice,
           lot_size: volume,
@@ -531,14 +556,9 @@ export default function TradeForm() {
     return { validTrades, errors };
   };
 
-  // ============================================================
-  // MT5 PREVIEW
-  // ============================================================
-
   const handleMt5Preview = () => {
     if (!mt5Text.trim()) {
       alert("MT5 History-с буулгасан арилжааны жагсаалтыг оруулна уу.");
-
       return;
     }
 
@@ -555,7 +575,7 @@ export default function TradeForm() {
     } else if (validTrades.length === 0) {
       alert("Хүчинтэй арилжаа олдсонгүй");
     } else {
-      alert(`${validTrades.length} арилжаа амжилттай боловсруулагдлаа!`);
+      alert(`${validTrades.length} бичлэг амжилттай боловсруулагдлаа!`);
     }
   };
 
@@ -575,28 +595,58 @@ export default function TradeForm() {
       const columns = line.split("\t").map((col) => col.trim());
 
       if (columns.length < 14) {
-        errors.push({
-          row: index + 1,
-          line,
-          errors: [
-            `14 багана хүлээгдэж байсан боловч ${columns.length} олдлоо`,
-          ],
-        });
-
         return;
       }
 
       try {
         const typeRaw = columns[2].toLowerCase();
 
+        // ======================================================
+        // 🅱️ BALANCE МӨРҮҮД
+        // ======================================================
         if (typeRaw === "balance") {
+          const profit = parseFloat(columns[13].replace(/\s/g, "")) || 0;
+          const openTimeStr = columns[1];
+          const comment = columns[14] || "";
+
+          const balanceType = detectBalanceType(comment);
+
+          let timeUTC: string;
+
+          try {
+            const normalized = openTimeStr.replace(/\./g, "-");
+            timeUTC = convertServerTimeToUTC(normalized, Number(serverOffset));
+          } catch {
+            timeUTC = openTimeStr;
+          }
+
+          validTrades.push({
+            symbol: balanceType.toUpperCase(),
+            type: balanceType,
+            entry_price: 0,
+            exit_price: 0,
+            lot_size: 0,
+            open_time: timeUTC,
+            close_time: timeUTC,
+            stop_loss: 0,
+            take_profit: 0,
+            profit: truncateTo2Decimals(profit),
+            comment,
+          });
+
+          return;
+        }
+
+        // ======================================================
+        // 🅰️ ЖИНХЭНЭ АРИЛЖАА
+        // ======================================================
+        if (typeRaw !== "buy" && typeRaw !== "sell") {
           return;
         }
 
         const openTimeStr = columns[1];
         const closeTimeStr = columns[8];
         const symbol = columns[4].toUpperCase();
-        const type = typeRaw;
         const size = parseFloat(columns[3]);
         const openPrice = parseFloat(cleanNumber(columns[5]));
         const closePrice = parseFloat(cleanNumber(columns[9]));
@@ -607,22 +657,20 @@ export default function TradeForm() {
         const swap = parseFloat(columns[12].replace(/\s/g, "")) || 0;
         const profit = parseFloat(columns[13].replace(/\s/g, "")) || 0;
 
+        if (isNaN(size) || size <= 0) return;
+        if (isNaN(openPrice) || isNaN(closePrice)) return;
+
         const effectiveSwap = swap > 0 ? 0 : swap;
 
         let totalProfit = commission + taxes + effectiveSwap + profit;
 
         totalProfit = truncateTo2Decimals(totalProfit);
 
-        // ======================================================
-        // MT4 SERVER TIME -> UTC
-        // ======================================================
-
         let openTimeUTC: string;
         let closeTimeUTC: string;
 
         try {
           const normalizedOpen = openTimeStr.replace(/\./g, "-");
-
           const normalizedClose = closeTimeStr.replace(/\./g, "-");
 
           openTimeUTC = convertServerTimeToUTC(
@@ -638,11 +686,8 @@ export default function TradeForm() {
           errors.push({
             row: index + 1,
             line,
-            errors: [
-              `MT4 огноог UTC болгон хөрвүүлэхэд алдаа гарлаа: ${error}`,
-            ],
+            errors: [`MT4 огноо хөрвүүлэлт амжилтгүй`],
           });
-
           return;
         }
 
@@ -655,7 +700,6 @@ export default function TradeForm() {
             line,
             errors: [`Нээлтийн UTC огноо буруу: ${openTimeStr}`],
           });
-
           return;
         }
 
@@ -665,13 +709,12 @@ export default function TradeForm() {
             line,
             errors: [`Хаалтын UTC огноо буруу: ${closeTimeStr}`],
           });
-
           return;
         }
 
         validTrades.push({
           symbol,
-          type,
+          type: typeRaw as "buy" | "sell",
           entry_price: openPrice,
           exit_price: closePrice,
           lot_size: size,
@@ -693,14 +736,9 @@ export default function TradeForm() {
     return { validTrades, errors };
   };
 
-  // ============================================================
-  // MT4 PREVIEW
-  // ============================================================
-
   const handleMt4Preview = () => {
     if (!mt4Text.trim()) {
       alert("MT4 History-с буулгасан арилжааны жагсаалтыг оруулна уу.");
-
       return;
     }
 
@@ -717,7 +755,7 @@ export default function TradeForm() {
     } else if (validTrades.length === 0) {
       alert("Хүчинтэй арилжаа олдсонгүй");
     } else {
-      alert(`${validTrades.length} арилжаа амжилттай боловсруулагдлаа!`);
+      alert(`${validTrades.length} бичлэг амжилттай боловсруулагдлаа!`);
     }
   };
 
@@ -737,14 +775,6 @@ export default function TradeForm() {
       const columns = line.split("\t").map((col) => col.trim());
 
       if (columns.length < 13) {
-        errors.push({
-          row: index + 1,
-          line,
-          errors: [
-            `13 багана хүлээгдэж байсан боловч ${columns.length} олдлоо`,
-          ],
-        });
-
         return;
       }
 
@@ -763,40 +793,56 @@ export default function TradeForm() {
         const tp = parseFloat(columns[11]) || 0;
 
         const symbol = columns[12];
+        const comment = columns[9] || "";
 
-        let tradeType = "";
+        const directionLower = directionRaw.toLowerCase();
 
-        if (directionRaw.toLowerCase() === "buy") {
-          tradeType = "buy";
-        } else if (directionRaw.toLowerCase() === "sell") {
-          tradeType = "sell";
-        } else {
-          errors.push({
-            row: index + 1,
-            line,
-            errors: [
-              `Төрөл нь "BUY" эсвэл "SELL" байх ёстой. Олдсон: ${directionRaw}`,
-            ],
+        // ======================================================
+        // 🅱️ BALANCE МӨРҮҮД
+        // ======================================================
+        if (directionLower === "balance" || directionLower === "deposit") {
+          const balanceType = detectBalanceType(comment || directionRaw);
+
+          let timeUTC: string;
+
+          try {
+            const openTimeStr = formatJForexDate(openDateRaw);
+            timeUTC = convertServerTimeToUTC(openTimeStr, Number(serverOffset));
+          } catch {
+            timeUTC = openDateRaw;
+          }
+
+          validTrades.push({
+            symbol: balanceType.toUpperCase(),
+            type: balanceType,
+            entry_price: 0,
+            exit_price: 0,
+            lot_size: 0,
+            open_time: timeUTC,
+            close_time: timeUTC,
+            stop_loss: 0,
+            take_profit: 0,
+            profit: truncateTo2Decimals(profitRaw || 0),
+            comment,
           });
 
           return;
         }
 
         // ======================================================
-        // JFOREX DATE FORMAT
-        //
-        // 1/7/2026 16:14
-        // 1/7/2026 16:14:30
-        //
-        // аль алиныг зөвшөөрнө.
+        // 🅰️ ЖИНХЭНЭ АРИЛЖАА
         // ======================================================
+        if (directionLower !== "buy" && directionLower !== "sell") {
+          errors.push({
+            row: index + 1,
+            line,
+            errors: [`Төрөл буруу. Олдсон: ${directionRaw}`],
+          });
+          return;
+        }
 
         const openTimeStr = formatJForexDate(openDateRaw);
         const closeTimeStr = formatJForexDate(closeDateRaw);
-
-        // ======================================================
-        // JFOREX SERVER TIME -> UTC
-        // ======================================================
 
         let openTimeUTC: string;
         let closeTimeUTC: string;
@@ -815,11 +861,8 @@ export default function TradeForm() {
           errors.push({
             row: index + 1,
             line,
-            errors: [
-              `JForex огноог UTC болгон хөрвүүлэхэд алдаа гарлаа: ${error}`,
-            ],
+            errors: [`JForex огноо хөрвүүлэлт амжилтгүй`],
           });
-
           return;
         }
 
@@ -832,7 +875,6 @@ export default function TradeForm() {
             line,
             errors: [`Нээлтийн UTC огноо буруу: ${openDateRaw}`],
           });
-
           return;
         }
 
@@ -842,13 +884,12 @@ export default function TradeForm() {
             line,
             errors: [`Хаалтын UTC огноо буруу: ${closeDateRaw}`],
           });
-
           return;
         }
 
         validTrades.push({
           symbol,
-          type: tradeType,
+          type: directionLower as "buy" | "sell",
           entry_price: openPrice,
           exit_price: closePrice,
           lot_size: amount,
@@ -856,7 +897,7 @@ export default function TradeForm() {
           close_time: closeTimeUTC,
           stop_loss: sl,
           take_profit: tp,
-          profit: profitRaw,
+          profit: truncateTo2Decimals(profitRaw),
         });
       } catch (err) {
         errors.push({
@@ -870,14 +911,9 @@ export default function TradeForm() {
     return { validTrades, errors };
   };
 
-  // ============================================================
-  // JFOREX PREVIEW
-  // ============================================================
-
   const handleJForexPreview = () => {
     if (!jforexText.trim()) {
       alert("JForex-ээс буулгасан арилжааны жагсаалтыг оруулна уу.");
-
       return;
     }
 
@@ -894,7 +930,7 @@ export default function TradeForm() {
     } else if (validTrades.length === 0) {
       alert("Хүчинтэй арилжаа олдсонгүй");
     } else {
-      alert(`${validTrades.length} арилжаа амжилттай боловсруулагдлаа!`);
+      alert(`${validTrades.length} бичлэг амжилттай боловсруулагдлаа!`);
     }
   };
 
@@ -904,7 +940,7 @@ export default function TradeForm() {
 
   const handleBulkSubmit = async () => {
     if (parsedTrades.length === 0) {
-      alert("Булк хийх хүчинтэй арилжаа байхгүй байна.");
+      alert("Булк хийх хүчинтэй бичлэг байхгүй байна.");
       return;
     }
 
@@ -922,17 +958,13 @@ export default function TradeForm() {
       account_id: accountId,
       strategy_profile_id: null,
       symbol: t.symbol,
-      type: t.type as "buy" | "sell",
+      type: t.type,
       entry_price: t.entry_price,
       exit_price: t.exit_price,
       profit: t.profit,
       lot_size: t.lot_size,
-
-      // Parser аль хэдийн UTC ISO string үүсгэсэн.
-      // Browser timezone ашиглахгүй.
       open_time: t.open_time,
       close_time: t.close_time,
-
       stop_loss: t.stop_loss,
       take_profit: t.take_profit,
     }));
@@ -946,13 +978,11 @@ export default function TradeForm() {
 
     if (result.error) {
       console.error("error", result.error);
-
       alert("Булк хийхэд алдаа гарлаа: " + result.error);
-
       return;
     }
 
-    alert(`${sortedFormatted.length} арилжаа амжилттай хадгалагдлаа!`);
+    alert(`${sortedFormatted.length} бичлэг амжилттай хадгалагдлаа!`);
 
     setBulkText("");
     setParsedTrades([]);
@@ -1007,6 +1037,54 @@ export default function TradeForm() {
   );
 
   // ============================================================
+  // PREVIEW HELPERS
+  // ============================================================
+
+  const isBalancePreview = (t: ParsedTrade) =>
+    t.type === "payout" || t.type === "violation" || t.type === "deposit";
+
+  const getTypeStyle = (t: ParsedTrade) => {
+    switch (t.type) {
+      case "buy":
+        return {
+          row: "hover:bg-gray-100 dark:hover:bg-gray-600",
+          text: "text-green-600 dark:text-green-400",
+          label: "Buy",
+        };
+      case "sell":
+        return {
+          row: "hover:bg-gray-100 dark:hover:bg-gray-600",
+          text: "text-red-600 dark:text-red-400",
+          label: "Sell",
+        };
+      case "payout":
+        return {
+          row: "bg-orange-50 dark:bg-orange-900/20",
+          text: "text-orange-700 dark:text-orange-400 font-medium",
+          label: "💸 PAYOUT",
+        };
+      case "violation":
+        return {
+          row: "bg-rose-50 dark:bg-rose-900/20",
+          text: "text-rose-700 dark:text-rose-400 font-medium",
+          label: "⚠️ VIOLATION",
+        };
+      case "deposit":
+        return {
+          row: "bg-blue-50 dark:bg-blue-900/20",
+          text: "text-blue-700 dark:text-blue-400 font-medium",
+          label: "💰 DEPOSIT",
+        };
+      default:
+        return {
+          row: "",
+          text: "text-gray-600 dark:text-gray-400",
+          label: t.type,
+        };
+    }
+  };
+
+  // ============================================================
   // UI
   // ============================================================
 
@@ -1015,11 +1093,10 @@ export default function TradeForm() {
       <div className="max-w-4xl mx-auto p-6">
         <div className="border rounded-xl shadow space-y-4 bg-white dark:bg-gray-800 dark:border-gray-700 transition-colors duration-200 p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Шинэ арилжаа нэмэх
+            Шинэ бичлэг нэмэх
           </h2>
 
           {/* ACCOUNT */}
-
           <select
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
@@ -1034,125 +1111,207 @@ export default function TradeForm() {
             ))}
           </select>
 
+          {/* ============================================ */}
           {/* SYMBOL + TYPE */}
-
+          {/* ============================================ */}
           <div className="grid grid-cols-2 gap-2">
             <input
-              placeholder="Хослол (EURUSD)"
-              value={symbol}
+              placeholder={
+                isBalanceType
+                  ? "PAYOUT / VIOLATION / DEPOSIT"
+                  : "Хослол (EURUSD)"
+              }
+              value={isBalanceType ? type.toUpperCase() : symbol}
               onChange={(e) => setSymbol(e.target.value)}
-              className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+              disabled={isBalanceType}
+              className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 disabled:opacity-60 disabled:cursor-not-allowed"
             />
 
             <select
               value={type}
-              onChange={(e) => setType(e.target.value)}
+              onChange={(e) => setType(e.target.value as TradeType)}
               className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
-              <option value="buy">Buy</option>
-              <option value="sell">Sell</option>
+              <optgroup label="Арилжаа">
+                <option value="buy">Buy (Long)</option>
+                <option value="sell">Sell (Short)</option>
+              </optgroup>
+              <optgroup label="Балансын бичлэг">
+                <option value="payout">Payout (Ашиг татах)</option>
+                <option value="violation">Violation (Дүрэм зөрчил)</option>
+                <option value="deposit">Deposit (Хөрөнгө оруулалт)</option>
+              </optgroup>
             </select>
           </div>
 
-          {/* PRICES */}
+          {/* ============================================ */}
+          {/* АРИЛЖААНЫ ТАЛБАРУУД — зөвхөн buy/sell */}
+          {/* ============================================ */}
+          {!isBalanceType && (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  placeholder="Нээлтийн ханш"
+                  value={entry}
+                  onChange={(e) => setEntry(e.target.value)}
+                  className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                />
 
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              placeholder="Нээлтийн ханш"
-              value={entry}
-              onChange={(e) => setEntry(e.target.value)}
-              className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-            />
+                <input
+                  type="number"
+                  placeholder="Хаалтын ханш"
+                  value={exit}
+                  onChange={(e) => setExit(e.target.value)}
+                  className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                />
+              </div>
 
-            <input
-              type="number"
-              placeholder="Хаалтын ханш"
-              value={exit}
-              onChange={(e) => setExit(e.target.value)}
-              className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-            />
-          </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                <input
+                  type="number"
+                  placeholder="SL"
+                  value={sl}
+                  onChange={(e) => setSl(e.target.value)}
+                  className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                />
 
-          <div className="grid grid-cols-4 gap-2">
-            <input
-              type="number"
-              placeholder="SL"
-              value={sl}
-              onChange={(e) => setSl(e.target.value)}
-              className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-            />
+                <input
+                  type="number"
+                  placeholder="TP"
+                  value={tp}
+                  onChange={(e) => setTp(e.target.value)}
+                  className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                />
 
-            <input
-              type="number"
-              placeholder="TP"
-              value={tp}
-              onChange={(e) => setTp(e.target.value)}
-              className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-            />
+                <input
+                  type="number"
+                  placeholder="Лот хэмжээ"
+                  value={lot}
+                  onChange={(e) => setLot(e.target.value)}
+                  className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                />
 
-            <input
-              type="number"
-              placeholder="Лот хэмжээ"
-              value={lot}
-              onChange={(e) => setLot(e.target.value)}
-              className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-            />
+                <input
+                  type="number"
+                  placeholder="Swap"
+                  value={swap}
+                  onChange={(e) => setSwap(e.target.value)}
+                  className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                />
 
-            <input
-              type="number"
-              placeholder="Ашиг"
-              value={profit}
-              onChange={(e) => setProfit(e.target.value)}
-              className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-            />
-          </div>
+                <input
+                  type="number"
+                  placeholder="Комиссион"
+                  value={commission}
+                  onChange={(e) => setCommission(e.target.value)}
+                  className="p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                />
+              </div>
 
-          {/* TIME */}
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                Нээлтийн огноо
-              </label>
-
+              {/* АШИГ — зөвхөн арилжаанд */}
               <input
-                type="datetime-local"
-                value={openTime || ""}
-                onChange={(e) => setOpenTime(e.target.value)}
-                className="w-full p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                type="number"
+                placeholder="Ашиг"
+                value={profit}
+                onChange={(e) => setProfit(e.target.value)}
+                className="w-full p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
               />
-            </div>
 
-            <div>
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                Хаалтын огноо
-              </label>
+              {/* ОГНОО — 2 багана */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Нээлтийн огноо
+                  </label>
 
-              <input
-                type="datetime-local"
-                value={closeTime || ""}
-                onChange={(e) => setCloseTime(e.target.value)}
-                className="w-full p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              />
-            </div>
-          </div>
+                  <input
+                    type="datetime-local"
+                    value={openTime || ""}
+                    onChange={(e) => setOpenTime(e.target.value)}
+                    className="w-full p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Хаалтын огноо
+                  </label>
+
+                  <input
+                    type="datetime-local"
+                    value={closeTime || ""}
+                    onChange={(e) => setCloseTime(e.target.value)}
+                    className="w-full p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ============================================ */}
+          {/* БАЛАНСЫН ТАЛБАРУУД — payout/violation/deposit */}
+          {/* ============================================ */}
+          {isBalanceType && (
+            <>
+              {/* ДҮН */}
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Дүн
+                </label>
+
+                <input
+                  type="number"
+                  placeholder={
+                    type === "payout"
+                      ? "Жишээ: -210.07"
+                      : type === "violation"
+                        ? "Жишээ: -9.28"
+                        : "Жишээ: 5000"
+                  }
+                  value={profit}
+                  onChange={(e) => setProfit(e.target.value)}
+                  className="w-full p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                />
+
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  💡 Сөрөг тоо = хасагдана, эерэг тоо = нэмэгдэнэ
+                </p>
+              </div>
+
+              {/* ОГНОО */}
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Огноо
+                </label>
+
+                <input
+                  type="datetime-local"
+                  value={openTime || ""}
+                  onChange={(e) => setOpenTime(e.target.value)}
+                  className="w-full p-2 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                />
+              </div>
+
+              {/* МЭДЭГДЭЛ */}
+              <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 p-3 text-sm text-yellow-800 dark:text-yellow-300">
+                ⚠️ Энэ нь <strong>балансын бичлэг</strong>. Зөвхөн огноо, дүн,
+                төрлийг оруулна. Ханш, лот, SL/TP хэрэггүй.
+              </div>
+            </>
+          )}
 
           {/* SINGLE SUBMIT */}
-
           <button
             onClick={handleSubmit}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded transition-colors"
           >
-            💾 Арилжааг хадгалах
+            💾 Хадгалах
           </button>
 
           <hr className="my-4 dark:border-gray-700" />
 
-          {/* ================================================== */}
           {/* SERVER TIME OFFSET */}
-          {/* ================================================== */}
-
           <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
             <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
               🌐 Broker Server Time Offset
@@ -1164,7 +1323,6 @@ export default function TradeForm() {
                 onChange={(e) => {
                   setServerOffset(e.target.value);
 
-                  // Өмнөх preview-г хүчингүй болгоно.
                   setShowPreview(false);
                   setParsedTrades([]);
                   setValidationErrors([]);
@@ -1201,15 +1359,11 @@ export default function TradeForm() {
             </div>
           </div>
 
-          {/* ================================================== */}
           {/* TABS */}
-          {/* ================================================== */}
-
           <div className="mt-6">
             <div className="border-b border-gray-200 dark:border-gray-700">
               <div className="flex gap-2">
                 {/* MT5 */}
-
                 <button
                   onClick={() => {
                     setActiveTab("mt5");
@@ -1227,12 +1381,10 @@ export default function TradeForm() {
                     width={40}
                     height={40}
                   />
-
                   <span>MT5</span>
                 </button>
 
                 {/* MT4 */}
-
                 <button
                   onClick={() => {
                     setActiveTab("mt4");
@@ -1250,12 +1402,10 @@ export default function TradeForm() {
                     width={40}
                     height={40}
                   />
-
                   <span>MT4</span>
                 </button>
 
                 {/* JFOREX */}
-
                 <button
                   onClick={() => {
                     setActiveTab("jforex");
@@ -1273,17 +1423,13 @@ export default function TradeForm() {
                     width={40}
                     height={40}
                   />
-
                   <span>JForex</span>
                 </button>
               </div>
             </div>
 
             <div className="mt-4">
-              {/* ================================================== */}
               {/* MT5 TAB */}
-              {/* ================================================== */}
-
               {activeTab === "mt5" && (
                 <div className="space-y-3">
                   <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded text-sm">
@@ -1299,6 +1445,12 @@ export default function TradeForm() {
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                       💡 Дээрх Server Time Offset сонголтоор MT5 broker-ийн
                       server цагийг UTC болгон хөрвүүлнэ.
+                    </p>
+
+                    <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-1">
+                      ⚠️ Payout, Deposit, Violation мөрүүд автоматаар{" "}
+                      <strong>payout</strong> / <strong>violation</strong> /{" "}
+                      <strong>deposit</strong> төрлөөр ялгагдана.
                     </p>
                   </div>
 
@@ -1334,10 +1486,7 @@ export default function TradeForm() {
                 </div>
               )}
 
-              {/* ================================================== */}
               {/* MT4 TAB */}
-              {/* ================================================== */}
-
               {activeTab === "mt4" && (
                 <div className="space-y-3">
                   <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded text-sm">
@@ -1353,6 +1502,12 @@ export default function TradeForm() {
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                       💡 Дээрх Server Time Offset сонголтоор MT4 broker-ийн
                       server цагийг UTC болгон хөрвүүлнэ.
+                    </p>
+
+                    <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-1">
+                      ⚠️ Balance мөрүүд автоматаар <strong>payout</strong> /{" "}
+                      <strong>violation</strong> / <strong>deposit</strong>{" "}
+                      төрлөөр ялгагдана.
                     </p>
                   </div>
 
@@ -1388,10 +1543,7 @@ export default function TradeForm() {
                 </div>
               )}
 
-              {/* ================================================== */}
               {/* JFOREX TAB */}
-              {/* ================================================== */}
-
               {activeTab === "jforex" && (
                 <div className="space-y-3">
                   <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded text-sm">
@@ -1446,7 +1598,6 @@ export default function TradeForm() {
             </div>
 
             {/* CLEAR ALL */}
-
             {(bulkText || mt4Text || mt5Text || jforexText) && (
               <button
                 onClick={handleClearBulk}
@@ -1457,15 +1608,12 @@ export default function TradeForm() {
             )}
           </div>
 
-          {/* ================================================== */}
           {/* PREVIEW SECTION */}
-          {/* ================================================== */}
-
           {showPreview && (
             <div className="space-y-3 border rounded-lg p-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600">
               <div className="flex justify-between items-center">
                 <h4 className="font-semibold text-gray-900 dark:text-white">
-                  Шалгалт: {parsedTrades.length} хүчинтэй арилжаа
+                  Шалгалт: {parsedTrades.length} хүчинтэй бичлэг
                 </h4>
 
                 {validationErrors.length > 0 && (
@@ -1475,8 +1623,54 @@ export default function TradeForm() {
                 )}
               </div>
 
-              {/* Validation Errors */}
+              {/* Balance summary — төрөл тус бүрээр */}
+              {parsedTrades.some((t) => isBalancePreview(t)) && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-3 text-sm space-y-1">
+                  {parsedTrades.filter((t) => t.type === "payout").length >
+                    0 && (
+                    <p className="text-orange-700 dark:text-orange-400">
+                      💸 Payout:{" "}
+                      {parsedTrades.filter((t) => t.type === "payout").length}{" "}
+                      бичлэг, нийт{" "}
+                      {parsedTrades
+                        .filter((t) => t.type === "payout")
+                        .reduce((sum, t) => sum + t.profit, 0)
+                        .toFixed(2)}
+                    </p>
+                  )}
 
+                  {parsedTrades.filter((t) => t.type === "violation").length >
+                    0 && (
+                    <p className="text-rose-700 dark:text-rose-400">
+                      ⚠️ Violation:{" "}
+                      {
+                        parsedTrades.filter((t) => t.type === "violation")
+                          .length
+                      }{" "}
+                      бичлэг, нийт{" "}
+                      {parsedTrades
+                        .filter((t) => t.type === "violation")
+                        .reduce((sum, t) => sum + t.profit, 0)
+                        .toFixed(2)}
+                    </p>
+                  )}
+
+                  {parsedTrades.filter((t) => t.type === "deposit").length >
+                    0 && (
+                    <p className="text-blue-700 dark:text-blue-400">
+                      💰 Deposit:{" "}
+                      {parsedTrades.filter((t) => t.type === "deposit").length}{" "}
+                      бичлэг, нийт{" "}
+                      {parsedTrades
+                        .filter((t) => t.type === "deposit")
+                        .reduce((sum, t) => sum + t.profit, 0)
+                        .toFixed(2)}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Validation Errors */}
               {validationErrors.length > 0 && (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3">
                   <h5 className="font-medium text-red-800 dark:text-red-300 mb-2">
@@ -1508,12 +1702,11 @@ export default function TradeForm() {
                 </div>
               )}
 
-              {/* Valid Trades Preview */}
-
+              {/* Valid Preview */}
               {parsedTrades.length > 0 && (
                 <div>
                   <h5 className="font-medium text-gray-900 dark:text-white mb-2">
-                    Хүчинтэй арилжаанууд:
+                    Хүчинтэй бичлэгүүд:
                   </h5>
 
                   <div className="overflow-x-auto max-h-80 overflow-auto">
@@ -1523,43 +1716,33 @@ export default function TradeForm() {
                           <th className="p-2 text-left text-gray-900 dark:text-white">
                             #
                           </th>
-
                           <th className="p-2 text-left text-gray-900 dark:text-white">
                             Хослол
                           </th>
-
                           <th className="p-2 text-left text-gray-900 dark:text-white">
                             Төрөл
                           </th>
-
                           <th className="p-2 text-right text-gray-900 dark:text-white">
                             Нээлт
                           </th>
-
                           <th className="p-2 text-right text-gray-900 dark:text-white">
                             Хаалт
                           </th>
-
                           <th className="p-2 text-right text-gray-900 dark:text-white">
                             Лот
                           </th>
-
                           <th className="p-2 text-left text-gray-900 dark:text-white">
                             Нээсэн огноо
                           </th>
-
                           <th className="p-2 text-left text-gray-900 dark:text-white">
                             Хаасан огноо
                           </th>
-
                           <th className="p-2 text-right text-gray-900 dark:text-white">
                             SL
                           </th>
-
                           <th className="p-2 text-right text-gray-900 dark:text-white">
                             TP
                           </th>
-
                           <th className="p-2 text-right text-gray-900 dark:text-white">
                             Ашиг
                           </th>
@@ -1567,75 +1750,86 @@ export default function TradeForm() {
                       </thead>
 
                       <tbody>
-                        {parsedTrades.slice(0, 20).map((trade, idx) => (
-                          <tr
-                            key={idx}
-                            className="border-b dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
-                          >
-                            <td className="p-2 text-gray-900 dark:text-white">
-                              {idx + 1}
-                            </td>
+                        {parsedTrades.slice(0, 20).map((trade, idx) => {
+                          const style = getTypeStyle(trade);
+                          const isBalance = isBalancePreview(trade);
 
-                            <td className="p-2 font-medium text-gray-900 dark:text-white">
-                              {trade.symbol}
-                            </td>
-
-                            <td
-                              className={`p-2 ${
-                                trade.type === "buy"
-                                  ? "text-green-600 dark:text-green-400"
-                                  : "text-red-600 dark:text-red-400"
-                              }`}
+                          return (
+                            <tr
+                              key={idx}
+                              className={`border-b dark:border-gray-600 ${style.row}`}
                             >
-                              {trade.type === "buy" ? "Buy" : "Sell"}
-                            </td>
+                              <td className="p-2 text-gray-900 dark:text-white">
+                                {idx + 1}
+                              </td>
 
-                            <td className="p-2 text-right text-gray-900 dark:text-white">
-                              {trade.entry_price}
-                            </td>
+                              <td
+                                className={`p-2 font-medium ${
+                                  isBalance
+                                    ? style.text
+                                    : "text-gray-900 dark:text-white"
+                                }`}
+                              >
+                                {isBalance
+                                  ? trade.comment || trade.symbol
+                                  : trade.symbol}
+                              </td>
 
-                            <td className="p-2 text-right text-gray-900 dark:text-white">
-                              {trade.exit_price}
-                            </td>
+                              <td className={`p-2 ${style.text}`}>
+                                {style.label}
+                              </td>
 
-                            <td className="p-2 text-right text-gray-900 dark:text-white">
-                              {trade.lot_size}
-                            </td>
+                              <td className="p-2 text-right text-gray-900 dark:text-white">
+                                {isBalance ? "—" : trade.entry_price}
+                              </td>
 
-                            <td className="p-2 text-gray-900 dark:text-white whitespace-nowrap">
-                              {formatUTCForDisplay(trade.open_time)}
-                            </td>
+                              <td className="p-2 text-right text-gray-900 dark:text-white">
+                                {isBalance ? "—" : trade.exit_price}
+                              </td>
 
-                            <td className="p-2 text-gray-900 dark:text-white whitespace-nowrap">
-                              {formatUTCForDisplay(trade.close_time)}
-                            </td>
+                              <td className="p-2 text-right text-gray-900 dark:text-white">
+                                {isBalance ? "—" : trade.lot_size}
+                              </td>
 
-                            <td className="p-2 text-right text-gray-900 dark:text-white">
-                              {trade.stop_loss}
-                            </td>
+                              <td className="p-2 text-gray-900 dark:text-white whitespace-nowrap">
+                                {isBalance
+                                  ? "—"
+                                  : formatUTCForDisplay(trade.open_time)}
+                              </td>
 
-                            <td className="p-2 text-right text-gray-900 dark:text-white">
-                              {trade.take_profit}
-                            </td>
+                              <td className="p-2 text-gray-900 dark:text-white whitespace-nowrap">
+                                {isBalance
+                                  ? "—"
+                                  : formatUTCForDisplay(trade.close_time)}
+                              </td>
 
-                            <td
-                              className={`p-2 text-right font-medium ${
-                                trade.profit >= 0
-                                  ? "text-green-600 dark:text-green-400"
-                                  : "text-red-600 dark:text-red-400"
-                              }`}
-                            >
-                              {trade.profit}
-                            </td>
-                          </tr>
-                        ))}
+                              <td className="p-2 text-right text-gray-900 dark:text-white">
+                                {isBalance ? "—" : trade.stop_loss}
+                              </td>
+
+                              <td className="p-2 text-right text-gray-900 dark:text-white">
+                                {isBalance ? "—" : trade.take_profit}
+                              </td>
+
+                              <td
+                                className={`p-2 text-right font-medium ${
+                                  trade.profit >= 0
+                                    ? "text-green-600 dark:text-green-400"
+                                    : "text-red-600 dark:text-red-400"
+                                }`}
+                              >
+                                {trade.profit}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
 
                     {parsedTrades.length > 20 && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 p-2">
                         Эхний 20-ыг харуулж байна. Нийт {parsedTrades.length}{" "}
-                        арилжаа
+                        бичлэг
                       </p>
                     )}
                   </div>
@@ -1643,13 +1837,12 @@ export default function TradeForm() {
               )}
 
               {/* Upload Button */}
-
               {parsedTrades.length > 0 && validationErrors.length === 0 && (
                 <button
                   onClick={handleBulkSubmit}
                   className="w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded mt-2 transition-colors"
                 >
-                  📤 {parsedTrades.length} арилжааг хадгалах
+                  📤 {parsedTrades.length} бичлэгийг хадгалах
                 </button>
               )}
             </div>

@@ -16,6 +16,12 @@ export default function EditTradePage() {
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Trade>>({});
 
+  // Балансын төрлүүд (payout/violation/deposit)
+  const isBalanceType =
+    formData.type === "payout" ||
+    formData.type === "violation" ||
+    formData.type === "deposit";
+
   useEffect(() => {
     const loadTrade = async () => {
       const user = await getCurrentUser();
@@ -54,20 +60,37 @@ export default function EditTradePage() {
       return;
     }
 
+    // Балансын төрөл бол зөвхөн шаардлагатай талбаруудыг илгээнэ
+    const updatePayload = isBalanceType
+      ? {
+          symbol: formData.symbol,
+          type: formData.type,
+          profit: formData.profit,
+          open_time: formData.open_time,
+          close_time: formData.close_time,
+          // Бусад талбарыг 0 болгоно
+          entry_price: 0,
+          exit_price: 0,
+          stop_loss: 0,
+          take_profit: 0,
+          lot_size: 0,
+        }
+      : {
+          symbol: formData.symbol,
+          type: formData.type,
+          entry_price: formData.entry_price,
+          exit_price: formData.exit_price,
+          profit: formData.profit,
+          stop_loss: formData.stop_loss,
+          take_profit: formData.take_profit,
+          lot_size: formData.lot_size,
+          open_time: formData.open_time,
+          close_time: formData.close_time,
+        };
+
     const { error } = await supabase
       .from("trades")
-      .update({
-        symbol: formData.symbol,
-        type: formData.type,
-        entry_price: formData.entry_price,
-        exit_price: formData.exit_price,
-        profit: formData.profit,
-        stop_loss: formData.stop_loss,
-        take_profit: formData.take_profit,
-        lot_size: formData.lot_size,
-        open_time: formData.open_time,
-        close_time: formData.close_time,
-      })
+      .update(updatePayload)
       .eq("id", tradeId)
       .eq("user_id", user.id);
 
@@ -100,8 +123,10 @@ export default function EditTradePage() {
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-6 text-2xl font-bold dark:text-white">Засварлах</h1>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
+          {/* ХОСЛОЛ — бүх төрөлд */}
           <div>
             <label className="block text-sm font-medium dark:text-gray-300">
               Хослол
@@ -114,9 +139,12 @@ export default function EditTradePage() {
               }
               className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
               required
+              disabled={isBalanceType}
+              placeholder={isBalanceType ? "PAYOUT / VIOLATION / DEPOSIT" : ""}
             />
           </div>
 
+          {/* ТӨРӨЛ — бүх төрөл (buy, sell, payout, violation, deposit) */}
           <div>
             <label className="block text-sm font-medium dark:text-gray-300">
               Төрөл
@@ -126,128 +154,158 @@ export default function EditTradePage() {
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  type: e.target.value as "buy" | "sell",
+                  type: e.target.value as
+                    | "buy"
+                    | "sell"
+                    | "payout"
+                    | "violation"
+                    | "deposit",
                 })
               }
               className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
             >
-              <option value="buy">Buy (Long)</option>
-              <option value="sell">Sell (Short)</option>
+              <optgroup label="Арилжаа">
+                <option value="buy">Buy (Long)</option>
+                <option value="sell">Sell (Short)</option>
+              </optgroup>
+              <optgroup label="Балансын бичлэг">
+                <option value="payout">Payout (Ашиг татах)</option>
+                <option value="violation">Violation (Дүрэм зөрчил)</option>
+                <option value="deposit">Deposit (Хөрөнгө оруулалт)</option>
+              </optgroup>
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium dark:text-gray-300">
-              Нээлтийн ханш
-            </label>
-            <input
-              type="number"
-              step="0.00001"
-              value={formData.entry_price || ""}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  entry_price: parseFloat(e.target.value),
-                })
-              }
-              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-              required
-            />
-          </div>
+          {/* ЗӨВХӨН АРИЛЖААНЫ ТАЛБАРУУД */}
+          {!isBalanceType && (
+            <>
+              <div>
+                <label className="block text-sm font-medium dark:text-gray-300">
+                  Нээлтийн ханш
+                </label>
+                <input
+                  type="number"
+                  step="0.00001"
+                  value={formData.entry_price ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      entry_price: parseFloat(e.target.value),
+                    })
+                  }
+                  className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                />
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium dark:text-gray-300">
-              Хаалтын ханш
-            </label>
-            <input
-              type="number"
-              step="0.00001"
-              value={formData.exit_price || ""}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  exit_price: parseFloat(e.target.value),
-                })
-              }
-              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-              required
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-medium dark:text-gray-300">
+                  Хаалтын ханш
+                </label>
+                <input
+                  type="number"
+                  step="0.00001"
+                  value={formData.exit_price ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      exit_price: parseFloat(e.target.value),
+                    })
+                  }
+                  className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                />
+              </div>
 
-          <div>
+              <div>
+                <label className="block text-sm font-medium dark:text-gray-300">
+                  Лот хэмжээ
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.lot_size || 1}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      lot_size: parseFloat(e.target.value),
+                    })
+                  }
+                  className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium dark:text-gray-300">
+                  SL
+                </label>
+                <input
+                  type="number"
+                  step="0.00001"
+                  value={formData.stop_loss ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      stop_loss: parseFloat(e.target.value),
+                    })
+                  }
+                  className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium dark:text-gray-300">
+                  TP
+                </label>
+                <input
+                  type="number"
+                  step="0.00001"
+                  value={formData.take_profit ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      take_profit: parseFloat(e.target.value),
+                    })
+                  }
+                  className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                />
+              </div>
+            </>
+          )}
+
+          {/* АШИГ — бүх төрөлд */}
+          <div className={isBalanceType ? "col-span-2" : ""}>
             <label className="block text-sm font-medium dark:text-gray-300">
-              Лот хэмжээ
+              {isBalanceType ? "Дүн (Profit)" : "Ашиг"}
             </label>
             <input
               type="number"
               step="0.01"
-              value={formData.lot_size || 1}
+              value={formData.profit ?? ""}
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  lot_size: parseFloat(e.target.value),
+                  profit:
+                    e.target.value === "" ? 0 : parseFloat(e.target.value),
                 })
               }
               className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
               required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium dark:text-gray-300">
-              Ашиг
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.profit || ""}
-              onChange={(e) =>
-                setFormData({ ...formData, profit: parseFloat(e.target.value) })
+              placeholder={
+                isBalanceType
+                  ? "Жишээ: -210.07 (Payout) эсвэл -9.28 (Violation)"
+                  : ""
               }
-              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-              required
             />
+            {isBalanceType && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                💡 Сөрөг тоо = хасагдана, эерэг тоо = нэмэгдэнэ
+              </p>
+            )}
           </div>
 
-          <div>
+          {/* НЭЭЛТИЙН ОГНОО — бүх төрөлд */}
+          <div className={isBalanceType ? "col-span-2" : ""}>
             <label className="block text-sm font-medium dark:text-gray-300">
-              SL
-            </label>
-            <input
-              type="number"
-              step="0.00001"
-              value={formData.stop_loss || ""}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  stop_loss: parseFloat(e.target.value),
-                })
-              }
-              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium dark:text-gray-300">
-              TP
-            </label>
-            <input
-              type="number"
-              step="0.00001"
-              value={formData.take_profit || ""}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  take_profit: parseFloat(e.target.value),
-                })
-              }
-              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium dark:text-gray-300">
-              Нээлтийн огноо
+              {isBalanceType ? "Огноо" : "Нээлтийн огноо"}
             </label>
             <input
               type="datetime-local"
@@ -263,24 +321,36 @@ export default function EditTradePage() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium dark:text-gray-300">
-              Хаалтын огноо
-            </label>
-            <input
-              type="datetime-local"
-              value={
-                formData.close_time
-                  ? new Date(formData.close_time).toISOString().slice(0, 16)
-                  : ""
-              }
-              onChange={(e) =>
-                setFormData({ ...formData, close_time: e.target.value })
-              }
-              className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-            />
-          </div>
+          {/* ХААЛТЫН ОГНОО — зөвхөн арилжаанд */}
+          {!isBalanceType && (
+            <div>
+              <label className="block text-sm font-medium dark:text-gray-300">
+                Хаалтын огноо
+              </label>
+              <input
+                type="datetime-local"
+                value={
+                  formData.close_time
+                    ? new Date(formData.close_time).toISOString().slice(0, 16)
+                    : ""
+                }
+                onChange={(e) =>
+                  setFormData({ ...formData, close_time: e.target.value })
+                }
+                className="mt-1 w-full rounded border p-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              />
+            </div>
+          )}
         </div>
+
+        {/* МЭДЭГДЭЛ — балансын төрөл үед */}
+        {isBalanceType && (
+          <div className="rounded-lg bg-yellow-50 p-3 text-sm text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">
+            ⚠️ Энэ нь <strong>балансын бичлэг</strong>. Зөвхөн огноо, дүн,
+            төрлийг засварлана. Ханш, лот, SL/TP гэх мэт талбарууд
+            хэрэглэгдэхгүй.
+          </div>
+        )}
 
         {error && (
           <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">

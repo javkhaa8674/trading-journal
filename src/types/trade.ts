@@ -1,4 +1,4 @@
-export type TradeType = "buy" | "sell";
+export type TradeType = "buy" | "sell" | "payout" | "violation" | "deposit";
 export type TradeDirection = "long" | "short";
 export type TradeStatus = "open" | "closed";
 export type TradeOutcome = "win" | "loss" | "breakeven";

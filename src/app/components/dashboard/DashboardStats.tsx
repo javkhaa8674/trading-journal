@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
 import { Trade } from "@/types/trade";
+import { getRealTrades } from "@/lib/utils/tradeFilters";
 import {
+  calculateTradeCount,
   calculateWinRate,
-  calculateProfitFactor,
+  calculateLossRate,
   calculateNetProfit,
+  calculateProfitFactor,
   calculateAvgWin,
   calculateAvgLoss,
   calculateExpectancy,
@@ -13,230 +15,276 @@ import {
   calculateAvgHoldingTime,
   calculateRRR,
   calculateMaxDrawdownWithDuration,
-  calculateTradeCount,
-  calculateLossRate,
   calculateAvgDrawdown,
 } from "@/lib/analytics";
-import SpiderWebChart from "@/app/components/dashboard/SpiderWebChart";
-import { MetricCard } from "@/app/components/dashboard/MetricCard";
 import { buildEquityCurve } from "@/lib/equity";
-import { StatsSummaryTooltip } from "@/app/components/dashboard/StatsSummaryTooltip";
-type Props = {
+
+type DashboardStatsProps = {
   trades: Trade[];
-  balance: number;
+  balance?: number;
 };
 
-export default function DashboardStats({ trades, balance }: Props) {
-  // Calculate all metrics once
-  const metrics = useMemo(() => {
-    const winRate = calculateWinRate(trades);
-    const lossRate = calculateLossRate(trades);
-    const tradeCount = calculateTradeCount(trades);
-    const profitFactor = calculateProfitFactor(trades);
-    const netProfit = calculateNetProfit(trades);
-    const avgWin = calculateAvgWin(trades);
-    const avgLoss = calculateAvgLoss(trades);
-    const expectancy = calculateExpectancy(trades);
-    const avgPositionSize = calculateAvgPositionSize(trades);
-    const avgHoldingTime = calculateAvgHoldingTime(trades);
-    const rrr = calculateRRR(trades);
-    const equity = buildEquityCurve(trades, balance);
-    const { maxDrawdown, duration } = calculateMaxDrawdownWithDuration(
-      equity.map((e) => e.equity),
-    );
-    const avgDrawdown = calculateAvgDrawdown(equity.map((e) => e.equity));
+/**
+ * Аюулгүй тоо
+ */
+const safeNumber = (value: unknown, fallback = 0): number => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return fallback;
+};
 
-    // Calculate additional metrics for SpiderWebChart
-    const riskReward = rrr.overall;
+/**
+ * Аюулгүй toFixed
+ */
+const safeFixed = (value: unknown, decimals = 2, fallback = "0.00"): string => {
+  const num = safeNumber(value, NaN);
+  if (!Number.isFinite(num)) return fallback;
+  return num.toFixed(decimals);
+};
 
-    // Sharpe Ratio (simplified)
-    const returns = trades.map((t) => t.profit / balance);
-    const avgReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
-    const stdDev = Math.sqrt(
-      returns
-        .map((r) => Math.pow(r - avgReturn, 2))
-        .reduce((a, b) => a + b, 0) / returns.length,
-    );
-    const sharpeRatio = stdDev > 0 ? (avgReturn / stdDev) * Math.sqrt(252) : 0;
+/**
+ * Хугацааг хүн уншиж болохоор форматлах
+ */
+const formatDuration = (minutes: number): string => {
+  if (!Number.isFinite(minutes) || minutes <= 0) return "—";
 
-    // Calmar Ratio
-    let peak = balance;
-    let maxDrawdownPercent = 0;
-    let runningEquity = balance;
-    const sortedTrades = [...trades].sort((a, b) => {
-      const timeA = a.close_time
-        ? new Date(a.close_time).getTime()
-        : new Date(a.open_time).getTime();
-      const timeB = b.close_time
-        ? new Date(b.close_time).getTime()
-        : new Date(b.open_time).getTime();
-      return timeA - timeB;
-    });
-    sortedTrades.forEach((trade) => {
-      runningEquity += trade.profit;
-      if (runningEquity > peak) peak = runningEquity;
-      const drawdownPercent = ((peak - runningEquity) / peak) * 100;
-      if (drawdownPercent > maxDrawdownPercent)
-        maxDrawdownPercent = drawdownPercent;
-    });
-    const totalReturnPercent = ((runningEquity - balance) / balance) * 100;
-    const calmarRatio =
-      maxDrawdownPercent > 0 ? totalReturnPercent / maxDrawdownPercent : 0;
+  if (minutes < 60) return `${minutes.toFixed(0)}м`;
 
-    // Consistency (rolling win rate stability)
-    let consistency = 50;
-    if (trades.length >= 10) {
-      const windowSize = Math.min(
-        20,
-        Math.max(5, Math.floor(trades.length / 3)),
-      );
-      const rollingWR: number[] = [];
-      for (let i = windowSize; i <= trades.length; i++) {
-        const windowTrades = trades.slice(i - windowSize, i);
-        const wins = windowTrades.filter((t) => t.profit > 0).length;
-        rollingWR.push((wins / windowSize) * 100);
-      }
-      if (rollingWR.length > 0) {
-        const avgWR = rollingWR.reduce((a, b) => a + b, 0) / rollingWR.length;
-        const variance =
-          rollingWR
-            .map((wr) => Math.pow(wr - avgWR, 2))
-            .reduce((a, b) => a + b, 0) / rollingWR.length;
-        const wrStdDev = Math.sqrt(variance);
-        consistency = Math.max(0, Math.min(100, 100 - wrStdDev * 1.5));
-      }
-    }
+  const hours = minutes / 60;
+  if (hours < 24) return `${hours.toFixed(1)}ц`;
 
-    // Avg Win/Loss Ratio
-    const avgWinLoss =
-      Math.abs(avgLoss) > 0 ? avgWin / Math.abs(avgLoss) : avgWin;
+  const days = hours / 24;
+  return `${days.toFixed(1)}ө`;
+};
 
-    return {
-      winRate,
-      lossRate,
-      tradeCount,
-      profitFactor,
-      netProfit,
-      avgWin,
-      avgLoss,
-      expectancy,
-      avgPositionSize,
-      avgHoldingTime,
-      rrr,
-      maxDrawdown,
-      drawdownDuration: duration,
-      avgDrawdown,
-      spiderMetrics: {
-        winRate,
-        profitFactor,
-        riskReward,
-        sharpeRatio,
-        calmarRatio,
-        consistency,
-        avgWinLoss,
-        expectancy,
-      },
-    };
-  }, [trades, balance]);
+export default function DashboardStats({
+  trades,
+  balance = 5000,
+}: DashboardStatsProps) {
+  // ⭐ Зөвхөн buy/sell
+  const realTrades = getRealTrades(trades || []);
+
+  // ============================================================
+  // 📊 TRADE-BASED STATS
+  // ============================================================
+
+  const totalTrades = safeNumber(calculateTradeCount(realTrades));
+  const winRate = safeNumber(calculateWinRate(realTrades));
+  const lossRate = safeNumber(calculateLossRate(realTrades));
+  const profitFactor = safeNumber(calculateProfitFactor(realTrades));
+  const avgWin = safeNumber(calculateAvgWin(realTrades));
+  const avgLoss = safeNumber(calculateAvgLoss(realTrades));
+  const expectancy = safeNumber(calculateExpectancy(realTrades));
+  const avgPositionSize = safeNumber(calculateAvgPositionSize(realTrades));
+  const avgHoldingTime = safeNumber(calculateAvgHoldingTime(realTrades));
+
+  // ============================================================
+  // 📊 RRR
+  // ============================================================
+
+  const rrr = calculateRRR(realTrades, balance);
+  const rrrOverall = safeNumber(rrr?.overall);
+  const rrrAvgWin = safeNumber(rrr?.avgWin);
+  const rrrAvgLoss = safeNumber(rrr?.avgLoss);
+
+  // ============================================================
+  // 📊 BALANCE-BASED STATS (бүх төрөл)
+  // ============================================================
+
+  // ⚠️ Net Profit — бүх төрөл (payout, violation, deposit ч орох ёстой)
+  const netProfit = safeNumber(calculateNetProfit(trades || []));
+
+  // Equity curve — бүх төрөл
+  const equityCurve = buildEquityCurve(trades || [], balance);
+  const equityValues = equityCurve.map((e) => e.equity);
+
+  const { maxDrawdown } = calculateMaxDrawdownWithDuration(equityValues);
+  const avgDrawdown = safeNumber(calculateAvgDrawdown(equityValues));
+
+  // ============================================================
+  // 🎨 RENDER
+  // ============================================================
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-3">
-        <h2 className="text-sm font-semibold">
-          Ерөнхий гүйцэтгэлийн хураангуй
-        </h2>
-        <StatsSummaryTooltip metrics={metrics.spiderMetrics} />
-      </div>
-      {/* Metrics Cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <MetricCard
-          title="Total Trades"
-          value={metrics.tradeCount}
-          metricKey="totalTrades"
-        />
-        <MetricCard
-          title="Win Rate"
-          value={`${metrics.winRate.toFixed(2)}%`}
-          metricKey="winRate"
-        />
-        <MetricCard
-          title="Loss Rate"
-          value={`${metrics.lossRate.toFixed(2)}%`}
-          metricKey="lossRate"
-        />
-        <MetricCard
-          title="Net Profit"
-          value={metrics.netProfit.toFixed(2)}
-          color={metrics.netProfit >= 0 ? "text-green-500" : "text-red-500"}
-          metricKey="netProfit"
-        />
-        <MetricCard
-          title="Profit Factor"
-          value={metrics.profitFactor.toFixed(2)}
-          metricKey="profitFactor"
-        />
-        <MetricCard
-          title="Avg Drawdown"
-          value={`${metrics.avgDrawdown.toFixed(2)}%`}
-          color="text-red-400"
-          metricKey="avgDrawdown"
-        />
-        <MetricCard
-          title="Max Drawdown"
-          value={`${metrics.maxDrawdown}%`}
-          color="text-red-500"
-          metricKey="maxDrawdown"
-          sub={`Duration: ${metrics.drawdownDuration} trades`}
-        />
-        <MetricCard
-          title="Expectancy"
-          value={metrics.expectancy.toFixed(4)}
-          metricKey="expectancy"
-        />
-        <MetricCard
-          title="Avg Win"
-          value={metrics.avgWin.toFixed(2)}
-          metricKey="avgWin"
-        />
-        <MetricCard
-          title="Avg Loss"
-          value={metrics.avgLoss.toFixed(2)}
-          metricKey="avgLoss"
-        />
-        <MetricCard
-          title="Avg Position Size"
-          value={metrics.avgPositionSize.toFixed(2)}
-          metricKey="avgPositionSize"
-        />
-        <MetricCard
-          title="Avg Holding Time"
-          value={`${metrics.avgHoldingTime.toFixed(2)} min`}
-          metricKey="avgHoldingTime"
-        />
-        <MetricCard
-          title="RRR Overall"
-          value={metrics.rrr.overall.toFixed(2)}
-          metricKey="rrrOverall"
-        />
-        <MetricCard
-          title="RRR Win"
-          value={metrics.rrr.win.toFixed(2)}
-          metricKey="rrrWin"
-        />
-        <MetricCard
-          title="RRR Loss"
-          value={metrics.rrr.loss.toFixed(2)}
-          metricKey="rrrLoss"
-        />
-      </div>
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+      {/* ============================== */}
+      {/* 1. Total Trades */}
+      {/* ============================== */}
+      <StatCard
+        label="Total Trades"
+        value={totalTrades.toString()}
+        tooltip="Нийт арилжааны тоо (buy + sell)"
+      />
 
-      {/* Spider Web Chart - receives pre-calculated metrics */}
-      <div className="mt-6">
-        <SpiderWebChart
-          tradesLength={metrics.tradeCount}
-          metrics={metrics.spiderMetrics}
-          riskPerTrade={1}
-        />
+      {/* ============================== */}
+      {/* 2. Win Rate */}
+      {/* ============================== */}
+      <StatCard
+        label="Win Rate"
+        value={`${safeFixed(winRate)}%`}
+        color="green"
+        tooltip="Ашигтай арилжааны хувь"
+      />
+
+      {/* ============================== */}
+      {/* 3. Loss Rate */}
+      {/* ============================== */}
+      <StatCard
+        label="Loss Rate"
+        value={`${safeFixed(lossRate)}%`}
+        color="red"
+        tooltip="Алдагдалтай арилжааны хувь"
+      />
+
+      {/* ============================== */}
+      {/* 4. Net Profit */}
+      {/* ============================== */}
+      <StatCard
+        label="Net Profit"
+        value={`$${safeFixed(netProfit)}`}
+        color={netProfit >= 0 ? "green" : "red"}
+        tooltip="Нийт P/L (арилжаа + payout + violation + deposit)"
+      />
+
+      {/* ============================== */}
+      {/* 5. Profit Factor */}
+      {/* ============================== */}
+      <StatCard
+        label="Profit Factor"
+        value={safeFixed(profitFactor)}
+        color={profitFactor >= 1 ? "green" : "red"}
+        tooltip="Gross Profit / Gross Loss (>1 бол ашигтай)"
+      />
+
+      {/* ============================== */}
+      {/* 6. Avg Drawdown */}
+      {/* ============================== */}
+      <StatCard
+        label="Avg Drawdown"
+        value={`${safeFixed(avgDrawdown)}%`}
+        color="red"
+        tooltip="Дундаж drawdown"
+      />
+
+      {/* ============================== */}
+      {/* 7. Max Drawdown */}
+      {/* ============================== */}
+      <StatCard
+        label="Max Drawdown"
+        value={`${safeFixed(maxDrawdown)}%`}
+        color="red"
+        tooltip="Хамгийн их drawdown"
+      />
+
+      {/* ============================== */}
+      {/* 8. Expectancy */}
+      {/* ============================== */}
+      <StatCard
+        label="Expectancy"
+        value={`$${safeFixed(expectancy)}`}
+        color={expectancy >= 0 ? "green" : "red"}
+        tooltip="Арилжаа бүрээс хүлээгдэж буй дундаж ашиг"
+      />
+
+      {/* ============================== */}
+      {/* 9. Avg Win */}
+      {/* ============================== */}
+      <StatCard
+        label="Avg Win"
+        value={`$${safeFixed(avgWin)}`}
+        color="green"
+        tooltip="Ашигтай арилжааны дундаж"
+      />
+
+      {/* ============================== */}
+      {/* 10. Avg Loss */}
+      {/* ============================== */}
+      <StatCard
+        label="Avg Loss"
+        value={`$${safeFixed(avgLoss)}`}
+        color="red"
+        tooltip="Алдагдалтай арилжааны дундаж"
+      />
+
+      {/* ============================== */}
+      {/* 11. Avg Position Size */}
+      {/* ============================== */}
+      <StatCard
+        label="Avg Position Size"
+        value={safeFixed(avgPositionSize, 2)}
+        tooltip="Дундаж лот хэмжээ"
+      />
+
+      {/* ============================== */}
+      {/* 12. Avg Holding Time */}
+      {/* ============================== */}
+      <StatCard
+        label="Avg Holding Time"
+        value={formatDuration(avgHoldingTime)}
+        tooltip="Дундаж барих хугацаа"
+      />
+
+      {/* ============================== */}
+      {/* 13. RRR Avg Overall */}
+      {/* ============================== */}
+      <StatCard
+        label="RRR Avg Overall"
+        value={safeFixed(rrrOverall)}
+        color={rrrOverall >= 0 ? "green" : "red"}
+        tooltip="Бүх арилжааны дундаж RRR (profit / risk)"
+      />
+
+      {/* ============================== */}
+      {/* 14. RRR AvgWin */}
+      {/* ============================== */}
+      <StatCard
+        label="RRR AvgWin"
+        value={safeFixed(rrrAvgWin)}
+        color="green"
+        tooltip="Ашигтай арилжааны дундаж RRR"
+      />
+
+      {/* ============================== */}
+      {/* 15. RRR AvgLoss */}
+      {/* ============================== */}
+      <StatCard
+        label="RRR AvgLoss"
+        value={safeFixed(rrrAvgLoss)}
+        color="red"
+        tooltip="Алдагдалтай арилжааны дундаж RRR"
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────
+// StatCard
+// ─────────────────────────────────────────
+
+type StatCardProps = {
+  label: string;
+  value: string;
+  color?: "green" | "red" | "default";
+  tooltip?: string;
+};
+
+function StatCard({ label, value, color = "default", tooltip }: StatCardProps) {
+  const colorClass =
+    color === "green"
+      ? "text-green-600 dark:text-green-400"
+      : color === "red"
+        ? "text-red-600 dark:text-red-400"
+        : "text-gray-900 dark:text-white";
+
+  return (
+    <div
+      className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3"
+      title={tooltip}
+    >
+      <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+        {label}
+      </div>
+      <div className={`mt-1 text-lg font-semibold truncate ${colorClass}`}>
+        {value}
       </div>
     </div>
   );

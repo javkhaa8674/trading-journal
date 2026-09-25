@@ -170,6 +170,17 @@ export default function TradesPage() {
   // LOAD ACCOUNTS
   // ============================================================
 
+  // ============================================================
+  // ACCOUNT STATUS HELPERS
+  // ============================================================
+
+  const getValidAccountStatus = (status: string): AccountStatus => {
+    if (status === "achieved") return "achieved";
+    if (status === "closed") return "closed";
+
+    return "active";
+  };
+
   useEffect(() => {
     const loadAccounts = async () => {
       const user = await getCurrentUser();
@@ -217,17 +228,6 @@ export default function TradesPage() {
 
     loadAccounts();
   }, [router]);
-
-  // ============================================================
-  // ACCOUNT STATUS HELPERS
-  // ============================================================
-
-  const getValidAccountStatus = (status: string): AccountStatus => {
-    if (status === "achieved") return "achieved";
-    if (status === "closed") return "closed";
-
-    return "active";
-  };
 
   const filteredAccounts = accounts.filter(
     (account) => account.status === activeTab,
@@ -334,6 +334,78 @@ export default function TradesPage() {
     hasPostTrade: psychologyStatus[trade.id]?.hasPostTrade || false,
     hasSetup: psychologyStatus[trade.id]?.hasSetup || false,
   }));
+
+  // ============================================================
+  // CSV EXPORT  ← ШИНЭ НЭМЭГДСЭН ХЭСЭГ
+  // ============================================================
+
+  const handleExportCSV = () => {
+    if (!trades.length) {
+      alert("Экспортлох арилжаа байхгүй");
+      return;
+    }
+
+    // CSV header — trades хүснэгтийн бодит багана
+    const headers = [
+      "ID",
+      "Symbol",
+      "Type",
+      "Entry Price",
+      "Exit Price",
+      "Profit",
+      "Open Time",
+      "Close Time",
+      "Lot Size",
+      "Stop Loss",
+      "Take Profit",
+      "Strategy Profile ID",
+    ];
+
+    // CSV мөрүүд
+    const rows = tradesWithStatus.map((t: any) => [
+      t.id ?? "",
+      t.symbol ?? "",
+      t.type ?? "",
+      t.entry_price ?? "",
+      t.exit_price ?? "",
+      t.profit ?? "",
+      t.open_time ? new Date(t.open_time).toISOString() : "",
+      t.close_time ? new Date(t.close_time).toISOString() : "",
+      t.lot_size ?? "",
+      t.stop_loss ?? "",
+      t.take_profit ?? "",
+      t.strategy_profile_id ?? "",
+    ]);
+
+    // CSV content үүсгэх
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row: any[]) =>
+        row
+          .map((cell: any) => `"${String(cell).replace(/"/g, '""')}"`)
+          .join(","),
+      ),
+    ].join("\n");
+
+    // BOM нэмэх (Excel-д Unicode зөв харагдахын тулд)
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    // Татах
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const accountName =
+      accounts.find((a) => a.id === activeAccount)?.name || "trades";
+    const date = new Date().toISOString().split("T")[0];
+
+    link.href = url;
+    link.download = `${accountName}_trades_${date}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // ============================================================
   // LOADING
@@ -464,6 +536,36 @@ export default function TradesPage() {
                 <path d="M3 12a9 9 0 0 0 15.3 6.4L21 16" />
                 <path d="M21 21v-5h-5" />
               </svg>
+            </button>
+
+            {/* CSV Export Button - NEW */}
+            <button
+              onClick={handleExportCSV}
+              disabled={trades.length === 0}
+              className="
+                px-3 py-1.5
+                text-sm
+                rounded-lg
+                transition-colors
+                flex items-center gap-1.5
+
+                bg-gray-100
+                hover:bg-gray-200
+                text-gray-700
+                border border-gray-300
+
+                dark:bg-gray-700
+                dark:hover:bg-gray-600
+                dark:text-gray-200
+                dark:border-gray-600
+
+                disabled:opacity-50
+                disabled:cursor-not-allowed
+              "
+              title="CSV export"
+            >
+              <span style={{ fontSize: "16px", lineHeight: 1 }}>📥</span>
+              CSV
             </button>
           </div>
 

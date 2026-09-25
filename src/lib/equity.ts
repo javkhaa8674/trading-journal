@@ -3,23 +3,43 @@ import { Trade } from "@/types/trade";
 /**
  * =========================
  * 📊 EQUITY CURVE (FIXED)
+ *
+ * ⚠️ Энэ функц нь БҮХ төрлийг оруулна:
+ *    - buy, sell (арилжаа)
+ *    - payout, violation, deposit (балансын бичлэг)
+ *
+ * Учир нь equity curve нь бүх balance өөрчлөлтийг харуулах ёстой.
  * =========================
  */
 
 export function buildEquityCurve(trades: Trade[], balance: number) {
   // Safe date to timestamp converter
-  const toTimestamp = (date: string | number | Date | undefined | null): number => {
+  const toTimestamp = (
+    date: string | number | Date | undefined | null,
+  ): number => {
     if (date === undefined || date === null || date === "") return NaN;
     const d = new Date(date);
     const t = d.getTime();
     return Number.isFinite(t) ? t : NaN;
   };
 
-  // Зөвхөн хүчинтэй close_time-тай trades-ийг шүүх
+  // ⭐ close_time БАЙХГҮЙ бол open_time-ийг ашиглана
+  // (payout/violation/deposit-д ихэвчлэн close_time = open_time)
+  const getTradeTime = (trade: Trade): number => {
+    const closeTime = toTimestamp(trade.close_time);
+    if (Number.isFinite(closeTime)) return closeTime;
+
+    const openTime = toTimestamp(trade.open_time);
+    if (Number.isFinite(openTime)) return openTime;
+
+    return NaN;
+  };
+
+  // Зөвхөн хүчинтэй цагтай trades-ийг шүүх
   const validTrades = (Array.isArray(trades) ? trades : [])
     .map((trade) => ({
       trade,
-      time: toTimestamp(trade.close_time),
+      time: getTradeTime(trade),
     }))
     .filter(({ time }) => Number.isFinite(time))
     .sort((a, b) => a.time - b.time);
@@ -64,6 +84,8 @@ export function buildEquityCurve(trades: Trade[], balance: number) {
 /**
  * =========================
  * 📉 EQUITY + DRAWDOWN
+ *
+ * ⚠️ Энэ функц нь БҮХ төрлийг оруулна.
  * =========================
  */
 
@@ -71,6 +93,19 @@ const getTime = (date: string | number | Date | null | undefined): number => {
   if (!date) return 0;
   const d = new Date(date);
   return isNaN(d.getTime()) ? 0 : d.getTime();
+};
+
+/**
+ * close_time БАЙХГҮЙ бол open_time-ийг буцаана
+ */
+const getTradeTime = (trade: Trade): number => {
+  const closeTime = getTime(trade.close_time);
+  if (closeTime > 0) return closeTime;
+
+  const openTime = getTime(trade.open_time);
+  if (openTime > 0) return openTime;
+
+  return 0;
 };
 
 export function buildEquityWithDrawdown(trades: Trade[], balance: number) {
@@ -86,8 +121,10 @@ export function buildEquityWithDrawdown(trades: Trade[], balance: number) {
     ];
   }
 
-  // Filter and sort
-  const validTrades = trades.filter((t) => t.close_time);
+  // ⭐ close_time эсвэл open_time-тай trades-ийг шүүх
+  const validTrades = trades.filter(
+    (t) => getTradeTime(t) > 0 && Number.isFinite(Number(t.profit ?? 0)),
+  );
 
   if (validTrades.length === 0) {
     return [
@@ -100,8 +137,9 @@ export function buildEquityWithDrawdown(trades: Trade[], balance: number) {
     ];
   }
 
+  // Sort by time
   const sortedTrades = [...validTrades].sort(
-    (a, b) => getTime(a.close_time) - getTime(b.close_time),
+    (a, b) => getTradeTime(a) - getTradeTime(b),
   );
 
   let equity = balance;
@@ -114,7 +152,7 @@ export function buildEquityWithDrawdown(trades: Trade[], balance: number) {
   }[] = [];
 
   // Эхлэлийн цэг
-  const firstTime = getTime(sortedTrades[0].close_time);
+  const firstTime = getTradeTime(sortedTrades[0]);
   result.push({
     date: firstTime - 86400000, // One day before
     equity: balance,
@@ -122,9 +160,11 @@ export function buildEquityWithDrawdown(trades: Trade[], balance: number) {
     peak: balance,
   });
 
-  // Trade бүрээр тооцоолох
+  // Trade бүрээр тооцоолох (бүх төрөл)
   for (const trade of sortedTrades) {
-    const profit = Number(trade.profit || 0);
+    const profit = Number(trade.profit ?? 0);
+    if (!Number.isFinite(profit)) continue;
+
     equity = Number((equity + profit).toFixed(2));
 
     if (equity > peak) {
@@ -138,7 +178,7 @@ export function buildEquityWithDrawdown(trades: Trade[], balance: number) {
     }
 
     result.push({
-      date: getTime(trade.close_time),
+      date: getTradeTime(trade),
       equity: equity,
       drawdown: drawdownPercent,
       peak: peak,
