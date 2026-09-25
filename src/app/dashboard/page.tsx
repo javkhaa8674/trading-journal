@@ -125,6 +125,7 @@ export default function DashboardPage() {
     : null;
 
   const balance = selectedAccount?.start_balance;
+  const maxLostLimit = selectedAccount?.max_loss_limit;
 
   const isValidBalance = typeof balance === "number" && balance > 0;
 
@@ -134,6 +135,7 @@ export default function DashboardPage() {
   const { chartData } = buildDashboardData(
     trades,
     isValidBalance ? balance : 5000,
+    maxLostLimit,
   );
 
   const tradingDayData = getTradingDayPerformance(trades);
@@ -291,11 +293,17 @@ export default function DashboardPage() {
         balance={isValidBalance ? balance : 5000}
       />
 
-      <EquityCurveChart data={chartData} />
+      <EquityCurveChart
+        data={chartData.map((point) => ({
+          ...point,
+          maxLossLimit: point.maxLossLimit ?? undefined,
+        }))}
+      />
 
       <EquityDrawdownChart
         trades={trades}
         balance={isValidBalance ? balance : 5000}
+        maxLossLimit={maxLostLimit}
       />
 
       <KeyMetricsCards {...keyMetrics} />

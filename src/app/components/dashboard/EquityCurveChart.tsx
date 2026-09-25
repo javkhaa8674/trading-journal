@@ -9,6 +9,7 @@ import {
   Tooltip,
   CartesianGrid,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts";
 
 type Props = {
@@ -16,6 +17,7 @@ type Props = {
     date: string;
     equity: number;
     smoothEquity?: number;
+    maxLossLimit?: number; // ⭐ chartData дотор байгаа
   }[];
 };
 
@@ -28,7 +30,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           {new Date(label).toLocaleDateString()}
         </p>
 
-        {/* Actual Equity - Green */}
         {payload.find((p: any) => p.dataKey === "equity") && (
           <div className="flex items-center justify-between gap-4 text-sm">
             <div className="flex items-center gap-2">
@@ -46,7 +47,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           </div>
         )}
 
-        {/* Smooth Equity - Blue (if exists) */}
         {payload.find((p: any) => p.dataKey === "smoothEquity") && (
           <div className="flex items-center justify-between gap-4 text-sm mt-1">
             <div className="flex items-center gap-2">
@@ -77,6 +77,15 @@ export default function EquityCurveChart({ data }: Props) {
     );
   }, [data]);
 
+  // ⭐ chartData-с maxLossLimit утгыг авна
+  const maxLossLimit = useMemo(() => {
+    if (!sortedData.length) return null;
+    const value = sortedData[0]?.maxLossLimit;
+    return typeof value === "number" && value > 0 && Number.isFinite(value)
+      ? value
+      : null;
+  }, [sortedData]);
+
   if (!sortedData.length) {
     return (
       <div className="p-4 border rounded-lg">
@@ -90,10 +99,17 @@ export default function EquityCurveChart({ data }: Props) {
     return `${date.getMonth() + 1}/${date.getDate()}`;
   };
 
+  const hasMaxLoss = maxLossLimit !== null;
+
   const equities = sortedData.map((d) => d.equity);
-  const minEquity = Math.min(...equities);
+
+  // ⭐ maxLossLimit байвал Y тэнхлэгийн min-д оруулна
+  const minEquity = hasMaxLoss
+    ? Math.min(...equities, maxLossLimit as number)
+    : Math.min(...equities);
   const maxEquity = Math.max(...equities);
-  const padding = (maxEquity - minEquity) * 0.05;
+
+  const padding = (maxEquity - minEquity) * 0.05 || 100;
   const yAxisMin = Math.floor(minEquity - padding);
   const yAxisMax = Math.ceil(maxEquity + padding);
 
@@ -106,7 +122,6 @@ export default function EquityCurveChart({ data }: Props) {
         </div>
       </div>
 
-      {/* ✅ Fixed: Add min width and height */}
       <div
         style={{ width: "100%", height: 350, minWidth: 300, minHeight: 250 }}
       >
@@ -133,8 +148,24 @@ export default function EquityCurveChart({ data }: Props) {
                 style: { fontSize: 12, fill: "#6b7280" },
               }}
             />
-            {/* ✅ Custom Tooltip */}
             <Tooltip content={<CustomTooltip />} />
+
+            {/* ⭐ Max Loss Limit - chartData-с авсан утга */}
+            {hasMaxLoss && (
+              <ReferenceLine
+                y={maxLossLimit as number}
+                stroke="#ef4444"
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                label={{
+                  value: `Max Loss: $${(maxLossLimit as number).toLocaleString()}`,
+                  position: "insideTopRight",
+                  fill: "#ef4444",
+                  fontSize: 12,
+                }}
+              />
+            )}
+
             <Line
               type="monotone"
               dataKey="equity"
@@ -161,6 +192,11 @@ export default function EquityCurveChart({ data }: Props) {
         <span>Min: ${minEquity.toLocaleString()}</span>
         <span>Max: ${maxEquity.toLocaleString()}</span>
         <span>Change: ${(maxEquity - minEquity).toLocaleString()}</span>
+        {hasMaxLoss && (
+          <span className="text-red-400">
+            Max Loss: ${(maxLossLimit as number).toLocaleString()}
+          </span>
+        )}
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Legend,
+  ReferenceLine,
 } from "recharts";
 import { Trade } from "@/types/trade";
 import { buildEquityWithDrawdown } from "@/lib/equity";
@@ -19,6 +20,8 @@ import { HelpTooltip } from "./HelpTooltip";
 type Props = {
   trades: Trade[];
   balance: number;
+  // ⭐ Max loss limit - шууд equity түвшин (жишээ: 4500). 0/null бол харуулахгүй
+  maxLossLimit?: number | null;
 };
 
 function EquityCustomTooltip({ active, payload, label }: any) {
@@ -36,12 +39,10 @@ function EquityCustomTooltip({ active, payload, label }: any) {
       min-w-[160px]
     "
     >
-      {/* Date */}
       <div className="text-gray-500 dark:text-gray-300 mb-2">
         📅 {new Date(label).toLocaleString()}
       </div>
 
-      {/* Equity */}
       {equity !== undefined && (
         <div className="flex justify-between text-green-500">
           <span>Equity:</span>
@@ -49,7 +50,6 @@ function EquityCustomTooltip({ active, payload, label }: any) {
         </div>
       )}
 
-      {/* Drawdown */}
       {drawdown !== undefined && (
         <div className="flex justify-between text-red-500 mt-1">
           <span>Drawdown:</span>
@@ -60,16 +60,23 @@ function EquityCustomTooltip({ active, payload, label }: any) {
   );
 }
 
-export default function EquityDrawdownChart({ trades, balance }: Props) {
-  // Data бэлтгэх (мемоization)
+export default function EquityDrawdownChart({
+  trades,
+  balance,
+  maxLossLimit,
+}: Props) {
+  // Data бэлтгэх
   const data = useMemo(() => {
     const rawData = buildEquityWithDrawdown(trades, balance);
-
-    // Огноогоор эрэмбэлэх (хамгаалалт)
     return [...rawData].sort((a, b) => a.date - b.date);
   }, [trades, balance]);
 
-  // Хоосон үед
+  // ⭐ Max loss limit идэвхтэй эсэх
+  const hasMaxLoss =
+    typeof maxLossLimit === "number" &&
+    maxLossLimit > 0 &&
+    Number.isFinite(maxLossLimit);
+
   if (!data || data.length === 0) {
     return (
       <div className="p-4 border rounded-lg">
@@ -80,11 +87,15 @@ export default function EquityDrawdownChart({ trades, balance }: Props) {
 
   // Equity хязгаарыг тооцоолох
   const equities = data.map((d) => d.equity);
-  const minEquity = Math.min(...equities, balance);
-  const maxEquity = Math.max(...equities, balance);
-  const equityPadding = (maxEquity - minEquity) * 0.1;
 
-  // Drawdown хязгаарыг тооцоолох (динамик)
+  // ⭐ maxLossLimit байвал min-д оруулна
+  const minEquity = hasMaxLoss
+    ? Math.min(...equities, balance, maxLossLimit as number)
+    : Math.min(...equities, balance);
+  const maxEquity = Math.max(...equities, balance);
+  const equityPadding = (maxEquity - minEquity) * 0.1 || 100;
+
+  // Drawdown хязгаарыг тооцоолох
   const drawdowns = data.map((d) => d.drawdown);
   const minDrawdown = Math.min(...drawdowns, -5);
   const maxDrawdown = Math.max(...drawdowns, 5);
@@ -93,10 +104,8 @@ export default function EquityDrawdownChart({ trades, balance }: Props) {
   const yAxisDrawdownMin = Math.floor(minDrawdown - drawdownPadding);
   const yAxisDrawdownMax = Math.ceil(maxDrawdown + drawdownPadding);
 
-  // Max drawdown олох
   const maxDrawdownValue = Math.min(...drawdowns);
 
-  // Format огноо
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
     return `${date.getMonth() + 1}/${date.getDate()}`;
@@ -119,6 +128,12 @@ export default function EquityDrawdownChart({ trades, balance }: Props) {
           <span className="text-red-600">
             📉 Max DD: {maxDrawdownValue.toFixed(2)}%
           </span>
+          {/* ⭐ Max Loss header-т */}
+          {hasMaxLoss && (
+            <span className="text-orange-600">
+              ⚠️ Max Loss: ${(maxLossLimit as number).toLocaleString()}
+            </span>
+          )}
         </div>
       </div>
 
@@ -130,7 +145,6 @@ export default function EquityDrawdownChart({ trades, balance }: Props) {
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
 
-            {/* X-Axis */}
             <XAxis
               dataKey="date"
               type="number"
@@ -180,6 +194,23 @@ export default function EquityDrawdownChart({ trades, balance }: Props) {
               }}
             />
 
+            {/* ⭐ Max Loss Limit - left Y-axis дээр */}
+            {hasMaxLoss && (
+              <ReferenceLine
+                yAxisId="left"
+                y={maxLossLimit as number}
+                stroke="#f97316"
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                label={{
+                  value: `Max Loss: $${(maxLossLimit as number).toLocaleString()}`,
+                  position: "insideTopRight",
+                  fill: "#f97316",
+                  fontSize: 12,
+                }}
+              />
+            )}
+
             {/* Equity Curve - Green */}
             <Line
               yAxisId="left"
@@ -207,7 +238,6 @@ export default function EquityDrawdownChart({ trades, balance }: Props) {
         </ResponsiveContainer>
       </div>
 
-      {/* Дүн шинжилгээ */}
       <div className="mt-3 text-xs text-gray-400 flex justify-between">
         <span>Start: ${data[0]?.equity.toLocaleString()}</span>
         <span>Current: ${data[data.length - 1]?.equity.toLocaleString()}</span>
@@ -218,6 +248,12 @@ export default function EquityDrawdownChart({ trades, balance }: Props) {
         <span className="text-red-500">
           Max DD: {maxDrawdownValue.toFixed(2)}%
         </span>
+        {/* ⭐ Footer-т Max Loss */}
+        {hasMaxLoss && (
+          <span className="text-orange-500">
+            Max Loss: ${(maxLossLimit as number).toLocaleString()}
+          </span>
+        )}
       </div>
     </div>
   );
