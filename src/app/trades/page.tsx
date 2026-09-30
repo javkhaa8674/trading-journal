@@ -16,7 +16,7 @@ type Account = {
   id: string;
   name: string;
   status: string;
-  balance: number;
+  initial_balance: number;
 };
 
 type AccountStatus = "active" | "achieved" | "closed";
@@ -192,7 +192,7 @@ export default function TradesPage() {
 
       const { data, error } = await supabase
         .from("accounts")
-        .select("id, name, balance, status")
+        .select("id, name, initial_balance, status")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -595,7 +595,7 @@ export default function TradesPage() {
               filteredAccounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {getStatusIcon(account.status)} {account.name} - $
-                  {account.balance.toLocaleString()}
+                  {account.initial_balance.toLocaleString()}
                 </option>
               ))
             )}
