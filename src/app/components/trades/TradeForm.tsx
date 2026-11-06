@@ -71,14 +71,17 @@ export default function TradeForm() {
   const [showPreview, setShowPreview] = useState(false);
 
   // -------------------------
-  // MT4 / MT5 / JFOREX STATE
+  // MT4 / MT5 / JFOREX / STRATEGYTUNER STATE
   // -------------------------
 
   const [mt4Text, setMt4Text] = useState("");
   const [mt5Text, setMt5Text] = useState("");
   const [jforexText, setJforexText] = useState("");
+  const [strategyTunerText, setStrategyTunerText] = useState("");
 
-  const [activeTab, setActiveTab] = useState<"jforex" | "mt4" | "mt5">("mt5");
+  const [activeTab, setActiveTab] = useState<
+    "jforex" | "mt4" | "mt5" | "strategytuner"
+  >("mt5");
 
   // ============================================================
   // SERVER OFFSET OPTIONS
@@ -224,6 +227,53 @@ export default function TradeForm() {
         0,
       ),
     ).toISOString();
+  };
+
+  // ============================================================
+  // STRATEGYTUNER TIME PARSER
+  // StrategyTuner нь Entry/Close Time-ийг аль хэдийн UTC-ээр
+  // өгдөг тул offset хөрвүүлэлт ХИЙХГҮЙ.
+  // Дэмжих формат:
+  //   YYYY-MM-DD HH:mm:ss
+  //   YYYY/MM/DD HH:mm:ss
+  //   YYYY-MM-DD HH:mm   (секундгүй)
+  //   YYYY/MM/DD HH:mm   (секундгүй)
+  // ============================================================
+
+  const parseStrategyTunerUTCTime = (timeStr: string): string => {
+    // "UTC" / "utc" suffix-ыг хасна
+    const cleaned = timeStr
+      .trim()
+      .replace(/\s*UTC\s*$/i, "")
+      .trim();
+
+    const match = cleaned.match(
+      /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.(\d{1,3}))?$/,
+    );
+
+    if (!match) {
+      throw new Error(`StrategyTuner огнооны формат буруу: ${timeStr}`);
+    }
+
+    const [, year, month, day, hour, minute, second = "0", ms = "0"] = match;
+
+    const millis = Date.UTC(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second),
+      Number(ms.padEnd(3, "0")),
+    );
+
+    const date = new Date(millis);
+
+    if (isNaN(date.getTime())) {
+      throw new Error(`StrategyTuner огнооны утга буруу: ${timeStr}`);
+    }
+
+    return date.toISOString();
   };
 
   // ============================================================
@@ -935,6 +985,222 @@ export default function TradeForm() {
   };
 
   // ============================================================
+  // STRATEGYTUNER PARSER
+  //
+  // Баганы дараалал (StrategyTuner export):
+  //   0  Symbol
+  //   1  Status
+  //   2  Side              (Buy / Sell / Deposit / ...)
+  //   3  Quantity
+  //   4  Entry Trade ID
+  //   5  Close Trade ID
+  //   6  Entry Time(UTC)   ← аль хэдийн UTC
+  //   7  Close Time(UTC)   ← аль хэдийн UTC
+  //   8  Entry Price
+  //   9  Close Price
+  //   10 Stop Loss(entry)
+  //   11 Take Profit(entry)
+  //   12 Stop Loss(at close)
+  //   13 Take Profit(at close)
+  //   14 Exit Reason
+  //   15 P&L(USD)
+  //
+  // Огноо нь UTC гэж тодорхойлогдсон тул serverOffset хөрвүүлэлт
+  // хийхгүй. Зөвхөн нормальчилж ISO string болгоно.
+  // ============================================================
+
+  const parseStrategyTuner = (
+    text: string,
+  ): { validTrades: ParsedTrade[]; errors: ValidationError[] } => {
+    const lines = text.split("\n").filter((line) => line.trim().length > 0);
+
+    const validTrades: ParsedTrade[] = [];
+    const errors: ValidationError[] = [];
+
+    lines.forEach((line, index) => {
+      const columns = line.split("\t").map((col) => col.trim());
+
+      // Хамгийн багадаа P&L хүртэлх 16 багана байх ёстой
+      if (columns.length < 16) {
+        return;
+      }
+
+      try {
+        const symbol = columns[0];
+        const status = columns[1];
+        const sideRaw = columns[2];
+        const quantity = parseFloat(columns[3]);
+
+        const entryTimeRaw = columns[6];
+        const closeTimeRaw = columns[7];
+
+        const openPrice = parseFloat(cleanNumber(columns[8]));
+        const closePrice = parseFloat(cleanNumber(columns[9]));
+
+        const slEntry = parseFloat(cleanNumber(columns[10])) || 0;
+        const tpEntry = parseFloat(cleanNumber(columns[11])) || 0;
+
+        const exitReason = columns[14] || "";
+        const profitRaw = parseFloat(columns[15].replace(/\s/g, "")) || 0;
+
+        const sideLower = sideRaw.toLowerCase();
+        const statusLower = status.toLowerCase();
+        const exitReasonLower = exitReason.toLowerCase();
+
+        // ======================================================
+        // 🅱️ BALANCE МӨРҮҮД
+        // Side эсвэл Status / Exit Reason дотор balance төрөл
+        // илэрвэл түүнийг ялгана.
+        // ======================================================
+        const balanceKeywords = [
+          "deposit",
+          "withdraw",
+          "payout",
+          "violation",
+          "violated",
+          "breach",
+          "balance",
+          "credit",
+        ];
+
+        const balanceHint =
+          balanceKeywords.some((k) => sideLower.includes(k)) ||
+          balanceKeywords.some((k) => statusLower.includes(k)) ||
+          balanceKeywords.some((k) => exitReasonLower.includes(k));
+
+        if (balanceHint) {
+          const balanceType = detectBalanceType(
+            `${sideRaw} ${status} ${exitReason}`.trim(),
+          );
+
+          let timeUTC: string;
+
+          try {
+            timeUTC = parseStrategyTunerUTCTime(entryTimeRaw || closeTimeRaw);
+          } catch {
+            timeUTC = entryTimeRaw || closeTimeRaw || new Date().toISOString();
+          }
+
+          validTrades.push({
+            symbol: balanceType.toUpperCase(),
+            type: balanceType,
+            entry_price: 0,
+            exit_price: 0,
+            lot_size: 0,
+            open_time: timeUTC,
+            close_time: timeUTC,
+            stop_loss: 0,
+            take_profit: 0,
+            profit: truncateTo2Decimals(profitRaw),
+            comment: exitReason || status,
+          });
+
+          return;
+        }
+
+        // ======================================================
+        // 🅰️ ЖИНХЭНЭ АРИЛЖАА
+        // ======================================================
+        if (sideLower !== "buy" && sideLower !== "sell") {
+          errors.push({
+            row: index + 1,
+            line,
+            errors: [`Төрөл буруу. Олдсон: ${sideRaw}`],
+          });
+          return;
+        }
+
+        if (isNaN(quantity) || quantity <= 0) {
+          errors.push({
+            row: index + 1,
+            line,
+            errors: [`Хэмжээ (Quantity) буруу: ${columns[3]}`],
+          });
+          return;
+        }
+
+        if (isNaN(openPrice) || isNaN(closePrice)) {
+          errors.push({
+            row: index + 1,
+            line,
+            errors: [`Entry/Close Price буруу: ${columns[8]} / ${columns[9]}`],
+          });
+          return;
+        }
+
+        let openTimeUTC: string;
+        let closeTimeUTC: string;
+
+        try {
+          openTimeUTC = parseStrategyTunerUTCTime(entryTimeRaw);
+        } catch (error) {
+          errors.push({
+            row: index + 1,
+            line,
+            errors: [`Entry Time буруу: ${entryTimeRaw}`],
+          });
+          return;
+        }
+
+        try {
+          closeTimeUTC = parseStrategyTunerUTCTime(closeTimeRaw);
+        } catch (error) {
+          errors.push({
+            row: index + 1,
+            line,
+            errors: [`Close Time буруу: ${closeTimeRaw}`],
+          });
+          return;
+        }
+
+        validTrades.push({
+          symbol,
+          type: sideLower as "buy" | "sell",
+          entry_price: openPrice,
+          exit_price: closePrice,
+          lot_size: quantity,
+          open_time: openTimeUTC,
+          close_time: closeTimeUTC,
+          stop_loss: slEntry,
+          take_profit: tpEntry,
+          profit: truncateTo2Decimals(profitRaw),
+        });
+      } catch (err) {
+        errors.push({
+          row: index + 1,
+          line,
+          errors: [`Өгөгдөл боловсруулахад алдаа гарлаа: ${err}`],
+        });
+      }
+    });
+
+    return { validTrades, errors };
+  };
+
+  const handleStrategyTunerPreview = () => {
+    if (!strategyTunerText.trim()) {
+      alert("StrategyTuner-ээс буулгасан арилжааны жагсаалтыг оруулна уу.");
+      return;
+    }
+
+    const { validTrades, errors } = parseStrategyTuner(strategyTunerText);
+
+    setParsedTrades(validTrades);
+    setValidationErrors(errors);
+    setShowPreview(true);
+
+    if (errors.length > 0) {
+      alert(
+        `${errors.length} мөрөнд алдаа байна. Дэлгэрэнгүйг preview хэсгээс харна уу.`,
+      );
+    } else if (validTrades.length === 0) {
+      alert("Хүчинтэй арилжаа олдсонгүй");
+    } else {
+      alert(`${validTrades.length} бичлэг амжилттай боловсруулагдлаа!`);
+    }
+  };
+
+  // ============================================================
   // BULK SUBMIT
   // ============================================================
 
@@ -1016,6 +1282,12 @@ export default function TradeForm() {
     setParsedTrades([]);
     setValidationErrors([]);
   };
+  const handleClearStrategyTuner = () => {
+    setStrategyTunerText("");
+    setShowPreview(false);
+    setParsedTrades([]);
+    setValidationErrors([]);
+  };
 
   const handleClearBulk = () => {
     setShowPreview(false);
@@ -1025,6 +1297,7 @@ export default function TradeForm() {
     setMt4Text("");
     setMt5Text("");
     setJforexText("");
+    setStrategyTunerText("");
     setActiveTab("mt5");
   };
 
@@ -1344,7 +1617,12 @@ export default function TradeForm() {
                 <p>Broker-ийн server цагийг UTC руу хөрвүүлэхэд хэрэглэнэ.</p>
 
                 <p className="mt-1">
-                  Жишээ: Broker UTC+3 бол <strong>UTC +3</strong>-г сонгоно.
+                  Жишээ: Broker UTC+8 бол <strong>UTC+8</strong>-г сонгоно.
+                </p>
+
+                <p className="mt-1 text-amber-700 dark:text-amber-400">
+                  ⚠️ StrategyTuner-ийн Entry/Close Time нь аль хэдийн UTC тул
+                  энэ offset түүнд хамаарахгүй.
                 </p>
               </div>
             </div>
@@ -1424,6 +1702,27 @@ export default function TradeForm() {
                     height={40}
                   />
                   <span>JForex</span>
+                </button>
+
+                {/* STRATEGYTUNER */}
+                <button
+                  onClick={() => {
+                    setActiveTab("strategytuner");
+                    setShowPreview(false);
+                  }}
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                    activeTab === "strategytuner"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  <Image
+                    src="/strategytuner.png"
+                    alt="StrategyTuner Logo"
+                    width={40}
+                    height={40}
+                  />
+                  <span>STuner</span>
                 </button>
               </div>
             </div>
@@ -1595,10 +1894,82 @@ export default function TradeForm() {
                   </div>
                 </div>
               )}
+
+              {/* STRATEGYTUNER TAB */}
+              {activeTab === "strategytuner" && (
+                <div className="space-y-3">
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded text-sm">
+                    <p className="font-medium mb-2 text-gray-900 dark:text-gray-200">
+                      🎯 StrategyTuner Platform-с Export хийсэн өгөгдлөө
+                      буулгана уу
+                    </p>
+
+                    <code className="text-xs bg-gray-200 dark:bg-gray-800 dark:text-gray-300 p-2 block rounded whitespace-pre-wrap">
+                      Symbol Status Side Quantity Entry Trade ID Close Trade ID
+                      Entry Time(UTC) Close Time(UTC) Entry Price Close Price
+                      Stop Loss(entry) Take Profit(entry) Stop Loss(at close)
+                      Take Profit(at close) Exit Reason P&L(USD)
+                    </code>
+
+                    <p className="text-xs text-green-700 dark:text-green-400 mt-2">
+                      ✅ StrategyTuner-ийн Entry/Close Time нь{" "}
+                      <strong>аль хэдийн UTC</strong> тул Server Time Offset
+                      хөрвүүлэлт хийгдэхгүй.
+                    </p>
+
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      💡 Огнооны формат: <strong>YYYY-MM-DD HH:mm:ss</strong>{" "}
+                      эсвэл <strong>YYYY/MM/DD HH:mm</strong>. Секунд байхгүй ч
+                      зөвшөөрөгдөнө.
+                    </p>
+
+                    <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-1">
+                      ⚠️ <strong>Status</strong>, <strong>Side</strong> эсвэл{" "}
+                      <strong>Exit Reason</strong> дотор payout / violation /
+                      deposit гэсэн үг илэрвэл автоматаар балансын бичлэг гэж
+                      үзнэ.
+                    </p>
+                  </div>
+
+                  <textarea
+                    placeholder="StrategyTuner-с буулгасан өгөгдлөө буулгана уу (Tab-ээр тусгаарлагдсан)..."
+                    value={strategyTunerText}
+                    onChange={(e) => {
+                      setStrategyTunerText(e.target.value);
+                      setShowPreview(false);
+                    }}
+                    className="w-full p-2 border rounded h-32 font-mono text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                  />
+
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                      onClick={handleStrategyTunerPreview}
+                      className={`${
+                        strategyTunerText ? "sm:w-1/2" : "w-full"
+                      } bg-green-600 hover:bg-green-700 text-white p-2 rounded transition-colors`}
+                    >
+                      🔍 Шалгах
+                    </button>
+
+                    {strategyTunerText && (
+                      <button
+                        onClick={handleClearStrategyTuner}
+                        className="w-full sm:w-1/2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-400 dark:hover:bg-gray-500 p-2 transition-colors"
+                      >
+                        ✖️ Цэвэрлэх
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* CLEAR ALL */}
-            {(bulkText || mt4Text || mt5Text || jforexText) && (
+            {(bulkText ||
+              mt4Text ||
+              mt5Text ||
+              jforexText ||
+              strategyTunerText) && (
               <button
                 onClick={handleClearBulk}
                 className="mt-3 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"

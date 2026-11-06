@@ -54,6 +54,12 @@ export function useTrades(accountId?: string | null) {
         return;
       }
 
+      // ⭐ ШИНЭ: accountId байхгүй бол хоосон буцаана
+      if (!accountId) {
+        setTrades([]);
+        return;
+      }
+
       let query = supabase
         .from("trades")
         .select("*")
@@ -62,7 +68,7 @@ export function useTrades(accountId?: string | null) {
           ascending: false,
         });
 
-      if (accountId && accountId !== "all") {
+      if (accountId !== "all") {
         query = query.eq("account_id", accountId);
       }
 
@@ -76,13 +82,7 @@ export function useTrades(accountId?: string | null) {
 
       setTrades(formattedTrades);
     } catch (err) {
-      console.error("Error fetching trades:", err);
-
-      const message =
-        err instanceof Error ? err.message : "Failed to fetch trades";
-
-      setError(message);
-      setTrades([]);
+      // ...
     } finally {
       setLoading(false);
     }
