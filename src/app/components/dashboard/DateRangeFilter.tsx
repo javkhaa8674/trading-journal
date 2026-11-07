@@ -211,7 +211,7 @@ export function DateRangeFilter({ onRangeChange, trades }: DateRangeFilterProps)
         >
           <option value="">Бүх сар</option>
           {monthsForSelectedYear.map((month) => (
-            <option key={month} value={month}>
+            <option key={month} value={String(month)}>  {/* ✅ String болгосон */}
               {selectedYear} - {month} сар
             </option>
           ))}
